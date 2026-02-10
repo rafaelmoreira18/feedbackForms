@@ -2,10 +2,11 @@ import { formService } from "../services/form-service";
 import type { FormResponse } from "../types";
 
 export function seedDatabase() {
-  // Check if data already exists
-  if (formService.getAll().length > 0) {
+  const existing = formService.getAll();
+  if (existing.length > 0 && existing[0].satisfaction) {
     return;
   }
+  localStorage.removeItem("hospital_forms");
 
   const departments = [
     "Emergência",
@@ -43,10 +44,12 @@ export function seedDatabase() {
     "Recomendo o hospital.",
   ];
 
-  // Generate sample data for the last 3 months
   const today = new Date();
   const threeMonthsAgo = new Date(today);
   threeMonthsAgo.setMonth(today.getMonth() - 3);
+
+  const randomRating = (min: number) => Math.floor(Math.random() * (6 - min)) + min;
+  const randomBool = (chance: number) => Math.random() < chance;
 
   for (let i = 0; i < 50; i++) {
     const randomDate = new Date(
@@ -66,17 +69,32 @@ export function seedDatabase() {
       admissionDate: admissionDate.toISOString().split("T")[0],
       dischargeDate: randomDate.toISOString().split("T")[0],
       department: departments[Math.floor(Math.random() * departments.length)],
-      overallSatisfaction: Math.floor(Math.random() * 3) + 3, // 3-5 stars (mostly positive)
-      medicalCareQuality: Math.floor(Math.random() * 3) + 3,
-      nursingCareQuality: Math.floor(Math.random() * 3) + 3,
-      facilitiesQuality: Math.floor(Math.random() * 4) + 2, // 2-5 stars
-      waitingTime: Math.floor(Math.random() * 4) + 2,
-      communicationQuality: Math.floor(Math.random() * 3) + 3,
-      wouldRecommend: Math.random() > 0.2, // 80% would recommend
-      comments: Math.random() > 0.4 ? comments[Math.floor(Math.random() * comments.length)] : "",
+      satisfaction: {
+        overallCare: randomRating(3),
+        nursingCare: randomRating(3),
+        medicalCare: randomRating(3),
+        welcoming: randomRating(3),
+        cleanliness: randomRating(2),
+        comfort: randomRating(2),
+        responseTime: randomRating(2),
+        wouldRecommend: randomRating(3),
+        overallSatisfaction: randomRating(3),
+      },
+      experience: {
+        professionalsIdentified: randomBool(0.85),
+        nameVerified: randomBool(0.9),
+        treatmentExplained: randomBool(0.8),
+        participatedInDecisions: randomBool(0.7),
+        medicationInstructionsClear: randomBool(0.85),
+        dischargeOrientationComplete: randomBool(0.75),
+        knewWhoToAsk: randomBool(0.8),
+        privacyRespected: randomBool(0.9),
+      },
+      comments: Math.random() > 0.4
+        ? comments[Math.floor(Math.random() * comments.length)]
+        : "",
     };
 
-    // Override the createdAt by directly manipulating localStorage
     const form = formService.create(formData);
     const allForms = formService.getAll();
     const formIndex = allForms.findIndex((f) => f.id === form.id);

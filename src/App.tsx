@@ -7,6 +7,7 @@ import Login from "./pages/login";
 import SurveyForm from "./pages/survey-form";
 import Dashboard from "./pages/dashboard";
 import Analytics from "./pages/analytics";
+import FormPreview from "./pages/form-preview";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -37,6 +38,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Analytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/form/:id"
+        element={
+          <ProtectedRoute>
+            <FormPreview />
           </ProtectedRoute>
         }
       />

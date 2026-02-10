@@ -1,12 +1,19 @@
 import type { FormResponse, FormFilters, DashboardMetrics } from "../types";
 
-// Simulação de banco de dados em localStorage
 const STORAGE_KEY = "hospital_forms";
+
+function getAverageSatisfaction(form: FormResponse): number {
+  const ratings = form.satisfaction;
+  const values = Object.values(ratings) as number[];
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
 
 export const formService = {
   getAll: (): FormResponse[] => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    if (!stored) return [];
+    const forms: FormResponse[] = JSON.parse(stored);
+    return forms.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
 
   getById: (id: string): FormResponse | undefined => {
@@ -34,30 +41,30 @@ export const formService = {
     }
 
     if (filters.endDate) {
-      forms = forms.filter((form) => form.createdAt <= filters.endDate!);
+      forms = forms.filter((form) => form.createdAt <= filters.endDate! + "T23:59:59");
     }
 
     if (filters.department) {
       forms = forms.filter((form) => form.department === filters.department);
     }
 
-    if (filters.minSatisfaction !== undefined) {
-      forms = forms.filter(
-        (form) => form.overallSatisfaction >= filters.minSatisfaction!
+    if (filters.sortSatisfaction) {
+      forms = [...forms].sort((a, b) =>
+        filters.sortSatisfaction === "desc"
+          ? getAverageSatisfaction(b) - getAverageSatisfaction(a)
+          : getAverageSatisfaction(a) - getAverageSatisfaction(b)
       );
-    }
-
-    if (filters.maxSatisfaction !== undefined) {
-      forms = forms.filter(
-        (form) => form.overallSatisfaction <= filters.maxSatisfaction!
-      );
+    } else {
+      forms = [...forms].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
 
     return forms;
   },
 
-  getMetrics: (): DashboardMetrics => {
-    const forms = formService.getAll();
+  getAverageSatisfaction,
+
+  getMetrics: (formsInput?: FormResponse[]): DashboardMetrics => {
+    const forms = formsInput ?? formService.getAll();
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -75,11 +82,13 @@ export const formService = {
 
     const avgSatisfaction =
       forms.length > 0
-        ? forms.reduce((sum, form) => sum + form.overallSatisfaction, 0) /
+        ? forms.reduce((sum, form) => sum + getAverageSatisfaction(form), 0) /
           forms.length
         : 0;
 
-    const recommendCount = forms.filter((form) => form.wouldRecommend).length;
+    const recommendCount = forms.filter(
+      (form) => form.satisfaction.wouldRecommend >= 4
+    ).length;
     const recommendationRate =
       forms.length > 0 ? (recommendCount / forms.length) * 100 : 0;
 

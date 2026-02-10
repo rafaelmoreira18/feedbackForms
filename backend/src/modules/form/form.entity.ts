@@ -1,10 +1,3 @@
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'admin' | 'viewer';
-}
-
 export interface SatisfactionRatings {
   overallCare: number;
   nursingCare: number;
@@ -40,19 +33,4 @@ export interface FormResponse {
   experience: ExperienceAnswers;
   comments: string;
   createdAt: string;
-}
-
-export interface FormFilters {
-  startDate?: string;
-  endDate?: string;
-  department?: string;
-  sortSatisfaction?: 'asc' | 'desc';
-}
-
-export interface DashboardMetrics {
-  totalResponses: number;
-  averageSatisfaction: number;
-  recommendationRate: number;
-  responsesThisMonth: number;
-  responsesLastMonth: number;
 }

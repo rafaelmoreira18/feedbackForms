@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import { formService } from "../services/form-service";
-import type { FormResponse, FormFilters } from "../types";
+import type { FormResponse, FormFilters, DashboardMetrics } from "../types";
 import { formatDate, formatRating } from "../utils/format";
 import Text from "../components/text";
 import Input from "../components/input";
@@ -15,7 +15,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [forms, setForms] = useState<FormResponse[]>([]);
   const [filteredForms, setFilteredForms] = useState<FormResponse[]>([]);
-  const [metrics, setMetrics] = useState({
+  const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalResponses: 0,
     averageSatisfaction: 0,
     recommendationRate: 0,
@@ -27,8 +27,7 @@ export default function Dashboard() {
     startDate: "",
     endDate: "",
     department: "",
-    minSatisfaction: undefined,
-    maxSatisfaction: undefined,
+    sortSatisfaction: undefined,
   });
 
   useEffect(() => {
@@ -43,12 +42,13 @@ export default function Dashboard() {
     const allForms = formService.getAll();
     setForms(allForms);
     setFilteredForms(allForms);
-    setMetrics(formService.getMetrics());
+    setMetrics(formService.getMetrics(allForms));
   };
 
   const applyFilters = () => {
     const filtered = formService.filter(filters);
     setFilteredForms(filtered);
+    setMetrics(formService.getMetrics(filtered));
   };
 
   const clearFilters = () => {
@@ -56,8 +56,7 @@ export default function Dashboard() {
       startDate: "",
       endDate: "",
       department: "",
-      minSatisfaction: undefined,
-      maxSatisfaction: undefined,
+      sortSatisfaction: undefined,
     });
   };
 
@@ -71,6 +70,19 @@ export default function Dashboard() {
     { value: "Maternidade", label: "Maternidade" },
     { value: "Oncologia", label: "Oncologia" },
   ];
+
+  const satisfactionSortOptions = [
+    { value: "", label: "Sem ordenação" },
+    { value: "desc", label: "Maior para Menor" },
+    { value: "asc", label: "Menor para Maior" },
+  ];
+
+  const hasActiveFilters = !!(
+    filters.startDate ||
+    filters.endDate ||
+    filters.department ||
+    filters.sortSatisfaction
+  );
 
   const MetricCard = ({
     title,
@@ -123,14 +135,17 @@ export default function Dashboard() {
             <MetricCard
               title="Total de Respostas"
               value={metrics.totalResponses}
+              subtitle={hasActiveFilters ? `${forms.length} no total` : undefined}
             />
             <MetricCard
               title="Satisfação Média"
               value={formatRating(metrics.averageSatisfaction)}
+              subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
             />
             <MetricCard
               title="Taxa de Recomendação"
               value={`${metrics.recommendationRate}%`}
+              subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
             />
             <MetricCard
               title="Respostas Este Mês"
@@ -178,17 +193,16 @@ export default function Dashboard() {
                   }
                 />
 
-                <Input
-                  label="Satisfação Mínima"
-                  type="number"
-                  min="1"
-                  max="5"
-                  placeholder="1-5"
-                  value={filters.minSatisfaction || ""}
+                <Select
+                  label="Ordenar Satisfação"
+                  options={satisfactionSortOptions}
+                  value={filters.sortSatisfaction || ""}
                   onChange={(e) =>
                     setFilters({
                       ...filters,
-                      minSatisfaction: e.target.value ? Number(e.target.value) : undefined,
+                      sortSatisfaction: e.target.value
+                        ? (e.target.value as 'asc' | 'desc')
+                        : undefined,
                     })
                   }
                 />
@@ -227,12 +241,7 @@ export default function Dashboard() {
                         </th>
                         <th className="text-left py-3 px-4">
                           <Text variant="body-sm-bold" className="text-gray-400">
-                            Satisfação
-                          </Text>
-                        </th>
-                        <th className="text-left py-3 px-4">
-                          <Text variant="body-sm-bold" className="text-gray-400">
-                            Recomenda
+                            Média Satisfação
                           </Text>
                         </th>
                         <th className="text-left py-3 px-4">
@@ -243,42 +252,44 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredForms.map((form) => (
-                        <tr key={form.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-3 px-4">
-                            <Text variant="body-md">{form.patientName}</Text>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Text variant="body-md">{form.department}</Text>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className={`w-2 h-2 rounded-full ${
-                                  form.overallSatisfaction >= 4
-                                    ? "bg-green-base"
-                                    : form.overallSatisfaction >= 3
-                                    ? "bg-yellow-base"
-                                    : "bg-red-base"
-                                }`}
-                              />
-                              <Text variant="body-md">
-                                {formatRating(form.overallSatisfaction)}
+                      {filteredForms.map((form) => {
+                        const avg = formService.getAverageSatisfaction(form);
+                        return (
+                          <tr
+                            key={form.id}
+                            onClick={() => navigate(`/form/${form.id}`)}
+                            className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                          >
+                            <td className="py-3 px-4">
+                              <Text variant="body-md">{form.patientName}</Text>
+                            </td>
+                            <td className="py-3 px-4">
+                              <Text variant="body-md">{form.department}</Text>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={`w-2 h-2 rounded-full ${
+                                    avg >= 4
+                                      ? "bg-green-base"
+                                      : avg >= 3
+                                      ? "bg-yellow-base"
+                                      : "bg-red-base"
+                                  }`}
+                                />
+                                <Text variant="body-md">
+                                  {formatRating(Math.round(avg * 10) / 10)}
+                                </Text>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <Text variant="body-sm" className="text-gray-300">
+                                {formatDate(form.createdAt)}
                               </Text>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Text variant="body-md">
-                              {form.wouldRecommend ? "Sim" : "Não"}
-                            </Text>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Text variant="body-sm" className="text-gray-300">
-                              {formatDate(form.createdAt)}
-                            </Text>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
