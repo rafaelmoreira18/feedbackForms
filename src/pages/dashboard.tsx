@@ -140,6 +140,29 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-col gap-8">
           
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <MetricCard
+              title="Total de Respostas"
+              value={metrics.totalResponses}
+              subtitle={hasActiveFilters ? `${forms.length} no total` : undefined}
+            />
+            <MetricCard
+              title="Satisfação Média"
+              value={formatRating(metrics.averageSatisfaction)}
+              subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
+            />
+            <MetricCard
+              title="Taxa de Recomendação"
+              value={`${metrics.recommendationRate}%`}
+              subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
+            />
+            <MetricCard
+              title="Respostas Este Mês"
+              value={metrics.responsesThisMonth}
+              subtitle={`${metrics.responsesLastMonth} no mês anterior`}
+            />
+          </div>
+
           <Card shadow="md">
             <div className="flex flex-col gap-6">
               <div className="flex flex-wrap justify-between items-center gap-2">
@@ -196,29 +219,6 @@ export default function Dashboard() {
             </div>
           </Card>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
-              title="Total de Respostas"
-              value={metrics.totalResponses}
-              subtitle={hasActiveFilters ? `${forms.length} no total` : undefined}
-            />
-            <MetricCard
-              title="Satisfação Média"
-              value={formatRating(metrics.averageSatisfaction)}
-              subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
-            />
-            <MetricCard
-              title="Taxa de Recomendação"
-              value={`${metrics.recommendationRate}%`}
-              subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
-            />
-            <MetricCard
-              title="Respostas Este Mês"
-              value={metrics.responsesThisMonth}
-              subtitle={`${metrics.responsesLastMonth} no mês anterior`}
-            />
-          </div>
-
           <Card shadow="md">
             <div className="flex flex-col gap-4">
               <div className="flex justify-between items-center">
