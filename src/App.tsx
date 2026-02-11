@@ -1,7 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect } from "react";
 import { AuthProvider, useAuth } from "./contexts/auth-context";
-import { seedDatabase } from "./utils/seed-data";
 import Home from "./pages/home";
 import Login from "./pages/login";
 import SurveyForm from "./pages/survey-form";
@@ -55,11 +53,6 @@ function AppRoutes() {
 }
 
 export default function App() {
-  useEffect(() => {
-    // Seed database with sample data on first load
-    seedDatabase();
-  }, []);
-
   return (
     <BrowserRouter>
       <AuthProvider>

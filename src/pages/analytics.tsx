@@ -30,7 +30,7 @@ export default function Analytics() {
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
 
   useEffect(() => {
-    setAllForms(formService.getAll());
+    formService.getAll().then(setAllForms);
   }, []);
 
   const filteredForms = useMemo(

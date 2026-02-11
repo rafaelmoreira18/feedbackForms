@@ -1,6 +1,5 @@
 import type { FormResponse, FormFilters, DashboardMetrics } from "../types";
-
-const STORAGE_KEY = "hospital_forms";
+import { api } from "./api";
 
 function getAverageSatisfaction(form: FormResponse): number {
   const ratings = form.satisfaction;
@@ -8,96 +7,39 @@ function getAverageSatisfaction(form: FormResponse): number {
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
+function buildQueryString(filters?: FormFilters): string {
+  if (!filters) return "";
+  const params = new URLSearchParams();
+  if (filters.startDate) params.set("startDate", filters.startDate);
+  if (filters.endDate) params.set("endDate", filters.endDate);
+  if (filters.evaluatedDepartment) params.set("evaluatedDepartment", filters.evaluatedDepartment);
+  if (filters.sortSatisfaction) params.set("sortSatisfaction", filters.sortSatisfaction);
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
 export const formService = {
-  getAll: (): FormResponse[] => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return [];
-    const forms: FormResponse[] = JSON.parse(stored);
-    return forms.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  getAll: async (): Promise<FormResponse[]> => {
+    return api.get<FormResponse[]>("forms");
   },
 
-  getById: (id: string): FormResponse | undefined => {
-    const forms = formService.getAll();
-    return forms.find((form) => form.id === id);
+  getById: async (id: string): Promise<FormResponse> => {
+    return api.get<FormResponse>(`forms/${id}`);
   },
 
-  create: (formData: Omit<FormResponse, "id" | "createdAt">): FormResponse => {
-    const forms = formService.getAll();
-    const newForm: FormResponse = {
-      ...formData,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    };
-    forms.push(newForm);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(forms));
-    return newForm;
+  create: async (formData: Omit<FormResponse, "id" | "createdAt">): Promise<FormResponse> => {
+    return api.post<FormResponse>("forms", formData);
   },
 
-  filter: (filters: FormFilters): FormResponse[] => {
-    let forms = formService.getAll();
-
-    if (filters.startDate) {
-      forms = forms.filter((form) => form.createdAt >= filters.startDate!);
-    }
-
-    if (filters.endDate) {
-      forms = forms.filter((form) => form.createdAt <= filters.endDate! + "T23:59:59");
-    }
-
-    if (filters.evaluatedDepartment) {
-      forms = forms.filter((form) => form.evaluatedDepartment === filters.evaluatedDepartment);
-    }
-
-    if (filters.sortSatisfaction) {
-      forms = [...forms].sort((a, b) =>
-        filters.sortSatisfaction === "desc"
-          ? getAverageSatisfaction(b) - getAverageSatisfaction(a)
-          : getAverageSatisfaction(a) - getAverageSatisfaction(b)
-      );
-    } else {
-      forms = [...forms].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }
-
-    return forms;
+  filter: async (filters: FormFilters): Promise<FormResponse[]> => {
+    const qs = buildQueryString(filters);
+    return api.get<FormResponse[]>(`forms${qs}`);
   },
 
   getAverageSatisfaction,
 
-  getMetrics: (formsInput?: FormResponse[]): DashboardMetrics => {
-    const forms = formsInput ?? formService.getAll();
-    const now = new Date();
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-
-    const responsesThisMonth = forms.filter(
-      (form) => new Date(form.createdAt) >= thisMonthStart
-    ).length;
-
-    const responsesLastMonth = forms.filter(
-      (form) =>
-        new Date(form.createdAt) >= lastMonthStart &&
-        new Date(form.createdAt) <= lastMonthEnd
-    ).length;
-
-    const avgSatisfaction =
-      forms.length > 0
-        ? forms.reduce((sum, form) => sum + getAverageSatisfaction(form), 0) /
-          forms.length
-        : 0;
-
-    const recommendCount = forms.filter(
-      (form) => form.satisfaction.wouldRecommend >= 4
-    ).length;
-    const recommendationRate =
-      forms.length > 0 ? (recommendCount / forms.length) * 100 : 0;
-
-    return {
-      totalResponses: forms.length,
-      averageSatisfaction: Math.round(avgSatisfaction * 10) / 10,
-      recommendationRate: Math.round(recommendationRate * 10) / 10,
-      responsesThisMonth,
-      responsesLastMonth,
-    };
+  getMetrics: async (filters?: FormFilters): Promise<DashboardMetrics> => {
+    const qs = buildQueryString(filters);
+    return api.get<DashboardMetrics>(`forms/metrics${qs}`);
   },
 };

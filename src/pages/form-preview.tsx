@@ -1,6 +1,7 @@
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { formService } from "../services/form-service";
-import type { SatisfactionRatings, ExperienceAnswers } from "../types";
+import type { FormResponse, SatisfactionRatings, ExperienceAnswers } from "../types";
 import { formatDate, formatRating } from "../utils/format";
 import Text from "../components/text";
 import Button from "../components/button";
@@ -40,7 +41,29 @@ const ratingLabels: Record<number, string> = {
 export default function FormPreview() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const form = id ? formService.getById(id) : undefined;
+  const [form, setForm] = useState<FormResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+    formService.getById(id).then((data) => {
+      setForm(data);
+      setLoading(false);
+    }).catch(() => {
+      setLoading(false);
+    });
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Text variant="body-md" className="text-gray-300">Carregando...</Text>
+      </div>
+    );
+  }
 
   if (!form) {
     return (

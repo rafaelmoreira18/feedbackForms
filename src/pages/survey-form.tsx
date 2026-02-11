@@ -214,7 +214,7 @@ export default function SurveyForm() {
     { value: "Outro", label: "Outro" },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!isValidCpf(patientInfo.patientCpf)) {
@@ -234,19 +234,23 @@ export default function SurveyForm() {
       privacyRespected: experience.privacyRespected ?? false,
     };
 
-    formService.create({
-      ...patientInfo,
-      patientCpf: patientInfo.patientCpf.replace(/\D/g, ""),
-      patientAge: parseInt(patientInfo.patientAge),
-      satisfaction,
-      experience: resolvedExperience,
-      comments,
-    });
+    try {
+      await formService.create({
+        ...patientInfo,
+        patientCpf: patientInfo.patientCpf.replace(/\D/g, ""),
+        patientAge: parseInt(patientInfo.patientAge),
+        satisfaction,
+        experience: resolvedExperience,
+        comments,
+      });
 
-    setSubmitted(true);
-    setTimeout(() => {
-      navigate("/survey");
-    }, 3000);
+      setSubmitted(true);
+      setTimeout(() => {
+        navigate("/survey");
+      }, 3000);
+    } catch {
+      // submission failed, user can retry
+    }
   };
 
   if (submitted) {

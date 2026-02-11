@@ -56,14 +56,17 @@ export default function Dashboard() {
   );
 
   useEffect(() => {
-    const allForms = formService.getAll();
-    setForms(allForms);
+    formService.getAll().then(setForms);
   }, []);
 
   useEffect(() => {
-    const filtered = formService.filter(filters);
-    setFilteredForms(filtered);
-    setMetrics(formService.getMetrics(filtered));
+    const load = async () => {
+      const filtered = await formService.filter(filters);
+      setFilteredForms(filtered);
+      const m = await formService.getMetrics(filters);
+      setMetrics(m);
+    };
+    load();
   }, [searchParams, forms]);
 
   const clearFilters = () => {
@@ -155,7 +158,7 @@ export default function Dashboard() {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-col gap-8">
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
               title="Total de Respostas"
@@ -234,7 +237,7 @@ export default function Dashboard() {
               </div>
             </div>
           </Card>
-          
+
           <Card shadow="md">
             <div className="flex flex-col gap-4">
               <div className="flex justify-between items-center">

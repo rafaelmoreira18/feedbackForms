@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from "react";
 import type { User } from "../types";
+import { api } from "../services/api";
 
 interface AuthContextType {
   user: User | null;
@@ -25,25 +26,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(getStoredUser);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Simulação de autenticação
-    // Em produção, isso seria uma chamada real à API
-    if (email === "admin@hospital.com" && password === "admin123") {
-      const userData: User = {
-        id: "1",
-        email: email,
-        name: "Administrador",
-        role: "admin",
-      };
-      setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
+    try {
+      const response = await api.post<{ accessToken: string; user: User }>(
+        "auth/login",
+        { email, password }
+      );
+      setUser(response.user);
+      localStorage.setItem("user", JSON.stringify(response.user));
+      localStorage.setItem("auth_token", response.accessToken);
       return true;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem("user");
+    localStorage.removeItem("auth_token");
   };
 
   return (
