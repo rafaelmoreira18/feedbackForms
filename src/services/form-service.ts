@@ -44,8 +44,8 @@ export const formService = {
       forms = forms.filter((form) => form.createdAt <= filters.endDate! + "T23:59:59");
     }
 
-    if (filters.department) {
-      forms = forms.filter((form) => form.department === filters.department);
+    if (filters.evaluatedDepartment) {
+      forms = forms.filter((form) => form.evaluatedDepartment === filters.evaluatedDepartment);
     }
 
     if (filters.sortSatisfaction) {

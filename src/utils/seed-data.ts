@@ -68,7 +68,7 @@ export function seedDatabase() {
       ] as "Masculino" | "Feminino" | "Outro",
       admissionDate: admissionDate.toISOString().split("T")[0],
       dischargeDate: randomDate.toISOString().split("T")[0],
-      department: departments[Math.floor(Math.random() * departments.length)],
+      evaluatedDepartment: departments[Math.floor(Math.random() * departments.length)],
       satisfaction: {
         overallCare: randomRating(3),
         nursingCare: randomRating(3),

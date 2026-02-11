@@ -35,9 +35,9 @@ export class FormService {
       });
     }
 
-    if (filters?.department) {
-      qb.andWhere('form.department = :department', {
-        department: filters.department,
+    if (filters?.evaluatedDepartment) {
+      qb.andWhere('form.evaluatedDepartment = :evaluatedDepartment', {
+        evaluatedDepartment: filters.evaluatedDepartment,
       });
     }
 

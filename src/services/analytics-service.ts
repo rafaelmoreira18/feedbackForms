@@ -18,15 +18,15 @@ export function getDepartmentData(forms: FormResponse[]) {
 
   forms.forEach((form) => {
     const avg = formService.getAverageSatisfaction(form);
-    const current = map.get(form.department) || { count: 0, totalSatisfaction: 0 };
-    map.set(form.department, {
+    const current = map.get(form.evaluatedDepartment) || { count: 0, totalSatisfaction: 0 };
+    map.set(form.evaluatedDepartment, {
       count: current.count + 1,
       totalSatisfaction: current.totalSatisfaction + avg,
     });
   });
 
-  return Array.from(map.entries()).map(([department, data]) => ({
-    department,
+  return Array.from(map.entries()).map(([evaluatedDepartment, data]) => ({
+    evaluatedDepartment,
     respostas: data.count,
     satisfacao: Number((data.totalSatisfaction / data.count).toFixed(1)),
   }));

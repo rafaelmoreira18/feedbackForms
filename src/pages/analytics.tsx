@@ -35,7 +35,7 @@ export default function Analytics() {
 
   const filteredForms = useMemo(
     () => selectedDepartment
-      ? allForms.filter((f) => f.department === selectedDepartment)
+      ? allForms.filter((f) => f.evaluatedDepartment === selectedDepartment)
       : allForms,
     [allForms, selectedDepartment]
   );
@@ -47,10 +47,10 @@ export default function Analytics() {
   const monthlyTrend = useMemo(() => getMonthlyTrend(filteredForms), [filteredForms]);
   const summary = useMemo(() => getSummaryMetrics(filteredForms), [filteredForms]);
 
-  const handleBarClick = (data: { department?: string }) => {
-    if (!data?.department) return;
+  const handleBarClick = (data: { evaluatedDepartment?: string }) => {
+    if (!data?.evaluatedDepartment) return;
     setSelectedDepartment(
-      data.department === selectedDepartment ? null : data.department
+      data.evaluatedDepartment === selectedDepartment ? null : data.evaluatedDepartment
     );
   };
 
@@ -130,7 +130,7 @@ export default function Analytics() {
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={departmentData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="department" angle={-45} textAnchor="end" height={100} interval={0} />
+                <XAxis dataKey="evaluatedDepartment" angle={-45} textAnchor="end" height={100} interval={0} />
                 <YAxis />
                 <Tooltip />
                 <Legend />
@@ -142,9 +142,9 @@ export default function Analytics() {
                 >
                   {departmentData.map((entry) => (
                     <Cell
-                      key={entry.department}
+                      key={entry.evaluatedDepartment}
                       fill={
-                        !selectedDepartment || entry.department === selectedDepartment
+                        !selectedDepartment || entry.evaluatedDepartment === selectedDepartment
                           ? COLORS.primary
                           : "#d1d5db"
                       }

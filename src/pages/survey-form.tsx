@@ -165,7 +165,7 @@ export default function SurveyForm() {
     patientGender: "Masculino" as "Masculino" | "Feminino" | "Outro",
     admissionDate: "",
     dischargeDate: "",
-    department: "",
+    evaluatedDepartment: "",
   });
 
   const [cpfError, setCpfError] = useState("");
@@ -367,9 +367,9 @@ export default function SurveyForm() {
                 <Select
                   label="Departamento"
                   options={departments}
-                  value={patientInfo.department}
+                  value={patientInfo.evaluatedDepartment}
                   onChange={(e) =>
-                    setPatientInfo({ ...patientInfo, department: e.target.value })
+                    setPatientInfo({ ...patientInfo, evaluatedDepartment: e.target.value })
                   }
                   required
                 />

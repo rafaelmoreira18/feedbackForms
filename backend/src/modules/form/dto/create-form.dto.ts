@@ -93,7 +93,7 @@ export class CreateFormDto {
 
   @IsString()
   @IsNotEmpty()
-  department: string;
+  evaluatedDepartment: string;
 
   @ValidateNested()
   @Type(() => SatisfactionDto)

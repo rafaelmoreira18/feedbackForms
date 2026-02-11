@@ -11,7 +11,7 @@ export class FilterFormDto {
 
   @IsOptional()
   @IsString()
-  department?: string;
+  evaluatedDepartment?: string;
 
   @IsOptional()
   @IsIn(['asc', 'desc'])

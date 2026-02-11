@@ -51,8 +51,8 @@ export class FormResponseEntity {
   @Column()
   dischargeDate: string;
 
-  @Column()
-  department: string;
+  @Column({ name: 'evaluated_department' })
+  evaluatedDepartment: string;
 
   @Column({ type: 'jsonb' })
   satisfaction: SatisfactionRatings;

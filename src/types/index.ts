@@ -36,7 +36,7 @@ export interface FormResponse {
   patientGender: 'Masculino' | 'Feminino' | 'Outro';
   admissionDate: string;
   dischargeDate: string;
-  department: string;
+  evaluatedDepartment: string;
   satisfaction: SatisfactionRatings;
   experience: ExperienceAnswers;
   comments: string;
@@ -46,7 +46,7 @@ export interface FormResponse {
 export interface FormFilters {
   startDate?: string;
   endDate?: string;
-  department?: string;
+  evaluatedDepartment?: string;
   sortSatisfaction?: 'asc' | 'desc';
 }
 

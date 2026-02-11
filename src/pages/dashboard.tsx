@@ -14,7 +14,7 @@ function filtersFromParams(params: URLSearchParams): FormFilters {
   return {
     startDate: params.get("startDate") || "",
     endDate: params.get("endDate") || "",
-    department: params.get("department") || "",
+    evaluatedDepartment: params.get("department") || "",
     sortSatisfaction:
       (params.get("sortSatisfaction") as "asc" | "desc") || undefined,
   };
@@ -24,7 +24,7 @@ function filtersToParams(filters: FormFilters): URLSearchParams {
   const params = new URLSearchParams();
   if (filters.startDate) params.set("startDate", filters.startDate);
   if (filters.endDate) params.set("endDate", filters.endDate);
-  if (filters.department) params.set("department", filters.department);
+  if (filters.evaluatedDepartment) params.set("department", filters.evaluatedDepartment);
   if (filters.sortSatisfaction)
     params.set("sortSatisfaction", filters.sortSatisfaction);
   return params;
@@ -88,7 +88,7 @@ export default function Dashboard() {
   const hasActiveFilters = !!(
     filters.startDate ||
     filters.endDate ||
-    filters.department ||
+    filters.evaluatedDepartment ||
     filters.sortSatisfaction
   );
 
@@ -196,9 +196,9 @@ export default function Dashboard() {
                 <Select
                   label="Departamento"
                   options={departments}
-                  value={filters.department || ""}
+                  value={filters.evaluatedDepartment || ""}
                   onChange={(e) =>
-                    setFilters({ ...filters, department: e.target.value })
+                    setFilters({ ...filters, evaluatedDepartment: e.target.value })
                   }
                 />
 
@@ -269,7 +269,7 @@ export default function Dashboard() {
                           </Text>
                           <div className="flex justify-between items-center">
                             <Text variant="body-sm" className="text-gray-300">
-                              {form.department}
+                              {form.evaluatedDepartment}
                             </Text>
                             <Text variant="caption" className="text-gray-300">
                               {formatDate(form.createdAt)}
@@ -325,7 +325,7 @@ export default function Dashboard() {
                                 <Text variant="body-md">{form.patientName}</Text>
                               </td>
                               <td className="py-3 px-4">
-                                <Text variant="body-md">{form.department}</Text>
+                                <Text variant="body-md">{form.evaluatedDepartment}</Text>
                               </td>
                               <td className="py-3 px-4">
                                 <Text variant="body-md">{form.patientCpf}</Text>
