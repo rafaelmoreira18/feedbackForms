@@ -159,7 +159,7 @@ export function generateDashboardReport(data: ReportData): void {
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COLORS.primary);
-  doc.text("Relatorio do Dashboard", PAGE_MARGIN, 25);
+  doc.text("Relatorio de avaliação", PAGE_MARGIN, 25);
 
   // Generated at
   doc.setFontSize(9);
