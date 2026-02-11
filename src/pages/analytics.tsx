@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { formService } from "../services/form-service";
 import {
-  getDepartmentData, getSatisfactionDistribution, getRecommendationData,
+  getDepartmentData, getRecommendationData,
   getAverageMetrics, getMonthlyTrend, getSummaryMetrics,
 } from "../services/analytics-service";
 import type { FormResponse } from "../types";
@@ -41,7 +41,6 @@ export default function Analytics() {
   );
 
   const departmentData = useMemo(() => getDepartmentData(allForms), [allForms]);
-  const distribution = useMemo(() => getSatisfactionDistribution(filteredForms), [filteredForms]);
   const recommendation = useMemo(() => getRecommendationData(filteredForms), [filteredForms]);
   const avgMetrics = useMemo(() => getAverageMetrics(filteredForms), [filteredForms]);
   const monthlyTrend = useMemo(() => getMonthlyTrend(filteredForms), [filteredForms]);
@@ -156,61 +155,34 @@ export default function Analytics() {
           </Card>
 
           {/* Filtered charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card shadow="md" padding="lg">
-              <Text variant="heading-sm" className="text-gray-400 mb-4">
-                Distribuição de Satisfação
-              </Text>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={distribution}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="rating" />
-                  <YAxis />
-                  <Tooltip formatter={(value: number) => {
-                    const total = distribution.reduce((sum, d) => sum + d.count, 0);
+          <Card shadow="md" padding="lg">
+            <Text variant="heading-sm" className="text-gray-400 mb-4">
+              Taxa de Recomendação
+            </Text>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={recommendation}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value }) => {
+                    const total = recommendation.reduce((sum, r) => sum + r.value, 0);
                     const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0";
-                    return [`${value} (${pct}%)`, "Quantidade"];
-                  }} />
-                  <Legend />
-                  <Bar dataKey="count" fill={COLORS.warning} name="Quantidade"
-                    label={{ position: "top", formatter: (value: number) => {
-                      const total = distribution.reduce((sum, d) => sum + d.count, 0);
-                      return total > 0 ? `${((value / total) * 100).toFixed(0)}%` : "";
-                    }}}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </Card>
-
-            <Card shadow="md" padding="lg">
-              <Text variant="heading-sm" className="text-gray-400 mb-4">
-                Taxa de Recomendação
-              </Text>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={recommendation}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value }) => {
-                      const total = recommendation.reduce((sum, r) => sum + r.value, 0);
-                      const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0";
-                      return `${name}: ${pct}%`;
-                    }}
-                    outerRadius={100}
-                    dataKey="value"
-                  >
-                    {recommendation.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </Card>
-          </div>
+                    return `${name}: ${pct}%`;
+                  }}
+                  outerRadius={100}
+                  dataKey="value"
+                >
+                  {recommendation.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
 
           <Card shadow="md" padding="lg">
             <Text variant="heading-sm" className="text-gray-400 mb-4">

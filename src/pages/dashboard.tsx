@@ -3,7 +3,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import { formService } from "../services/form-service";
 import type { FormResponse, FormFilters, DashboardMetrics } from "../types";
-import { formatDate, formatRating } from "../utils/format";
+import { formatDate, formatRating, formatDateTime } from "../utils/format";
+import { generateDashboardReport } from "../services/report-service";
+import type { ReportData } from "../types/report";
 import Text from "../components/text";
 import Input from "../components/input";
 import Select from "../components/select";
@@ -92,6 +94,17 @@ export default function Dashboard() {
     filters.sortSatisfaction
   );
 
+  const handleExportReport = () => {
+    const reportData: ReportData = {
+      metrics,
+      filters,
+      responses: filteredForms,
+      generatedAt: formatDateTime(new Date()),
+      totalFormsCount: forms.length,
+    };
+    generateDashboardReport(reportData);
+  };
+
   const MetricCard = ({
     title,
     value,
@@ -127,6 +140,9 @@ export default function Dashboard() {
             <Text variant="body-sm" className="text-gray-300 hidden sm:block">
               {user?.name}
             </Text>
+            <Button variant="outline" size="sm" onClick={handleExportReport}>
+              Exportar PDF
+            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate("/analytics")}>
               Analytics
             </Button>

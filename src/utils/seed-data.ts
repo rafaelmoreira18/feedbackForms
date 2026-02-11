@@ -1,6 +1,11 @@
 import { formService } from "../services/form-service";
 import type { FormResponse } from "../types";
 
+function randomCpfForMigration() {
+  const digits = Array.from({ length: 11 }, () => Math.floor(Math.random() * 10));
+  return `${digits.slice(0, 3).join("")}.${digits.slice(3, 6).join("")}.${digits.slice(6, 9).join("")}-${digits.slice(9).join("")}`;
+}
+
 function migrateLocalStorage() {
   const stored = localStorage.getItem("hospital_forms");
   if (!stored) return;
@@ -10,6 +15,10 @@ function migrateLocalStorage() {
     if (form.department && !form.evaluatedDepartment) {
       form.evaluatedDepartment = form.department;
       delete form.department;
+      changed = true;
+    }
+    if (!form.patientCpf) {
+      form.patientCpf = randomCpfForMigration();
       changed = true;
     }
   }
@@ -63,6 +72,11 @@ export function seedDatabase() {
     "Recomendo o hospital.",
   ];
 
+  const randomCpf = () => {
+    const digits = Array.from({ length: 11 }, () => Math.floor(Math.random() * 10));
+    return `${digits.slice(0, 3).join("")}.${digits.slice(3, 6).join("")}.${digits.slice(6, 9).join("")}-${digits.slice(9).join("")}`;
+  };
+
   const today = new Date();
   const threeMonthsAgo = new Date(today);
   threeMonthsAgo.setMonth(today.getMonth() - 3);
@@ -81,6 +95,7 @@ export function seedDatabase() {
 
     const formData: Omit<FormResponse, "id" | "createdAt"> = {
       patientName: names[Math.floor(Math.random() * names.length)],
+      patientCpf: randomCpf(),
       patientAge: Math.floor(Math.random() * 70) + 18,
       patientGender: ["Masculino", "Feminino", "Outro"][
         Math.floor(Math.random() * 3)

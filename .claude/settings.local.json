@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite build:*)",
+      "Bash(npm install:*)",
+      "Bash(npx nest build:*)",
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx nest start:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(echo:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJhZG1pbkBob3NwaXRhbC5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzA3NDM3NjIsImV4cCI6MTc3MDgzMDE2Mn0.nNWYHNeK8ART0ByuRpmWFSKWBkMJV0KVCMTVBkGIeIw\")",
+      "Bash(git add:*)",
+      "Bash(git restore:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(npm run build:*)",
+      "Bash(findstr:*)",
+      "Bash(Select-String -Pattern \"report-service|report\\\\.ts|dashboard\\\\.tsx\")"
+    ]
+  }
+}
