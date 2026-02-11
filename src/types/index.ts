@@ -31,6 +31,7 @@ export interface ExperienceAnswers {
 export interface FormResponse {
   id: string;
   patientName: string;
+  patientCpf: string;
   patientAge: number;
   patientGender: 'Masculino' | 'Feminino' | 'Outro';
   admissionDate: string;

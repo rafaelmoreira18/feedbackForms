@@ -1,61 +1,76 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
-import { FormResponse } from './form.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { FormResponseEntity, FormResponse } from './form.entity';
 import { CreateFormDto } from './dto/create-form.dto';
 import { FilterFormDto } from './dto/filter-form.dto';
 
 @Injectable()
 export class FormService {
-  private forms: FormResponse[] = [];
+  constructor(
+    @InjectRepository(FormResponseEntity)
+    private readonly formRepository: Repository<FormResponseEntity>,
+  ) {}
 
-  create(dto: CreateFormDto): FormResponse {
-    const form: FormResponse = {
+  async create(dto: CreateFormDto): Promise<FormResponse> {
+    const form = this.formRepository.create({
       ...dto,
       comments: dto.comments ?? '',
-      id: uuidv4(),
-      createdAt: new Date().toISOString(),
-    };
-
-    this.forms.push(form);
-    return form;
+    });
+    return this.formRepository.save(form);
   }
 
-  findAll(filters?: FilterFormDto): FormResponse[] {
-    let results = [...this.forms];
+  async findAll(filters?: FilterFormDto): Promise<FormResponse[]> {
+    const qb = this.formRepository.createQueryBuilder('form');
 
     if (filters?.startDate) {
-      results = results.filter((f) => f.createdAt >= filters.startDate!);
+      qb.andWhere('form.createdAt >= :startDate', {
+        startDate: filters.startDate,
+      });
     }
 
     if (filters?.endDate) {
-      results = results.filter(
-        (f) => f.createdAt <= filters.endDate! + 'T23:59:59',
-      );
+      qb.andWhere('form.createdAt <= :endDate', {
+        endDate: filters.endDate + 'T23:59:59',
+      });
     }
 
     if (filters?.department) {
-      results = results.filter((f) => f.department === filters.department);
+      qb.andWhere('form.department = :department', {
+        department: filters.department,
+      });
     }
 
     if (filters?.sortSatisfaction) {
-      results.sort((a, b) =>
-        filters.sortSatisfaction === 'desc'
-          ? this.getAverage(b) - this.getAverage(a)
-          : this.getAverage(a) - this.getAverage(b),
+      const direction = filters.sortSatisfaction === 'desc' ? 'DESC' : 'ASC';
+      qb.addSelect(
+        `(
+          (form.satisfaction->>'overallCare')::float +
+          (form.satisfaction->>'nursingCare')::float +
+          (form.satisfaction->>'medicalCare')::float +
+          (form.satisfaction->>'welcoming')::float +
+          (form.satisfaction->>'cleanliness')::float +
+          (form.satisfaction->>'comfort')::float +
+          (form.satisfaction->>'responseTime')::float +
+          (form.satisfaction->>'wouldRecommend')::float +
+          (form.satisfaction->>'overallSatisfaction')::float
+        ) / 9.0`,
+        'avg_satisfaction',
       );
+      qb.orderBy('avg_satisfaction', direction);
     }
 
-    return results;
+    return qb.getMany();
   }
 
-  findById(id: string): FormResponse {
-    const form = this.forms.find((f) => f.id === id);
+  async findById(id: string): Promise<FormResponse> {
+    const form = await this.formRepository.findOne({ where: { id } });
     if (!form) throw new NotFoundException('Formulário não encontrado');
     return form;
   }
 
-  getMetrics(filters?: FilterFormDto) {
-    const forms = this.findAll(filters);
+  async getMetrics(filters?: FilterFormDto) {
+    const forms = await this.findAll(filters);
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);

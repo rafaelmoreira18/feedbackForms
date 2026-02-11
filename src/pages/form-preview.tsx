@@ -62,13 +62,13 @@ export default function FormPreview() {
   const avg = formService.getAverageSatisfaction(form);
 
   return (
-    <div className="min-h-screen py-8 px-4">
-      <div className="max-w-3xl mx-auto flex flex-col gap-6">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen py-4 sm:py-8 px-3 sm:px-4">
+      <div className="max-w-3xl mx-auto flex flex-col gap-4 sm:gap-6">
+        <div className="flex items-center justify-between gap-2">
           <Text as="h1" variant="heading-md" className="text-gray-400">
             Respostas do Paciente
           </Text>
-          <Button variant="secondary" size="sm" onClick={() => navigate("/dashboard")}>
+          <Button variant="secondary" size="sm" onClick={() => navigate(-1)}>
             Voltar
           </Button>
         </div>
@@ -81,6 +81,11 @@ export default function FormPreview() {
             </Text>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <InfoItem label="Nome" value={form.patientName} />
+              <InfoItem label="CPF" value={
+                form.patientCpf
+                  ? form.patientCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")
+                  : "—"
+              } />
               <InfoItem label="Idade" value={`${form.patientAge} anos`} />
               <InfoItem label="Gênero" value={form.patientGender} />
               <InfoItem label="Departamento" value={form.department} />
@@ -108,12 +113,12 @@ export default function FormPreview() {
                     <Text variant="body-sm" className="text-gray-300">
                       {satisfactionLabels[key]}
                     </Text>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <div className="flex gap-1">
                         {[1, 2, 3, 4, 5].map((rating) => (
                           <div
                             key={rating}
-                            className={`w-8 h-8 rounded flex items-center justify-center text-sm font-semibold ${
+                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded flex items-center justify-center text-xs sm:text-sm font-semibold ${
                               form.satisfaction[key] >= rating
                                 ? "bg-blue-base text-white"
                                 : "bg-gray-200 text-gray-300"
@@ -123,7 +128,7 @@ export default function FormPreview() {
                           </div>
                         ))}
                       </div>
-                      <Text variant="body-sm-bold" className="text-gray-400 ml-2">
+                      <Text variant="body-sm-bold" className="text-gray-400">
                         {ratingLabels[form.satisfaction[key]]}
                       </Text>
                     </div>

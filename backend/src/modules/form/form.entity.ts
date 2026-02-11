@@ -1,3 +1,10 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+} from 'typeorm';
+
 export interface SatisfactionRatings {
   overallCare: number;
   nursingCare: number;
@@ -21,16 +28,43 @@ export interface ExperienceAnswers {
   privacyRespected: boolean;
 }
 
-export interface FormResponse {
+@Entity('form_responses')
+export class FormResponseEntity {
+  @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column()
   patientName: string;
+
+  @Column({ length: 11 })
+  patientCpf: string;
+
+  @Column()
   patientAge: number;
-  patientGender: 'Masculino' | 'Feminino' | 'Outro';
+
+  @Column()
+  patientGender: string;
+
+  @Column()
   admissionDate: string;
+
+  @Column()
   dischargeDate: string;
+
+  @Column()
   department: string;
+
+  @Column({ type: 'jsonb' })
   satisfaction: SatisfactionRatings;
+
+  @Column({ type: 'jsonb' })
   experience: ExperienceAnswers;
+
+  @Column({ default: '' })
   comments: string;
-  createdAt: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
 }
+
+export type FormResponse = FormResponseEntity;

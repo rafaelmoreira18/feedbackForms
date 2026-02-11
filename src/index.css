@@ -18,9 +18,9 @@
     --color-purple-light: #e9cce1;
     --color-purple-base: #c257a4;
     --color-purple-dark: #884074;
-    --color-blue-light: #cce5ff;
-    --color-blue-base: #4a90e2;
-    --color-blue-dark: #2c5aa0;
+    --color-blue-light: #a3c4e9;
+    --color-blue-base: #1a5276;
+    --color-blue-dark: #0e3250;
     --color-red-light: #ffcccc;
     --color-red-base: #e74c3c;
     --color-red-dark: #c0392b;
@@ -33,4 +33,18 @@
     --shadow-sm: 0px 4px 8px 0px rgba(54,23,45,0.05);
     --shadow-md: 0px 8px 16px 0px rgba(54,23,45,0.1);
     --shadow-lg: 0px 16px 32px 0px rgba(54,23,45,0.15);
+}
+
+input[type="date"] {
+  min-height: 44px;
+  color-scheme: light;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
 }

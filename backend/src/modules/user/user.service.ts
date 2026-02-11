@@ -1,35 +1,47 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User } from './user.entity';
+import { UserEntity, User } from './user.entity';
 
 @Injectable()
-export class UserService {
-  private users: User[] = [];
+export class UserService implements OnModuleInit {
+  constructor(
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
+  ) {}
 
-  constructor() {
-    this.seedAdmin();
+  async onModuleInit() {
+    await this.seedAdmin();
   }
 
   private async seedAdmin() {
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    this.users.push({
-      id: '1',
-      email: 'admin@hospital.com',
-      name: 'Administrador',
-      password: hashedPassword,
-      role: 'admin',
+    const existingAdmin = await this.userRepository.findOne({
+      where: { email: 'admin@hospital.com' },
     });
+
+    if (!existingAdmin) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      const admin = this.userRepository.create({
+        email: 'admin@hospital.com',
+        name: 'Administrador',
+        password: hashedPassword,
+        role: 'admin',
+      });
+      await this.userRepository.save(admin);
+    }
   }
 
-  findByEmail(email: string): User | undefined {
-    return this.users.find((u) => u.email === email);
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { email } });
   }
 
-  findById(id: string): User | undefined {
-    return this.users.find((u) => u.id === id);
+  async findById(id: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { id } });
   }
 
-  findAll(): Omit<User, 'password'>[] {
-    return this.users.map(({ password, ...user }) => user);
+  async findAll(): Promise<Omit<User, 'password'>[]> {
+    const users = await this.userRepository.find();
+    return users.map(({ password, ...user }) => user);
   }
 }

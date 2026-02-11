@@ -36,8 +36,11 @@ export default function Input({
   className,
   label,
   error,
+  type,
   ...props
 }: InputProps) {
+  const isDate = type === "date";
+
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
@@ -46,7 +49,12 @@ export default function Input({
         </Text>
       )}
       <input
-        className={inputVariants({ variant: error ? "error" : variant, size, className })}
+        type={type}
+        className={inputVariants({
+          variant: error ? "error" : variant,
+          size,
+          className: `${isDate ? "cursor-pointer appearance-none" : ""} ${className ?? ""}`.trim(),
+        })}
         {...props}
       />
       {error && (

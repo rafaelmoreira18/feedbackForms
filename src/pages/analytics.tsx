@@ -130,7 +130,7 @@ export default function Analytics() {
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={departmentData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="department" angle={-45} textAnchor="end" height={100} />
+                <XAxis dataKey="department" angle={-45} textAnchor="end" height={100} interval={0} />
                 <YAxis />
                 <Tooltip />
                 <Legend />
@@ -166,9 +166,18 @@ export default function Analytics() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="rating" />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip formatter={(value: number) => {
+                    const total = distribution.reduce((sum, d) => sum + d.count, 0);
+                    const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0";
+                    return [`${value} (${pct}%)`, "Quantidade"];
+                  }} />
                   <Legend />
-                  <Bar dataKey="count" fill={COLORS.warning} name="Quantidade" />
+                  <Bar dataKey="count" fill={COLORS.warning} name="Quantidade"
+                    label={{ position: "top", formatter: (value: number) => {
+                      const total = distribution.reduce((sum, d) => sum + d.count, 0);
+                      return total > 0 ? `${((value / total) * 100).toFixed(0)}%` : "";
+                    }}}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </Card>
@@ -184,7 +193,11 @@ export default function Analytics() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, value }) => `${name}: ${value}`}
+                    label={({ name, value }) => {
+                      const total = recommendation.reduce((sum, r) => sum + r.value, 0);
+                      const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0";
+                      return `${name}: ${pct}%`;
+                    }}
                     outerRadius={100}
                     dataKey="value"
                   >

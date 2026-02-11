@@ -40,12 +40,127 @@ const ratingLabels: Record<number, string> = {
   5: "Excelente",
 };
 
+function RatingInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Text variant="body-sm-bold" className="text-gray-400">
+        {label}
+      </Text>
+      <div className="flex gap-2">
+        {[1, 2, 3, 4, 5].map((rating) => (
+          <button
+            key={rating}
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onChange(rating)}
+            title={ratingLabels[rating]}
+            className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg font-semibold transition-colors ${
+              value >= rating
+                ? "bg-blue-base text-white"
+                : "bg-gray-200 text-gray-300 hover:bg-gray-300"
+            }`}
+          >
+            {rating}
+          </button>
+        ))}
+      </div>
+      {value > 0 && (
+        <Text variant="caption" className="text-gray-300">
+          {ratingLabels[value]}
+        </Text>
+      )}
+    </div>
+  );
+}
+
+function BooleanInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean | null;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Text variant="body-sm-bold" className="text-gray-400">
+        {label}
+      </Text>
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onChange(true)}
+          className={`px-5 py-2 rounded-lg font-semibold text-sm transition-colors ${
+            value === true
+              ? "bg-green-base text-white"
+              : "bg-gray-200 text-gray-300 hover:bg-gray-300"
+          }`}
+        >
+          Sim
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onChange(false)}
+          className={`px-5 py-2 rounded-lg font-semibold text-sm transition-colors ${
+            value === false
+              ? "bg-red-base text-white"
+              : "bg-gray-200 text-gray-300 hover:bg-gray-300"
+          }`}
+        >
+          Não
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function formatCpf(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9)
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+function isValidCpf(cpf: string): boolean {
+  const digits = cpf.replace(/\D/g, "");
+  if (digits.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(digits)) return false;
+
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(digits[i]) * (10 - i);
+  let check = 11 - (sum % 11);
+  if (check >= 10) check = 0;
+  if (parseInt(digits[9]) !== check) return false;
+
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(digits[i]) * (11 - i);
+  check = 11 - (sum % 11);
+  if (check >= 10) check = 0;
+  if (parseInt(digits[10]) !== check) return false;
+
+  return true;
+}
+
 export default function SurveyForm() {
   const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
 
   const [patientInfo, setPatientInfo] = useState({
     patientName: "",
+    patientCpf: "",
     patientAge: "",
     patientGender: "Masculino" as "Masculino" | "Feminino" | "Outro",
     admissionDate: "",
@@ -53,32 +168,37 @@ export default function SurveyForm() {
     department: "",
   });
 
+  const [cpfError, setCpfError] = useState("");
+
   const [satisfaction, setSatisfaction] = useState<SatisfactionRatings>({
-    overallCare: 5,
-    nursingCare: 5,
-    medicalCare: 5,
-    welcoming: 5,
-    cleanliness: 5,
-    comfort: 5,
-    responseTime: 5,
-    wouldRecommend: 5,
-    overallSatisfaction: 5,
+    overallCare: 0,
+    nursingCare: 0,
+    medicalCare: 0,
+    welcoming: 0,
+    cleanliness: 0,
+    comfort: 0,
+    responseTime: 0,
+    wouldRecommend: 0,
+    overallSatisfaction: 0,
   });
 
-  const [experience, setExperience] = useState<ExperienceAnswers>({
-    professionalsIdentified: true,
-    nameVerified: true,
-    treatmentExplained: true,
-    participatedInDecisions: true,
-    medicationInstructionsClear: true,
-    dischargeOrientationComplete: true,
-    knewWhoToAsk: true,
-    privacyRespected: true,
+  type NullableExperience = Record<keyof ExperienceAnswers, boolean | null>;
+
+  const [experience, setExperience] = useState<NullableExperience>({
+    professionalsIdentified: null,
+    nameVerified: null,
+    treatmentExplained: null,
+    participatedInDecisions: null,
+    medicationInstructionsClear: null,
+    dischargeOrientationComplete: null,
+    knewWhoToAsk: null,
+    privacyRespected: null,
   });
 
   const [comments, setComments] = useState("");
 
   const departments = [
+    { value: "", label: "Selecione o departamento" },
     { value: "Emergência", label: "Emergência" },
     { value: "UTI", label: "UTI" },
     { value: "Internação Geral", label: "Internação Geral" },
@@ -97,91 +217,37 @@ export default function SurveyForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!isValidCpf(patientInfo.patientCpf)) {
+      setCpfError("CPF inválido");
+      return;
+    }
+    setCpfError("");
+
+    const resolvedExperience: ExperienceAnswers = {
+      professionalsIdentified: experience.professionalsIdentified ?? false,
+      nameVerified: experience.nameVerified ?? false,
+      treatmentExplained: experience.treatmentExplained ?? false,
+      participatedInDecisions: experience.participatedInDecisions ?? false,
+      medicationInstructionsClear: experience.medicationInstructionsClear ?? false,
+      dischargeOrientationComplete: experience.dischargeOrientationComplete ?? false,
+      knewWhoToAsk: experience.knewWhoToAsk ?? false,
+      privacyRespected: experience.privacyRespected ?? false,
+    };
+
     formService.create({
       ...patientInfo,
+      patientCpf: patientInfo.patientCpf.replace(/\D/g, ""),
       patientAge: parseInt(patientInfo.patientAge),
       satisfaction,
-      experience,
+      experience: resolvedExperience,
       comments,
     });
 
     setSubmitted(true);
     setTimeout(() => {
-      navigate("/");
+      navigate("/survey");
     }, 3000);
   };
-
-  const RatingInput = ({
-    label,
-    value,
-    onChange,
-  }: {
-    label: string;
-    value: number;
-    onChange: (value: number) => void;
-  }) => (
-    <div className="flex flex-col gap-2">
-      <Text variant="body-sm-bold" className="text-gray-400">
-        {label}
-      </Text>
-      <div className="flex gap-2">
-        {[1, 2, 3, 4, 5].map((rating) => (
-          <button
-            key={rating}
-            type="button"
-            onClick={() => onChange(rating)}
-            title={ratingLabels[rating]}
-            className={`w-12 h-12 rounded-lg font-semibold transition-colors ${
-              value >= rating
-                ? "bg-blue-base text-white"
-                : "bg-gray-200 text-gray-300 hover:bg-gray-300"
-            }`}
-          >
-            {rating}
-          </button>
-        ))}
-      </div>
-      <Text variant="caption" className="text-gray-300">
-        {ratingLabels[value]}
-      </Text>
-    </div>
-  );
-
-  const BooleanInput = ({
-    label,
-    value,
-    onChange,
-  }: {
-    label: string;
-    value: boolean;
-    onChange: (value: boolean) => void;
-  }) => (
-    <div className="flex flex-col gap-2">
-      <Text variant="body-sm-bold" className="text-gray-400">
-        {label}
-      </Text>
-      <div className="flex gap-4">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="radio"
-            checked={value}
-            onChange={() => onChange(true)}
-            className="w-4 h-4"
-          />
-          <Text variant="body-md">Sim</Text>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="radio"
-            checked={!value}
-            onChange={() => onChange(false)}
-            className="w-4 h-4"
-          />
-          <Text variant="body-md">Não</Text>
-        </label>
-      </div>
-    </div>
-  );
 
   if (submitted) {
     return (
@@ -195,7 +261,7 @@ export default function SurveyForm() {
               Obrigado!
             </Text>
             <Text variant="body-md" className="text-gray-300">
-              Sua pesquisa foi enviada com sucesso. Redirecionando...
+              Sua pesquisa foi enviada com sucesso.
             </Text>
           </div>
         </Card>
@@ -204,15 +270,15 @@ export default function SurveyForm() {
   }
 
   return (
-    <div className="min-h-screen py-8 px-4">
+    <div className="min-h-screen py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-3xl mx-auto">
-        <Card shadow="md">
-          <div className="flex flex-col gap-6">
+        <Card shadow="md" padding="sm" className="sm:p-6">
+          <div className="flex flex-col gap-5 sm:gap-6">
             <div>
               <Text as="h1" variant="heading-md" className="text-gray-400 mb-2">
                 Pesquisa Hospitalar
               </Text>
-              <Text variant="body-md" className="text-gray-300">
+              <Text variant="body-sm" className="text-gray-300 sm:text-base">
                 Sua opinião é muito importante para melhorarmos nossos serviços
               </Text>
             </div>
@@ -231,6 +297,21 @@ export default function SurveyForm() {
                   onChange={(e) =>
                     setPatientInfo({ ...patientInfo, patientName: e.target.value })
                   }
+                  required
+                />
+
+                <Input
+                  label="CPF"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="000.000.000-00"
+                  value={patientInfo.patientCpf}
+                  onChange={(e) => {
+                    const formatted = formatCpf(e.target.value);
+                    setPatientInfo({ ...patientInfo, patientCpf: formatted });
+                    if (cpfError) setCpfError("");
+                  }}
+                  error={cpfError}
                   required
                 />
 
@@ -299,22 +380,15 @@ export default function SurveyForm() {
                 <div>
                   <Text variant="heading-sm" className="text-gray-400">
                     1. Pesquisa de Satisfação do Paciente
-                  </Text><hr />
-                  <Text variant="body-sm" className="text-gray-300 mt-1">
-                    Avalie sendo 1: (Muito Ruim)
-                  </Text><br />
-                  <Text variant="body-sm" className="text-gray-300 mt-1">
-                    Avalie sendo 2: (Ruim)
-                  </Text><br />
-                  <Text variant="body-sm" className="text-gray-300 mt-1">
-                    Avalie sendo 3: (Bom)
-                  </Text><br />
-                  <Text variant="body-sm" className="text-gray-300 mt-1">
-                    Avalie sendo 4: (Muito bom)
-                  </Text><br />
-                  <Text variant="body-sm" className="text-gray-300 mt-1">
-                    Avalie sendo 5: (Excelente)
                   </Text>
+                  <hr className="my-2" />
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                    {Object.entries(ratingLabels).map(([num, label]) => (
+                      <Text key={num} variant="body-sm" className="text-gray-300">
+                        {num}: {label}
+                      </Text>
+                    ))}
+                  </div>
                 </div>
 
                 {(Object.keys(satisfactionLabels) as (keyof SatisfactionRatings)[]).map(
@@ -364,14 +438,9 @@ export default function SurveyForm() {
                 onChange={(e) => setComments(e.target.value)}
               />
 
-              <div className="flex gap-4">
-                <Button type="button" variant="secondary" onClick={() => navigate("/")}>
-                  Cancelar
-                </Button>
-                <Button type="submit" className="flex-1">
-                  Enviar Pesquisa
-                </Button>
-              </div>
+              <Button type="submit">
+                Enviar Pesquisa
+              </Button>
             </form>
           </div>
         </Card>
