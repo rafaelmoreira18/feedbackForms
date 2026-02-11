@@ -56,7 +56,7 @@ export default function Analytics() {
 
   const title = selectedDepartment
     ? `Analytics - ${selectedDepartment}`
-    : "Analytics - Todos os Departamentos";
+    : "Analytics - Todos os Departamentos Avaliados";
 
   if (allForms.length === 0) {
     return (
@@ -122,10 +122,10 @@ export default function Analytics() {
           {/* Department chart - always shows all, highlights selected */}
           <Card shadow="md" padding="lg">
             <Text variant="heading-sm" className="text-gray-400 mb-2">
-              Respostas por Departamento
+              Respostas por Departamento Avaliado
             </Text>
             <Text variant="caption" className="text-gray-300 mb-4">
-              Clique em um departamento para filtrar
+              Clique em um departamento avaliado para filtrar
             </Text>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={departmentData}>

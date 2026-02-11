@@ -198,7 +198,7 @@ export default function SurveyForm() {
   const [comments, setComments] = useState("");
 
   const departments = [
-    { value: "", label: "Selecione o departamento" },
+    { value: "", label: "Selecione o departamento avaliado" },
     { value: "Emergência", label: "Emergência" },
     { value: "UTI", label: "UTI" },
     { value: "Internação Geral", label: "Internação Geral" },
@@ -365,7 +365,7 @@ export default function SurveyForm() {
                 </div>
 
                 <Select
-                  label="Departamento"
+                  label="Departamento Avaliado"
                   options={departments}
                   value={patientInfo.evaluatedDepartment}
                   onChange={(e) =>

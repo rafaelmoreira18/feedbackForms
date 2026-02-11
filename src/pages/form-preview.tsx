@@ -88,7 +88,7 @@ export default function FormPreview() {
               } />
               <InfoItem label="Idade" value={`${form.patientAge} anos`} />
               <InfoItem label="Gênero" value={form.patientGender} />
-              <InfoItem label="Departamento" value={form.evaluatedDepartment} />
+              <InfoItem label="Departamento Avaliado" value={form.evaluatedDepartment} />
               <InfoItem label="Data de Admissão" value={formatDate(form.admissionDate)} />
               <InfoItem label="Data de Alta" value={formatDate(form.dischargeDate)} />
               <InfoItem label="Data da Resposta" value={formatDate(form.createdAt)} />

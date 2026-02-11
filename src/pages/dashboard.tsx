@@ -194,7 +194,7 @@ export default function Dashboard() {
                 />
 
                 <Select
-                  label="Departamento"
+                  label="Departamento Avaliado"
                   options={departments}
                   value={filters.evaluatedDepartment || ""}
                   onChange={(e) =>
