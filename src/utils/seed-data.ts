@@ -1,7 +1,26 @@
 import { formService } from "../services/form-service";
 import type { FormResponse } from "../types";
 
+function migrateLocalStorage() {
+  const stored = localStorage.getItem("hospital_forms");
+  if (!stored) return;
+  const forms = JSON.parse(stored);
+  let changed = false;
+  for (const form of forms) {
+    if (form.department && !form.evaluatedDepartment) {
+      form.evaluatedDepartment = form.department;
+      delete form.department;
+      changed = true;
+    }
+  }
+  if (changed) {
+    localStorage.setItem("hospital_forms", JSON.stringify(forms));
+  }
+}
+
 export function seedDatabase() {
+  migrateLocalStorage();
+
   const existing = formService.getAll();
   if (existing.length > 0 && existing[0].satisfaction) {
     return;
