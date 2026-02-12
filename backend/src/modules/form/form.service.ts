@@ -52,9 +52,8 @@ export class FormService {
           (form.satisfaction->>'cleanliness')::float +
           (form.satisfaction->>'comfort')::float +
           (form.satisfaction->>'responseTime')::float +
-          (form.satisfaction->>'wouldRecommend')::float +
           (form.satisfaction->>'overallSatisfaction')::float
-        ) / 9.0`,
+        ) / 8.0`,
         'avg_satisfaction',
       );
       qb.orderBy('avg_satisfaction', direction);
@@ -92,7 +91,7 @@ export class FormService {
         : 0;
 
     const recommendCount = forms.filter(
-      (f) => f.satisfaction.wouldRecommend >= 4,
+      (f) => f.experience.wouldRecommend === true,
     ).length;
 
     const recommendationRate =

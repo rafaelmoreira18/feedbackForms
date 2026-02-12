@@ -111,7 +111,6 @@ export function seedDatabase() {
         cleanliness: randomRating(2),
         comfort: randomRating(2),
         responseTime: randomRating(2),
-        wouldRecommend: randomRating(3),
         overallSatisfaction: randomRating(3),
       },
       experience: {
@@ -123,6 +122,7 @@ export function seedDatabase() {
         dischargeOrientationComplete: randomBool(0.75),
         knewWhoToAsk: randomBool(0.8),
         privacyRespected: randomBool(0.9),
+        wouldRecommend: randomBool(0.8),
       },
       comments: Math.random() > 0.4
         ? comments[Math.floor(Math.random() * comments.length)]

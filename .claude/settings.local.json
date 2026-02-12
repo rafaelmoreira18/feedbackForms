@@ -21,7 +21,15 @@
       "Bash(git checkout:*)",
       "Bash(npm run build:*)",
       "Bash(findstr:*)",
-      "Bash(Select-String -Pattern \"report-service|report\\\\.ts|dashboard\\\\.tsx\")"
+      "Bash(Select-String -Pattern \"report-service|report\\\\.ts|dashboard\\\\.tsx\")",
+      "Bash(npm run start:dev:*)",
+      "Bash(netstat:*)",
+      "Bash(powershell -Command \"cd C:\\\\Users\\\\rafae\\\\projects\\\\feedbackForms\\\\backend; npx tsc; if \\(Test-Path dist\\) { Get-ChildItem dist } else { Write-Host ''dist not found'' }\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command:*)",
+      "Bash(cmd.exe //C \"cd /d C:\\\\Users\\\\rafae\\\\projects\\\\feedbackForms\\\\backend && npx nest build\")",
+      "Bash(cmd.exe //C \"dir C:\\\\Users\\\\rafae\\\\projects\\\\feedbackForms\\\\backend\\\\dist\")",
+      "Bash(cmd.exe:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlYWEzMmEwYi03ZDE3LTQyMGMtOTE3OC0zMWI1MjBkZDc0OTYiLCJlbWFpbCI6ImFkbWluQGhvc3BpdGFsLmNvbSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3MDg0ODM2MiwiZXhwIjoxNzcwOTM0NzYyfQ.j65OWftsnHygbmMia-05ZdcC1M3i-8z-5giYvw8FWT0\")"
     ]
   }
 }

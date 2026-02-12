@@ -13,7 +13,6 @@ export interface SatisfactionRatings {
   cleanliness: number;
   comfort: number;
   responseTime: number;
-  wouldRecommend: number;
   overallSatisfaction: number;
 }
 
@@ -26,6 +25,7 @@ export interface ExperienceAnswers {
   dischargeOrientationComplete: boolean;
   knewWhoToAsk: boolean;
   privacyRespected: boolean;
+  wouldRecommend: boolean;
 }
 
 @Entity('form_responses')

@@ -50,7 +50,6 @@ class SatisfactionDto {
   @IsNumber() @Min(1) @Max(5) cleanliness: number;
   @IsNumber() @Min(1) @Max(5) comfort: number;
   @IsNumber() @Min(1) @Max(5) responseTime: number;
-  @IsNumber() @Min(1) @Max(5) wouldRecommend: number;
   @IsNumber() @Min(1) @Max(5) overallSatisfaction: number;
 }
 
@@ -63,6 +62,7 @@ class ExperienceDto {
   @IsBoolean() dischargeOrientationComplete: boolean;
   @IsBoolean() knewWhoToAsk: boolean;
   @IsBoolean() privacyRespected: boolean;
+  @IsBoolean() wouldRecommend: boolean;
 }
 
 export class CreateFormDto {

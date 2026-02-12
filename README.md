@@ -191,3 +191,4 @@ Para ambiente de produção, implementar:
 ## 📄 Licença
 
 Este projeto foi desenvolvido seguindo as melhores práticas de arquitetura e clean code, inspirado nos cursos da Rocketseat.
+

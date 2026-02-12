@@ -9,7 +9,6 @@ const satisfactionKeys: { key: keyof SatisfactionRatings; label: string }[] = [
   { key: "cleanliness", label: "Limpeza" },
   { key: "comfort", label: "Conforto" },
   { key: "responseTime", label: "Tempo de Resposta" },
-  { key: "wouldRecommend", label: "Recomendaria" },
   { key: "overallSatisfaction", label: "Satisfação Geral" },
 ];
 
@@ -53,7 +52,7 @@ export function getSatisfactionDistribution(forms: FormResponse[]) {
 }
 
 export function getRecommendationData(forms: FormResponse[]) {
-  const wouldRecommend = forms.filter((f) => f.satisfaction.wouldRecommend >= 4).length;
+  const wouldRecommend = forms.filter((f) => f.experience.wouldRecommend === true).length;
   const wouldNotRecommend = forms.length - wouldRecommend;
 
   return [
@@ -100,7 +99,7 @@ export function getSummaryMetrics(forms: FormResponse[]) {
 
   const recommendRate =
     forms.length > 0
-      ? (forms.filter((f) => f.satisfaction.wouldRecommend >= 4).length / forms.length) * 100
+      ? (forms.filter((f) => f.experience.wouldRecommend === true).length / forms.length) * 100
       : 0;
 
   return {

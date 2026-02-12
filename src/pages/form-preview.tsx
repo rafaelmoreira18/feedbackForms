@@ -15,7 +15,6 @@ const satisfactionLabels: Record<keyof SatisfactionRatings, string> = {
   cleanliness: "Como você avalia a limpeza e organização do ambiente?",
   comfort: "Como você avalia o conforto do quarto/leito?",
   responseTime: "Como você avalia o tempo de resposta às suas solicitações?",
-  wouldRecommend: "Você indicaria este hospital para amigos ou familiares?",
   overallSatisfaction: "De forma geral, qual seu nível de satisfação com o hospital?",
 };
 
@@ -28,6 +27,7 @@ const experienceLabels: Record<keyof ExperienceAnswers, string> = {
   dischargeOrientationComplete: "Você recebeu orientações completas no momento da alta hospitalar?",
   knewWhoToAsk: "Você soube a quem recorrer quando teve dúvidas durante a internação?",
   privacyRespected: "Os profissionais respeitaram sua privacidade durante os atendimentos?",
+  wouldRecommend: "Você indicaria este hospital para amigos ou familiares?",
 };
 
 const ratingLabels: Record<number, string> = {
