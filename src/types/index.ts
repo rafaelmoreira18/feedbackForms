@@ -47,6 +47,7 @@ export interface FormFilters {
   startDate?: string;
   endDate?: string;
   sortSatisfaction?: 'asc' | 'desc';
+  evaluatedDepartment?: string;
 }
 
 export interface DashboardMetrics {
