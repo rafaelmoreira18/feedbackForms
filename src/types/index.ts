@@ -46,7 +46,6 @@ export interface FormResponse {
 export interface FormFilters {
   startDate?: string;
   endDate?: string;
-  evaluatedDepartment?: string;
   sortSatisfaction?: 'asc' | 'desc';
 }
 
@@ -56,4 +55,67 @@ export interface DashboardMetrics {
   recommendationRate: number;
   responsesThisMonth: number;
   responsesLastMonth: number;
+}
+
+// ─── Form 2: Hospital Infrastructure & Care ───────────────────────────────────
+
+export interface InfrastructureRatings {
+  // 🏥 Infraestrutura
+  hospitalOverallInfrastructure: number;
+  commonAreasAdequacy: number;
+  // 🩺 Equipamentos
+  equipmentSafety: number;
+  equipmentCondition: number;
+  // 🛏️ Acomodação
+  bedComfort: number;
+  accommodationNeeds: number;
+  // 🍽️ Nutrição
+  mealQuality: number;
+  mealTimeliness: number;
+  nutritionTeamCare: number;
+  // 🧭 Comunicação e Sinalização
+  hospitalSignage: number;
+  teamCommunicationClarity: number;
+  // 👨‍⚕️ Equipe Médica
+  medicalTeamRelationship: number;
+  diagnosisExplanation: number;
+  feltHeardByMedicalTeam: number;
+  // 👩‍⚕️ Equipe Assistencial
+  nursingTeamCare: number;
+  nursingTeamAvailability: number;
+  feltSafeWithCare: number;
+  // 💻 Tecnologia
+  technologyAccess: number;
+  connectivitySatisfaction: number;
+  // 👕 Lavanderia
+  laundryCleanlinessOrganization: number;
+  laundryChangeFrequency: number;
+}
+
+export interface PatientSafetyAnswers {
+  // 🆔 Identificação do Paciente (Sim / Não / Parcialmente)
+  usedIdentificationBracelet: 'Sim' | 'Não' | 'Parcialmente';
+  braceletInfoCorrect: 'Sim' | 'Não' | 'Parcialmente';
+  bedIdentification: 'Sim' | 'Não' | 'Parcialmente';
+  identityCheckedBeforeProcedures: 'Sim' | 'Não' | 'Parcialmente';
+}
+
+export interface Form2Response {
+  id: string;
+  patientName: string;
+  patientCpf: string;
+  patientAge: number;
+  patientGender: 'Masculino' | 'Feminino' | 'Outro';
+  admissionDate: string;
+  dischargeDate: string;
+  infrastructure: InfrastructureRatings;
+  patientSafety: PatientSafetyAnswers;
+  comments: string;
+  createdAt: string;
+}
+
+export interface Form2Filters {
+  startDate?: string;
+  endDate?: string;
+  sortSatisfaction?: 'asc' | 'desc';
 }

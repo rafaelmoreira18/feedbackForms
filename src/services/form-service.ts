@@ -12,7 +12,6 @@ function buildQueryString(filters?: FormFilters): string {
   const params = new URLSearchParams();
   if (filters.startDate) params.set("startDate", filters.startDate);
   if (filters.endDate) params.set("endDate", filters.endDate);
-  if (filters.evaluatedDepartment) params.set("evaluatedDepartment", filters.evaluatedDepartment);
   if (filters.sortSatisfaction) params.set("sortSatisfaction", filters.sortSatisfaction);
   const qs = params.toString();
   return qs ? `?${qs}` : "";
