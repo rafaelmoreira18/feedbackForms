@@ -4,6 +4,7 @@ import { getPool } from '../../lib/db';
 import { requireAuth } from '../../lib/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
   const pool = getPool();
 
   // POST /api/forms — public
@@ -78,4 +79,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   return res.status(405).json({ message: 'Method not allowed' });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ message: msg });
+  }
 }
