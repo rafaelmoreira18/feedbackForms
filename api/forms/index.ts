@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { getPool } from '../../lib/db';
 import { requireAuth } from '../../lib/auth';
 
@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       satisfaction, experience, comments,
     } = req.body ?? {};
 
-    const id = uuidv4();
+    const id = randomUUID();
     const createdAt = new Date().toISOString();
 
     await pool.query(
