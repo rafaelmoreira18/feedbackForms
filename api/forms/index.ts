@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await pool.query(
         `INSERT INTO form_responses
           (id, "patientName", "patientCpf", "patientAge", "patientGender",
-           "admissionDate", "dischargeDate", "evaluatedDepartment",
+           "admissionDate", "dischargeDate", evaluated_department,
            satisfaction, experience, comments, "createdAt")
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [
@@ -59,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         params.push(`${endDate}T23:59:59.999Z`);
       }
       if (evaluatedDepartment) {
-        query += ` AND "evaluatedDepartment" = $${idx++}`;
+        query += ` AND evaluated_department = $${idx++}`;
         params.push(evaluatedDepartment);
       }
       if (sortSatisfaction === 'asc' || sortSatisfaction === 'desc') {
