@@ -1,0 +1,34 @@
+import React from "react";
+
+interface CardProps {
+  children: React.ReactNode;
+  className?: string;
+  glass?: boolean;
+  padding?: "none" | "sm" | "md" | "lg";
+  shadow?: "none" | "sm" | "md" | "lg";
+}
+
+const paddingClasses = { none: "p-0", sm: "p-4", md: "p-6", lg: "p-8" };
+const shadowClasses = { none: "", sm: "shadow-sm", md: "shadow-md", lg: "shadow-lg" };
+
+export default function Card({
+  children,
+  className,
+  glass = false,
+  padding = "md",
+  shadow = "sm",
+}: CardProps) {
+  return (
+    <div
+      className={`
+        rounded-2xl
+        ${glass ? "glass-card" : "bg-white"}
+        ${paddingClasses[padding]}
+        ${shadowClasses[shadow]}
+        ${className ?? ""}
+      `}
+    >
+      {children}
+    </div>
+  );
+}

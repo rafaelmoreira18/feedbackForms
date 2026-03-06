@@ -1,0 +1,91 @@
+@import 'tailwindcss';
+
+
+@theme{
+    --color-*: initial ;
+    --color-white: #ffffff;
+    --color-gray-50: #fafafa;
+    --color-gray-100: #f7f3f6;
+    --color-gray-200: #f4e6f0;
+    --color-gray-300: #7a6e76;
+    --color-gray-400: #332e32;
+    --color-green-light: #cddfcc;
+    --color-green-base: #52a350;
+    --color-green-dark: #2f5c2d;
+    --color-pink-light: #e9cce1;
+    --color-pink-base: #c257a4;
+    --color-pink-dark: #884074;
+    --color-purple-light: #e9cce1;
+    --color-purple-base: #c257a4;
+    --color-purple-dark: #884074;
+    --color-blue-light: #a3c4e9;
+    --color-blue-base: #1a5276;
+    --color-blue-dark: #0e3250;
+    --color-red-light: #ffcccc;
+    --color-red-base: #e74c3c;
+    --color-red-dark: #c0392b;
+    --color-yellow-light: #fff9cc;
+    --color-yellow-base: #f1c40f;
+    --color-yellow-dark: #d4ac0d;
+    /* Mediall brand teal */
+    --color-teal-light: #b3eaf1;
+    --color-teal-base: #00b4c8;
+    --color-teal-dark: #007f8e;
+    /* Mediall brand red */
+    --color-brand-red: #e63329;
+    /* Neutral dark */
+    --color-dark: #1e2a32;
+
+    --font-sans: "Cairo", sans-serif;
+
+    --shadow-sm: 0px 4px 8px 0px rgba(54,23,45,0.05);
+    --shadow-md: 0px 8px 16px 0px rgba(54,23,45,0.1);
+    --shadow-lg: 0px 16px 32px 0px rgba(54,23,45,0.15);
+    --shadow-xl: 0px 24px 48px 0px rgba(0,180,200,0.15);
+}
+
+/* Page background gradient */
+.form-bg {
+  background: linear-gradient(135deg, #0e3250 0%, #1a5276 40%, #007f8e 75%, #00b4c8 100%);
+  min-height: 100vh;
+}
+
+/* Glassmorphism card */
+.glass-card {
+  background: rgba(255,255,255,0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.4);
+}
+
+/* Animated gradient text */
+.brand-gradient-text {
+  background: linear-gradient(90deg, #00b4c8, #1a5276);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Decorative blob */
+.blob {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.18;
+  pointer-events: none;
+  z-index: 0;
+}
+
+input[type="date"] {
+  min-height: 44px;
+  color-scheme: light;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
