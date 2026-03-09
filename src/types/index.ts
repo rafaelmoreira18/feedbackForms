@@ -47,6 +47,7 @@ export interface FormFilters {
   startDate?: string;
   endDate?: string;
   sortSatisfaction?: 'asc' | 'desc';
+  evaluatedDepartment?: string;
 }
 
 export interface DashboardMetrics {
@@ -158,6 +159,7 @@ export interface Form3Filters {
   endDate?: string;
   sortSatisfaction?: 'asc' | 'desc';
   formType?: Form3Type;
+  evaluatedDepartment?: string;
 }
 
 export interface Form3Metrics {
@@ -165,5 +167,7 @@ export interface Form3Metrics {
   averageSatisfaction: number;
   responsesThisMonth: number;
   responsesLastMonth: number;
+  averageNps: number;
+  npsScore: number;
   // ...existing code...
 }

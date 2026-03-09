@@ -55,6 +55,15 @@ export class Form3Service {
     return qb.getMany();
   }
 
+  async deleteAll(): Promise<{ deleted: number }> {
+    const result = await this.form3Repository
+      .createQueryBuilder()
+      .delete()
+      .from(Form3ResponseEntity)
+      .execute();
+    return { deleted: result.affected ?? 0 };
+  }
+
   async findById(id: string): Promise<Form3Response> {
     const form = await this.form3Repository.findOne({ where: { id } });
     if (!form) throw new NotFoundException('Formulário não encontrado');

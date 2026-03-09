@@ -31,11 +31,112 @@ export function getAverageByQuestion(forms: Form3Response[], formType: Form3Type
           .filter((v): v is number => v !== undefined && v > 0);
         const avg = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0;
         return {
-          question: q.text.length > 60 ? q.text.slice(0, 57) + "..." : q.text,
+          questionId: q.id,
+          question: q.text,
+          questionShort: q.text.length > 55 ? q.text.slice(0, 52) + "..." : q.text,
           value: Number(avg.toFixed(1)),
+          count: values.length,
+          subReasons: q.subReasons,
         };
       })
   );
+}
+
+export interface QuestionDetail {
+  questionId: string;
+  questionText: string;
+  formType: Form3Type;
+  avg: number;
+  total: number;
+  negativeCount: number; // responses with rating 1 or 2
+  distribution: { label: string; count: number; pct: number }[];
+  subReasons: { text: string; count: number; pct: number }[];
+  notes: string[]; // free-text notes from patients who rated negatively
+}
+
+/** Full breakdown for a single question click — distribution of ratings + sub-reason frequency */
+export function getQuestionDetail(
+  forms: Form3Response[],
+  formType: Form3Type,
+  questionId: string
+): QuestionDetail | null {
+  const config = FORM3_CONFIGS[formType];
+  if (!config) return null;
+
+  const question = config.blocks.flatMap((b) => b.questions).find((q) => q.id === questionId);
+  if (!question || question.scale !== "rating4") return null;
+
+  const deptForms = forms.filter((f) => f.formType === formType);
+  const LABELS = ["", "Ruim", "Regular", "Bom", "Excelente"];
+
+  const ratingCounts = [0, 0, 0, 0, 0]; // index 1–4
+  const values: number[] = [];
+
+  deptForms.forEach((f) => {
+    const ans = f.answers.find((a) => a.questionId === questionId);
+    if (ans && ans.value >= 1 && ans.value <= 4) {
+      ratingCounts[ans.value]++;
+      values.push(ans.value);
+    }
+  });
+
+  const total = values.length;
+  const avg = total > 0 ? Number((values.reduce((s, v) => s + v, 0) / total).toFixed(2)) : 0;
+
+  const distribution = [1, 2, 3, 4].map((r) => ({
+    label: LABELS[r],
+    count: ratingCounts[r],
+    pct: total > 0 ? Math.round((ratingCounts[r] / total) * 100) : 0,
+  }));
+
+  // Sub-reasons: collected from answer.reasons (array of selected reason texts)
+  // and answer.note (free-text, collected when rating <= 2)
+  const subReasonCounts: number[] = question.subReasons ? [0, 0, 0] : [];
+  const notes: string[] = [];
+  let subReasonRespondents = 0; // # of people who gave a negative rating
+
+  if (question.subReasons) {
+    deptForms.forEach((f) => {
+      const ans = f.answers.find((a) => a.questionId === questionId);
+      if (!ans || ans.value > 2 || ans.value < 1) return;
+
+      subReasonRespondents++;
+
+      // reasons is an array of the exact reason strings selected by the patient
+      if (ans.reasons?.length) {
+        ans.reasons.forEach((selectedText) => {
+          const idx = (question.subReasons as [string, string, string]).findIndex(
+            (r) => r === selectedText
+          );
+          if (idx >= 0) subReasonCounts[idx]++;
+        });
+      }
+
+      if (ans.note?.trim()) {
+        notes.push(ans.note.trim());
+      }
+    });
+  }
+
+  const subReasons = question.subReasons
+    ? question.subReasons.map((text, i) => ({
+        text,
+        count: subReasonCounts[i],
+        pct: subReasonRespondents > 0 ? Math.round((subReasonCounts[i] / subReasonRespondents) * 100) : 0,
+      }))
+    : [];
+
+  return {
+    questionId,
+    questionText: question.text,
+    formType,
+    avg,
+    total,
+    negativeCount: subReasonRespondents,
+    distribution,
+    subReasons,
+    notes,
+  };
 }
 
 export function getNpsBreakdown(forms: Form3Response[]) {

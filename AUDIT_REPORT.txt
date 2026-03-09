@@ -1,0 +1,289 @@
+================================================================================
+FEEDBACKFORMS — TECHNICAL AUDIT REPORT
+Generated: 2026-03-06
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — PROJECT OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Stack: React 19 + TypeScript + Vite + Tailwind v4 / NestJS + TypeORM + PostgreSQL
+Auth: JWT (public form submission, protected dashboard/analytics)
+Deployment: AWS (infra/ via CDK), DB on RDS (sa-east-1)
+
+Only Form 3 is fully implemented end-to-end.
+Forms 1 & 2 exist only as frontend types — no backend, no routes.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — DISORGANIZATION TASKS (Fix These)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[TASK-01] 🔴 CRITICAL — Remove hardcoded credentials from .env
+  File: backend/.env
+  Issue: DB password, JWT secret, and RDS hostname hardcoded and committed to git.
+  Fix:
+    - Rotate DB password and JWT secret immediately
+    - Move secrets to AWS Secrets Manager or environment injection at deploy time
+    - Add backend/.env to .gitignore
+    - Run: git rm --cached backend/.env && git commit "remove .env from tracking"
+
+[TASK-02] 🔴 CRITICAL — Remove DB_SYNCHRONIZE=true in production
+  File: backend/.env (DB_SYNCHRONIZE=true)
+  Issue: Auto-syncs schema on every boot — can silently drop columns or tables.
+  Fix:
+    - Set DB_SYNCHRONIZE=false in production
+    - Generate and commit a TypeORM migration:
+        npm run migration:generate -- -n InitialSchema
+        npm run migration:run
+    - Use DB_SYNCHRONIZE=true in .env.development only
+
+[TASK-03] 🔴 HIGH — Delete or fix broken import references (will crash at runtime)
+  Files:
+    - src/utils/seed-data.ts      → imports formService (does not exist)
+    - src/services/report-service.ts → imports formService (does not exist)
+  Fix: Delete both files if unused. If PDF reports are a future feature, keep
+       report-service.ts but remove the import and stub it properly.
+
+[TASK-04] 🟡 HIGH — Rename backend module files to match class names
+  Files: backend/src/modules/forms/
+    forms.controller.ts  → form3.controller.ts   (class is Form3Controller)
+    forms.service.ts     → form3.service.ts       (class is Form3Service)
+    forms.entity.ts      → form3.entity.ts        (class is Form3ResponseEntity)
+    forms.module.ts      → form3.module.ts        (class is Form3Module)
+    dto/create-form.dto.ts  → dto/create-form3.dto.ts
+    dto/filter-form.dto.ts  → dto/filter-form3.dto.ts
+  Reason: Class names already say "Form3" but file names say "forms" — misleading.
+
+[TASK-05] 🟡 HIGH — Rename backend module folder
+  Path: backend/src/modules/forms/ → backend/src/modules/form3/
+  Reason: Folder name "forms" implies it handles all forms. It only handles Form 3.
+
+[TASK-06] 🟡 MEDIUM — Remove unused npm packages
+  Frontend (package.json):
+    - jspdf@4.1.0       → PDF generation, never called anywhere
+    - lottie-react@2.4.1 → Animations, no Lottie JSON files or imports found
+  Fix: npm uninstall jspdf lottie-react
+  Impact: Reduces bundle size ~300KB+
+
+[TASK-07] 🟡 MEDIUM — Remove or relocate orphaned type file
+  File: src/types/report.ts
+  Issue: ReportData and related types defined here are never imported anywhere.
+  Fix: Delete the file, or move types into src/types/index.ts if they will be used.
+
+[TASK-08] 🟡 MEDIUM — Clarify Forms 1 & 2 scope
+  Issue: src/types/index.ts contains full type definitions for Form 1 and Form 2
+         (FormResponse, Form2Response, etc.) but there is zero backend support.
+         There are also no routes, no services, and no pages for these forms.
+  Fix (choose one):
+    A) Delete Form 1 & 2 types entirely if they are abandoned
+    B) Create backend modules for Form 1 & 2 (forms.module, entities, controllers)
+    C) Add a comment block in index.ts: "// Forms 1 & 2 — not yet implemented"
+
+[TASK-09] 🟢 LOW — Consolidate redundant documentation files
+  Root files: README.md, PROJECT_STRUCTURE.md, DEPLOY.md, AUDITORIA_TECNICA.md, AUDIT_REPORT.txt
+  Issue: Five docs covering overlapping content — hard to know which is authoritative.
+  Fix: Keep README.md as the single source of truth. Merge relevant content into it.
+       Archive or delete AUDITORIA_TECNICA.md and PROJECT_STRUCTURE.md.
+
+[TASK-10] 🟢 LOW — Replace console.log/error with NestJS Logger
+  Files:
+    - backend/src/main.ts:35         (startup console.log)
+    - backend/src/modules/user/user.service.ts (any console calls)
+  Fix:
+    import { Logger } from '@nestjs/common';
+    const logger = new Logger('Bootstrap');
+    logger.log(`API running on port ${port}`);
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — BETTER PRACTICES & ARCHITECTURE IMPROVEMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ARCH-01] Add environment validation on backend startup
+  Current: .env values are read but never validated — missing vars cause silent failures.
+  Better: Use @nestjs/config with Joi or zod schema validation.
+    npm install @nestjs/config joi
+    // config.module.ts
+    ConfigModule.forRoot({
+      validationSchema: Joi.object({
+        PORT: Joi.number().default(3001),
+        DB_HOST: Joi.string().required(),
+        JWT_SECRET: Joi.string().min(32).required(),
+        DB_SYNCHRONIZE: Joi.boolean().default(false),
+      }),
+    });
+  Impact: App fails fast with clear error if env is misconfigured — prevents
+          silent runtime bugs in production.
+
+[ARCH-02] Enforce role-based access control (RBAC)
+  Current: User entity has a `role` field ('admin' | 'viewer') but it is never
+           checked. Any valid JWT holder can access all protected routes equally.
+  Better: Add a Roles guard and @Roles() decorator.
+    // roles.guard.ts
+    @Injectable()
+    export class RolesGuard implements CanActivate {
+      canActivate(context: ExecutionContext): boolean {
+        const requiredRoles = this.reflector.get<string[]>('roles', context.getHandler());
+        const { user } = context.switchToHttp().getRequest();
+        return requiredRoles.includes(user.role);
+      }
+    }
+    // In controller:
+    @Delete()
+    @Roles('admin')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    deleteAll() { ... }
+  Impact: Prevents viewers from deleting data. Enforces least-privilege principle.
+
+[ARCH-03] Refactor 7 identical survey routes into one dynamic route
+  Current: App.tsx has 7 near-identical routes:
+    <Route path="/internacao" element={<SurveyForm3 formType="INTERNACAO_HOSPITALAR" />} />
+    <Route path="/exames" element={<SurveyForm3 formType="EXAMES_LABORATORIAIS" />} />
+    ... (5 more identical routes)
+  Better: Use a single parameterized route:
+    <Route path="/survey/:department" element={<SurveyForm3 />} />
+    // In SurveyForm3, read: const { department } = useParams();
+    // Map URL param to formType enum
+  Impact: Removes 6 duplicate route declarations. Easier to add new departments.
+
+[ARCH-04] Add API response type safety with shared DTOs
+  Current: Frontend fetches data and casts it directly. If the backend changes
+           a field name, TypeScript won't catch it until runtime.
+  Better: Create a shared types package (monorepo pattern) or generate API types
+          from OpenAPI spec.
+    Option A (simple): Move shared types to /shared/types/ and import from both
+    Option B (advanced): Add @nestjs/swagger + openapi-typescript codegen
+      npm install @nestjs/swagger swagger-ui-express
+      // Then: npx openapi-typescript http://localhost:3001/api-json -o src/types/api.ts
+  Impact: Compile-time safety on API contracts. Breaking API changes caught at build time.
+
+[ARCH-05] Add TypeORM migrations workflow
+  Current: DB_SYNCHRONIZE=true auto-applies schema changes. Dangerous in production.
+  Better: Full migrations workflow:
+    1. Set DB_SYNCHRONIZE=false in production
+    2. Generate migration after entity changes:
+         npm run migration:generate -- -n AddNpsColumn
+    3. Review generated SQL in migrations/ folder
+    4. Run migration in CI/CD pipeline before deploying new code
+    5. Keep migrations in git (never delete migration files)
+  Impact: Predictable, reversible schema changes. No surprise data loss.
+
+[ARCH-06] Add a global validation pipe with class-validator
+  Current: DTOs exist but there's no validation pipeline — invalid payloads
+           may reach the service layer unchecked.
+  Better: Enable global validation in main.ts:
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: true,         // Strip unknown fields
+      forbidNonWhitelisted: true, // Reject unknown fields
+      transform: true,         // Auto-cast types
+    }));
+  Also add decorators to DTOs:
+    import { IsEnum, IsArray, ArrayMinSize } from 'class-validator';
+    export class CreateForm3Dto {
+      @IsEnum(FormType)
+      formType: FormType;
+      @IsArray()
+      @ArrayMinSize(1)
+      answers: AnswerDto[];
+    }
+  Impact: Input validation at the boundary. Prevents garbage data entering the DB.
+
+[ARCH-07] Add request rate limiting to public endpoints
+  Current: POST /api/forms3 is public with no rate limit — vulnerable to spam/flooding.
+  Better:
+    npm install @nestjs/throttler
+    // app.module.ts
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 5 }])
+    // On public controller:
+    @UseGuards(ThrottlerGuard)
+    @Post()
+    create(@Body() dto: CreateForm3Dto) { ... }
+  Impact: Prevents form spam and DB flooding. Essential for public-facing forms.
+
+[ARCH-08] Add end-to-end or unit tests
+  Current: Zero test files in the entire project.
+  Better: Start with high-value, low-effort tests:
+    Backend (Jest, already configured):
+      - forms.service.spec.ts → test create(), findAll(), getMetrics()
+      - auth.service.spec.ts  → test login(), validateUser()
+    Frontend (Vitest + Testing Library):
+      - survey-form3.test.tsx → test form submission flow
+      - analytics3.test.tsx   → test metric calculations
+  Minimal setup:
+    npm install --save-dev @testing-library/react @testing-library/user-event vitest
+  Impact: Regression safety. Especially important before adding DB migrations.
+
+[ARCH-09] Extract question config to backend (or at least validate it there)
+  Current: src/pages/survey-form3-config.ts is the single source of truth for
+           question definitions. Backend stores raw JSONB answers with no
+           knowledge of valid questionIds or value ranges.
+  Better:
+    Option A: Duplicate config in backend for validation (simple)
+      // In forms.service.ts: validate that answer.questionId is in allowed list
+    Option B: Store question config in DB and fetch it dynamically (scalable)
+      // New entity: QuestionConfig { id, formType, questions: JSONB }
+      // GET /api/forms3/config → returns questions for form rendering
+  Impact: Prevents invalid questionIds being stored. Enables adding questions
+          without frontend deploy.
+
+[ARCH-10] Add structured logging and error tracking
+  Current: console.log/error used throughout. No centralized error tracking.
+  Better:
+    - Replace all console calls with NestJS Logger (see TASK-10)
+    - Add Sentry for production error tracking:
+        npm install @sentry/nestjs @sentry/node
+    - Add request correlation IDs for distributed tracing:
+        Use cls-hooked or AsyncLocalStorage to attach request ID to all logs
+  Impact: Debuggable production issues. Alerts on errors. Traceable request flows.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — PRIORITY MATRIX
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Do these first (high impact, low effort):
+  1. TASK-01  — Remove hardcoded credentials from git              [SECURITY]
+  2. TASK-02  — Disable DB_SYNCHRONIZE in production               [STABILITY]
+  3. TASK-03  — Delete broken seed-data.ts and report-service.ts   [CORRECTNESS]
+  4. ARCH-06  — Add global ValidationPipe                          [CORRECTNESS]
+  5. ARCH-07  — Add rate limiting to public POST endpoint           [SECURITY]
+
+Do these next (medium effort, meaningful improvement):
+  6. TASK-04/05 — Rename backend module files and folder            [CLARITY]
+  7. TASK-06    — Remove unused jspdf and lottie packages           [BUNDLE SIZE]
+  8. ARCH-01    — Add @nestjs/config + Joi env validation           [RELIABILITY]
+  9. ARCH-02    — Implement RBAC roles guard                        [SECURITY]
+  10. ARCH-03   — Refactor 7 routes into 1 dynamic route            [MAINTAINABILITY]
+
+Do these when time allows (high effort, long-term value):
+  11. ARCH-05  — Migrate to TypeORM migrations                      [SAFETY]
+  12. ARCH-04  — Shared types / OpenAPI codegen                     [TYPE SAFETY]
+  13. ARCH-08  — Add unit and e2e tests                             [RELIABILITY]
+  14. ARCH-09  — Move question config validation to backend          [DATA INTEGRITY]
+  15. ARCH-10  — Structured logging + Sentry                        [OBSERVABILITY]
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — OVERALL HEALTH SCORECARD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Category               Score   Notes
+─────────────────────────────────────────────────────────────────
+Code Organization      7/10    Clean separation, but naming mismatches
+Type Safety            8/10    Full TypeScript, some orphaned types
+Security               3/10    Credentials in git, no rate limiting, no RBAC
+Naming Consistency     5/10    Module/class name mismatch throughout backend
+Dependency Hygiene     6/10    Two unused packages bloating the bundle
+Error Handling         5/10    console.log instead of logger, no Sentry
+Input Validation       4/10    No global ValidationPipe, no rate limiting
+Testing                0/10    No test files anywhere
+API Design             6/10    RESTful but incomplete (Forms 1 & 2 missing)
+Documentation          7/10    Good docs but duplicated across 5 files
+Database Safety        4/10    DB_SYNCHRONIZE=true in prod, no migrations
+─────────────────────────────────────────────────────────────────
+OVERALL                5/10    Functional but not production-hardened
+
+================================================================================
+END OF REPORT
+================================================================================

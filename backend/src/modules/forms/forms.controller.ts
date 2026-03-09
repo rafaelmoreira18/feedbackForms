@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Param,
   Body,
   Query,
@@ -31,6 +32,12 @@ export class Form3Controller {
   @UseGuards(JwtAuthGuard)
   getMetrics(@Query() filters: FilterForm3Dto) {
     return this.form3Service.getMetrics(filters);
+  }
+
+  @Delete()
+  @UseGuards(JwtAuthGuard)
+  deleteAll() {
+    return this.form3Service.deleteAll();
   }
 
   @Get(':id')

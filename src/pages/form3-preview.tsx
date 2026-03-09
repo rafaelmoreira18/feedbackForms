@@ -214,8 +214,7 @@ export default function Form3Preview() {
                   const val = answer?.value ?? 0;
                   const selectedReasons = answer?.reasons ?? [];
                   const note = answer?.note;
-                  const showSubReasons =
-                    val > 0 && val <= 2 && q.subReasons && (selectedReasons.length > 0 || (note && note.trim().length > 0));
+                  const showSubReasons = val > 0 && val <= 2 && q.subReasons;
 
                   return (
                     <div key={q.id} className="flex flex-col gap-2 pb-4 border-b border-gray-100 last:border-b-0 last:pb-0">
