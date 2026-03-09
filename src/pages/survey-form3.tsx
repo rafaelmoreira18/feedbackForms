@@ -119,12 +119,25 @@ function Rating4Input({
 function NpsInput({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number) => void }) {
   function getColor(n: number): string {
     if (value !== n) return "bg-gray-100 text-gray-300 hover:bg-gray-200";
-    if (n <= 6) return "bg-brand-red text-white";
+    if (n <= 6) return "bg-red-base text-white";
     if (n <= 8) return "bg-yellow-base text-white";
     return "bg-green-base text-white";
   }
+
+  // Bracket: left cap | line | right cap
+  function Bracket({ color, label }: { color: string; label: string }) {
+    return (
+      <div className="flex flex-col items-center">
+        <div className={`w-full flex items-end h-2 ${color}`}
+          style={{ borderLeft: "2px solid currentColor", borderTop: "2px solid currentColor", borderRight: "2px solid currentColor", borderRadius: "2px 2px 0 0" }}
+        />
+        <span className={`text-[10px] font-semibold font-sans mt-0.5 ${color}`}>{label}</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       <p className="text-sm font-semibold text-gray-400 font-sans">{label}</p>
       <div className="grid grid-cols-11 gap-1">
         {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
@@ -139,9 +152,21 @@ function NpsInput({ label, value, onChange }: { label: string; value: number | n
           </button>
         ))}
       </div>
-      <div className="flex justify-between">
-        <span className="text-xs text-gray-300 font-sans">Muito improvável</span>
-        <span className="text-xs text-gray-300 font-sans">Muito provável</span>
+
+      {/* Zone brackets — same grid so columns align exactly with buttons */}
+      <div className="grid grid-cols-11 gap-1">
+        {/* Detrator 0–6: spans 7 cols */}
+        <div className="col-span-7">
+          <Bracket color="text-red-base" label="Detrator" />
+        </div>
+        {/* Neutro 7–8: spans 2 cols */}
+        <div className="col-span-2">
+          <Bracket color="text-yellow-base" label="Neutro" />
+        </div>
+        {/* Promotor 9–10: spans 2 cols */}
+        <div className="col-span-2">
+          <Bracket color="text-green-base" label="Promotor" />
+        </div>
       </div>
     </div>
   );
