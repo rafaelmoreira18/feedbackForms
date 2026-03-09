@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
 
 export default function Home() {
-  return <Navigate to="/pesquisa" replace />;
+  return <Navigate to="/hgm/pesquisa" replace />;
 }

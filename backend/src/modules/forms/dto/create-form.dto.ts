@@ -13,10 +13,8 @@ import {
   Validate,
   ValidatorConstraint,
   ValidatorConstraintInterface,
-  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Form3Type } from '../forms.entity';
 
 @ValidatorConstraint({ name: 'isCpf', async: false })
 class IsCpfConstraint implements ValidatorConstraintInterface {
@@ -65,8 +63,13 @@ class AnswerItemDto {
 }
 
 export class CreateForm3Dto {
-  @IsEnum(Form3Type)
-  formType: Form3Type;
+  /**
+   * Must match a FormTemplateEntity.slug for this tenant.
+   * Validated by the service against the DB — not an enum.
+   */
+  @IsString()
+  @IsNotEmpty()
+  formType: string;
 
   @IsString()
   @MinLength(2)

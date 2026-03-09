@@ -1,5 +1,4 @@
-import { IsOptional, IsString, IsIn, IsEnum } from 'class-validator';
-import { Form3Type } from '../forms.entity';
+import { IsOptional, IsString, IsIn } from 'class-validator';
 
 export class FilterForm3Dto {
   @IsOptional()
@@ -15,6 +14,6 @@ export class FilterForm3Dto {
   sortSatisfaction?: 'asc' | 'desc';
 
   @IsOptional()
-  @IsEnum(Form3Type)
-  formType?: Form3Type;
+  @IsString()
+  formType?: string;
 }

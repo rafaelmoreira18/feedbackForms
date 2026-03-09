@@ -3,17 +3,11 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
-
-export enum Form3Type {
-  INTERNACAO = 'Internação Hospitalar',
-  EXAMES = 'Exames Laboratoriais e de Imagem',
-  AMBULATORIO = 'Ambulatório',
-  UTI = 'UTI',
-  PRONTO_SOCORRO = 'Pronto Socorro',
-  HEMODIALISE = 'Hemodiálise',
-  CENTRO_CIRURGICO = 'Centro Cirúrgico',
-}
+import { TenantEntity } from '../tenants/tenant.entity';
 
 export interface Form3Answer {
   questionId: string;
@@ -27,11 +21,19 @@ export class Form3ResponseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({
-    type: 'enum',
-    enum: Form3Type,
-  })
-  formType: Form3Type;
+  /** Row-level tenant isolation */
+  @Index()
+  @Column()
+  tenantId: string;
+
+  @ManyToOne(() => TenantEntity, { nullable: false, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenantId' })
+  tenant: TenantEntity;
+
+  /** Matches FormTemplateEntity.slug for this tenant (e.g. "internacao", "uti") */
+  @Index()
+  @Column()
+  formType: string;
 
   @Column()
   patientName: string;
@@ -60,6 +62,7 @@ export class Form3ResponseEntity {
   @Column({ default: '' })
   comments: string;
 
+  @Index()
   @CreateDateColumn()
   createdAt: Date;
 }

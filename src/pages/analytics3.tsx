@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   BarChart, Bar, LineChart, Line, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
 import { form3Service } from "../services/form3-service";
+import { tenantService } from "../services/tenant-service";
+import type { FormTemplate } from "../types";
 import {
   getAverageByFormType,
   getAverageByQuestion,
@@ -15,9 +17,9 @@ import {
   getNpsCrossForm,
   getQuestionDetail,
   type QuestionDetail,
+  type QuestionAvg,
 } from "../services/analytics3-service";
-import type { Form3Response, Form3Type } from "../types";
-import { FORM3_DEPARTMENT_OPTIONS } from "./survey-form3-config";
+import type { Form3Response } from "../types";
 import Text from "../components/text";
 import Button from "../components/button";
 import Card from "../components/card";
@@ -349,16 +351,35 @@ function CustomYAxisTick({
 }
 
 export default function Analytics3() {
+  const { tenantSlug = "" } = useParams<{ tenantSlug: string }>();
   const navigate = useNavigate();
   const [allForms, setAllForms] = useState<Form3Response[]>([]);
+  const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [drillDetail, setDrillDetail] = useState<QuestionDetail | null>(null);
   const [selectedQuestionDept, setSelectedQuestionDept] = useState<string>("");
 
   useEffect(() => {
-    form3Service.getAll().then(setAllForms);
-  }, []);
+    if (!tenantSlug) return;
+    form3Service.getAll(tenantSlug).then(setAllForms);
+    tenantService.getFormTemplates(tenantSlug).then(setTemplates).catch(() => {});
+  }, [tenantSlug]);
+
+  // Build a map: formSlug -> questionKey -> full question text
+  const questionTextMap = useMemo(() => {
+    const map = new Map<string, Map<string, string>>();
+    templates.forEach((tmpl) => {
+      const qMap = new Map<string, string>();
+      tmpl.blocks.forEach((block) => {
+        block.questions.forEach((q) => {
+          qMap.set(q.questionKey, q.text);
+        });
+      });
+      map.set(tmpl.slug, qMap);
+    });
+    return map;
+  }, [templates]);
 
   const filtered = useMemo(
     () => filterByDate(allForms, startDate, endDate),
@@ -367,13 +388,19 @@ export default function Analytics3() {
 
   const summary = useMemo(() => getSummaryMetrics(filtered), [filtered]);
   const byFormType = useMemo(() => getAverageByFormType(filtered), [filtered]);
+
+  // Derive department slugs from actual response data — no hardcoded list
+  const deptSlugs = useMemo(
+    () => Array.from(new Set(filtered.map((f) => f.formType))),
+    [filtered]
+  );
+
   const byQuestionAllDepts = useMemo(
     () =>
-      FORM3_DEPARTMENT_OPTIONS.map((dept) => ({
-        dept: dept as Form3Type,
-        questions: getAverageByQuestion(filtered, dept as Form3Type),
-      })).filter((d) => d.questions.length > 0),
-    [filtered]
+      deptSlugs
+        .map((dept) => ({ dept, questions: getAverageByQuestion(filtered, dept, questionTextMap) }))
+        .filter((d) => d.questions.length > 0),
+    [filtered, deptSlugs, questionTextMap]
   );
   const npsBreakdown = useMemo(() => getNpsBreakdown(filtered), [filtered]);
   const monthlyTrend = useMemo(() => getMonthlyTrend(filtered), [filtered]);
@@ -382,9 +409,9 @@ export default function Analytics3() {
   const hasDateFilter = !!(startDate || endDate);
 
   const handleBarClick = useCallback(
-    (dept: Form3Type) => (data: any) => {
+    (dept: string) => (data: any) => {
       if (!data?.activePayload?.[0]?.payload) return;
-      const detail = getQuestionDetail(filtered, dept, data.activePayload[0].payload.questionId);
+      const detail = getQuestionDetail(filtered, dept, data.activePayload[0].payload.questionId, questionTextMap);
       if (detail) setDrillDetail(detail);
     },
     [filtered]
@@ -540,7 +567,7 @@ export default function Analytics3() {
                   onChange={(e) => setSelectedQuestionDept(e.target.value)}
                   options={[
                     { value: "", label: "Selecione um setor..." },
-                    ...byQuestionAllDepts.map(({ dept }) => ({ value: dept, label: dept })),
+                    ...byQuestionAllDepts.map(({ dept }: { dept: string }) => ({ value: dept, label: dept })),
                   ]}
                 />
               </div>
@@ -562,43 +589,54 @@ export default function Analytics3() {
               </div>
             </div>
 
-            {byQuestionAllDepts.filter(({ dept }, i) => selectedQuestionDept ? dept === selectedQuestionDept : i === 0).map(({ dept, questions }) => {
-              const onClick = handleBarClick(dept);
-              return (
-                <Card key={dept} shadow="md" padding="lg">
-                  <Text variant="body-sm-bold" className="text-gray-400 mb-4">{dept}</Text>
-                  <ResponsiveContainer width="100%" height={Math.max(280, questions.length * 60)}>
-                    <BarChart
-                      data={questions}
-                      layout="vertical"
-                      margin={{ left: 240, right: 50, top: 4, bottom: 4 }}
-                      onClick={onClick}
-                      style={{ cursor: "pointer" }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" domain={[0, 4]} tick={{ fontSize: 11 }} />
-                      <YAxis
-                        dataKey="questionShort"
-                        type="category"
-                        width={235}
-                        tick={(props) => <CustomYAxisTick {...props} width={230} />}
-                      />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }}
-                        wrapperStyle={{ opacity: 1, zIndex: 50 }}
-                        formatter={(value: number) => [`${value.toFixed(2)}/4`, "Avaliação média"]}
-                        labelFormatter={(label) => label}
-                      />
-                      <Bar dataKey="value" name="Avaliação (1–4)" radius={[0, 4, 4, 0]}>
-                        {questions.map((q) => (
-                          <Cell key={q.questionId} fill={questionBarColor(q.value)} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Card>
-              );
-            })}
+            {byQuestionAllDepts
+              .filter(({ dept }: { dept: string }, i: number) =>
+                selectedQuestionDept ? dept === selectedQuestionDept : i === 0
+              )
+              .map(({ dept, questions }: { dept: string; questions: QuestionAvg[] }) => {
+                const onClick = handleBarClick(dept);
+                return (
+                  <Card key={dept} shadow="md" padding="lg">
+                    <Text variant="body-sm-bold" className="text-gray-400 mb-4">{dept}</Text>
+                    <ResponsiveContainer width="100%" height={Math.max(280, questions.length * 72)}>
+                      <BarChart
+                        data={questions}
+                        layout="vertical"
+                        margin={{ left: 280, right: 50, top: 4, bottom: 4 }}
+                        onClick={onClick}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" domain={[0, 4]} tick={{ fontSize: 11 }} />
+                        <YAxis
+                          dataKey="questionShort"
+                          type="category"
+                          width={275}
+                          tick={(props) => <CustomYAxisTick {...props} width={270} />}
+                        />
+                        <Tooltip
+                          wrapperStyle={{ opacity: 1, zIndex: 50, maxWidth: 320 }}
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.length) return null;
+                            const q = payload[0].payload as QuestionAvg;
+                            return (
+                              <div style={{ backgroundColor: "#1f2937", border: "1px solid #374151", borderRadius: 8, padding: "10px 14px", maxWidth: 320 }}>
+                                <p style={{ color: "#d1d5db", fontSize: 12, marginBottom: 6, lineHeight: 1.5, whiteSpace: "normal", wordBreak: "break-word" }}>{q.question}</p>
+                                <p style={{ color: "#f9fafb", fontSize: 13, fontWeight: 600 }}>{payload[0].value?.toFixed ? `${(payload[0].value as number).toFixed(2)}/4` : payload[0].value} — Avaliação média</p>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Bar dataKey="value" name="Avaliação (1–4)" radius={[0, 4, 4, 0]}>
+                          {questions.map((q: QuestionAvg) => (
+                            <Cell key={q.questionId} fill={questionBarColor(q.value)} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Card>
+                );
+              })}
 
             {byQuestionAllDepts.length === 0 && (
               <Card shadow="sm" padding="md">

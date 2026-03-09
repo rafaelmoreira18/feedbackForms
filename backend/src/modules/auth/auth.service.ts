@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UserService } from '../user/user.service';
+import { TenantService } from '../tenants/tenant.service';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class AuthService {
   constructor(
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
+    private readonly tenantService: TenantService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -24,7 +26,22 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      tenantId: user.tenantId,
+    };
+
+    let tenantSlug: string | null = null;
+    if (user.tenantId) {
+      try {
+        const tenant = await this.tenantService.findById(user.tenantId);
+        tenantSlug = tenant.slug;
+      } catch {
+        // tenant not found — leave slug null
+      }
+    }
 
     return {
       accessToken: this.jwtService.sign(payload),
@@ -33,6 +50,8 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        tenantId: user.tenantId,
+        tenantSlug,
       },
     };
   }

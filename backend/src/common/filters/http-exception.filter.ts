@@ -23,6 +23,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'Internal server error';
 
+    if (!(exception instanceof HttpException)) {
+      console.error('[UnhandledException]', exception);
+    }
+
     response.status(status).json({
       statusCode: status,
       message: typeof message === 'string' ? message : (message as any).message,

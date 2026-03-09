@@ -26,7 +26,7 @@ export class UserService implements OnModuleInit {
         email: 'admin@hospital.com',
         name: 'Administrador',
         password: hashedPassword,
-        role: 'admin',
+        role: 'holding_admin',
       });
       await this.userRepository.save(admin);
     }

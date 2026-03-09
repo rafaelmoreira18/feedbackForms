@@ -19,31 +19,33 @@ export function getScaleAverage(form: Form3Response): number {
 }
 
 export function getNpsScore(form: Form3Response): number | undefined {
-  const npsAnswer = form.answers.find((a) => a.questionId === 'nps');
-  return npsAnswer?.value;
+  return form.answers.find((a) => a.questionId === 'nps')?.value;
 }
 
 export const form3Service = {
-  getAll: async (): Promise<Form3Response[]> => {
-    return api.get<Form3Response[]>('forms3');
+  getAll: async (tenantSlug: string): Promise<Form3Response[]> => {
+    return api.get<Form3Response[]>(`tenants/${tenantSlug}/forms3`);
   },
 
-  getById: async (id: string): Promise<Form3Response> => {
-    return api.get<Form3Response>(`forms3/${id}`);
+  getById: async (tenantSlug: string, id: string): Promise<Form3Response> => {
+    return api.get<Form3Response>(`tenants/${tenantSlug}/forms3/${id}`);
   },
 
-  create: async (formData: Omit<Form3Response, 'id' | 'createdAt'>): Promise<Form3Response> => {
-    return api.post<Form3Response>('forms3', formData);
+  create: async (
+    tenantSlug: string,
+    formData: Omit<Form3Response, 'id' | 'createdAt'>,
+  ): Promise<Form3Response> => {
+    return api.post<Form3Response>(`tenants/${tenantSlug}/forms3`, formData);
   },
 
-  filter: async (filters: Form3Filters): Promise<Form3Response[]> => {
+  filter: async (tenantSlug: string, filters: Form3Filters): Promise<Form3Response[]> => {
     const qs = buildQueryString(filters);
-    return api.get<Form3Response[]>(`forms3${qs}`);
+    return api.get<Form3Response[]>(`tenants/${tenantSlug}/forms3${qs}`);
   },
 
-  getMetrics: async (filters?: Form3Filters): Promise<Form3Metrics> => {
+  getMetrics: async (tenantSlug: string, filters?: Form3Filters): Promise<Form3Metrics> => {
     const qs = buildQueryString(filters);
-    return api.get<Form3Metrics>(`forms3/metrics${qs}`);
+    return api.get<Form3Metrics>(`tenants/${tenantSlug}/forms3/metrics${qs}`);
   },
 
   getScaleAverage,

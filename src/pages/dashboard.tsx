@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import { form3Service, getScaleAverage } from "../services/form3-service";
-import type { Form3Response, Form3Filters, Form3Metrics, Form3Type } from "../types";
-import { FORM3_DEPARTMENT_OPTIONS } from "./survey-form3-config";
+import type { Form3Response, Form3Filters, Form3Metrics } from "../types";
 import { formatDate } from "../utils/format";
 import Text from "../components/text";
 import Select from "../components/select";
@@ -39,6 +38,7 @@ function MetricCard({
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
+  const tenantSlug = user?.tenantSlug ?? "";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -50,9 +50,8 @@ export default function Dashboard() {
     responsesThisMonth: 0,
     responsesLastMonth: 0,
     averageNps: 0,
-    npsScore: 0,
   });
-  const [form3DeptFilter, setForm3DeptFilter] = useState<Form3Type | "">("");
+  const [form3DeptFilter, setForm3DeptFilter] = useState<string>("");
 
   const startDate = searchParams.get("startDate") || "";
   const endDate = searchParams.get("endDate") || "";
@@ -79,9 +78,9 @@ export default function Dashboard() {
         formType: form3DeptFilter || undefined,
       };
       const [all, filtered, m] = await Promise.all([
-        form3Service.getAll(),
-        form3Service.filter(f3Filters),
-        form3Service.getMetrics(f3Filters),
+        form3Service.getAll(tenantSlug),
+        form3Service.filter(tenantSlug, f3Filters),
+        form3Service.getMetrics(tenantSlug, f3Filters),
       ]);
       setForms3(all);
       setFilteredForms3(filtered);
@@ -118,7 +117,7 @@ export default function Dashboard() {
           <Text variant="body-sm" className="text-gray-300 hidden sm:block">
             {user?.name}
           </Text>
-          <Button variant="outline" size="sm" onClick={() => navigate("/analytics3")}>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/${tenantSlug}/analytics`)}>
             Analytics
           </Button>
           <Button variant="secondary" size="sm" onClick={logout}>
@@ -146,11 +145,6 @@ export default function Dashboard() {
               title="Média NPS (0–10)"
               value={`${metrics3.averageNps}/10`}
               subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
-            />
-            <MetricCard
-              title="NPS Score"
-              value={metrics3.npsScore}
-              subtitle="(Promotores − Detratores) × 100"
             />
             <MetricCard
               title="Respostas Este Mês"
@@ -196,17 +190,17 @@ export default function Dashboard() {
                   label="Setor"
                   options={[
                     { value: "", label: "Todos os setores" },
-                    ...FORM3_DEPARTMENT_OPTIONS.map((d) => ({ value: d, label: d })),
+                    ...Array.from(new Set(forms3.map((f) => f.formType))).map((d) => ({ value: d, label: d })),
                   ]}
                   value={form3DeptFilter}
-                  onChange={(e) => setForm3DeptFilter(e.target.value as Form3Type | "")}
+                  onChange={(e) => setForm3DeptFilter(e.target.value)}
                 />
               </div>
             </div>
           </Card>
 
           {/* Responses Table */}
-          <Form3Table forms={filteredForms3} onRowClick={(id) => navigate(`/form3/${id}`)} />
+          <Form3Table forms={filteredForms3} onRowClick={(id) => navigate(`/${tenantSlug}/responses/${id}`)} />
         </div>
       </div>
     </div>

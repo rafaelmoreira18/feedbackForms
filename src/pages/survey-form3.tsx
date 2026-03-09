@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { form3Service } from "../services/form3-service";
-import { FORM3_CONFIGS, FORM3_SLUG_TO_TYPE, RATING4_LABELS } from "./survey-form3-config";
-import type { Form3Answer } from "../types";
+import { tenantService } from "../services/tenant-service";
+import type { Form3Answer, FormTemplate } from "../types";
 import Input from "../components/input";
 import Textarea from "../components/textarea";
 import Button from "../components/button";
@@ -18,6 +18,8 @@ const RATING4_EMOJI_URLS: Record<number, string> = {
   3: `${NOTO_BASE}/1f642/512.webp`,
   4: `${NOTO_BASE}/1f601/512.webp`,
 };
+
+const RATING4_LABELS: Record<number, string> = { 1: "Ruim", 2: "Regular", 3: "Bom", 4: "Excelente" };
 
 const RATING4_STYLES: Record<number, { active: string; inactive: string }> = {
   1: { active: "bg-red-base border-red-base text-white shadow-md", inactive: "bg-white border-gray-200 text-gray-300 hover:border-red-base hover:text-red-base" },
@@ -52,19 +54,12 @@ function SectionHeader({ icon, title, subtitle }: { icon: string; title: string;
 }
 
 function Rating4Input({
-  label,
-  value,
-  onChange,
-  subReasons,
-  selectedReasons,
-  note,
-  onReasonsChange,
-  onNoteChange,
+  label, value, onChange, subReasons, selectedReasons, note, onReasonsChange, onNoteChange,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
-  subReasons?: [string, string, string];
+  subReasons?: [string, string, string] | null;
   selectedReasons: string[];
   note: string;
   onReasonsChange: (reasons: string[]) => void;
@@ -87,14 +82,8 @@ function Rating4Input({
                 className={`flex items-center justify-center gap-2 px-3 py-3 rounded-xl border-2 font-semibold text-sm transition-all duration-150 w-full sm:w-auto ${isActive ? RATING4_STYLES[r].active : RATING4_STYLES[r].inactive}`}
               >
                 {isActive && (
-                  <img
-                    key={`${r}-active`}
-                    src={RATING4_EMOJI_URLS[r]}
-                    alt={RATING4_LABELS[r]}
-                    width={24}
-                    height={24}
-                    className="emoji-pop shrink-0"
-                  />
+                  <img key={`${r}-active`} src={RATING4_EMOJI_URLS[r]} alt={RATING4_LABELS[r]}
+                    width={24} height={24} className="emoji-pop shrink-0" />
                 )}
                 <span>{RATING4_LABELS[r]}</span>
               </button>
@@ -124,14 +113,14 @@ function NpsInput({ label, value, onChange }: { label: string; value: number | n
     return "bg-green-base text-white";
   }
 
-  // Bracket: left cap | line | right cap
-  function Bracket({ color, label }: { color: string; label: string }) {
+  function Bracket({ color, label: bl }: { color: string; label: string }) {
     return (
       <div className="flex flex-col items-center">
-        <div className={`w-full flex items-end h-2 ${color}`}
+        <div
+          className={`w-full flex items-end h-2 ${color}`}
           style={{ borderLeft: "2px solid currentColor", borderTop: "2px solid currentColor", borderRight: "2px solid currentColor", borderRadius: "2px 2px 0 0" }}
         />
-        <span className={`text-[10px] font-semibold font-sans mt-0.5 ${color}`}>{label}</span>
+        <span className={`text-[10px] font-semibold font-sans mt-0.5 ${color}`}>{bl}</span>
       </div>
     );
   }
@@ -141,10 +130,7 @@ function NpsInput({ label, value, onChange }: { label: string; value: number | n
       <p className="text-sm font-semibold text-gray-400 font-sans">{label}</p>
       <div className="grid grid-cols-11 gap-1">
         {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-          <button
-            key={n}
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
+          <button key={n} type="button" onMouseDown={(e) => e.preventDefault()}
             onClick={() => onChange(n)}
             className={`h-10 w-full rounded-lg font-bold text-sm transition-all duration-150 ${getColor(n)}`}
           >
@@ -152,21 +138,10 @@ function NpsInput({ label, value, onChange }: { label: string; value: number | n
           </button>
         ))}
       </div>
-
-      {/* Zone brackets — same grid so columns align exactly with buttons */}
       <div className="grid grid-cols-11 gap-1">
-        {/* Detrator 0–6: spans 7 cols */}
-        <div className="col-span-7">
-          <Bracket color="text-red-base" label="Detrator" />
-        </div>
-        {/* Neutro 7–8: spans 2 cols */}
-        <div className="col-span-2">
-          <Bracket color="text-yellow-base" label="Neutro" />
-        </div>
-        {/* Promotor 9–10: spans 2 cols */}
-        <div className="col-span-2">
-          <Bracket color="text-green-base" label="Promotor" />
-        </div>
+        <div className="col-span-7"><Bracket color="text-red-base" label="Detrator" /></div>
+        <div className="col-span-2"><Bracket color="text-yellow-base" label="Neutro" /></div>
+        <div className="col-span-2"><Bracket color="text-green-base" label="Promotor" /></div>
       </div>
     </div>
   );
@@ -196,13 +171,12 @@ function isValidCpf(cpf: string): boolean {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SurveyForm3() {
-  const location = useLocation();
+  const { tenantSlug = "", formSlug = "" } = useParams<{ tenantSlug: string; formSlug: string }>();
   const navigate = useNavigate();
 
-  const slug = location.pathname.replace(/^\//, "");
-  const formType = FORM3_SLUG_TO_TYPE[slug];
-  const config = formType ? FORM3_CONFIGS[formType] : undefined;
-
+  const [template, setTemplate] = useState<FormTemplate | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [cpfError, setCpfError] = useState("");
   const [dateError, setDateError] = useState("");
@@ -216,21 +190,36 @@ export default function SurveyForm3() {
     dischargeDate: "",
   });
 
-  const [answers, setAnswers] = useState<Map<string, Form3Answer>>(() => {
-    const map = new Map<string, Form3Answer>();
-    if (config) {
-      config.blocks.forEach((block) => {
-        block.questions.forEach((q) => {
-          map.set(q.id, { questionId: q.id, value: q.scale === "nps" ? -1 : 0 });
-        });
-      });
-    }
-    return map;
-  });
-
+  const [answers, setAnswers] = useState<Map<string, Form3Answer>>(new Map());
   const [comments, setComments] = useState("");
 
-  if (!formType || !config) {
+  useEffect(() => {
+    if (!tenantSlug || !formSlug) { setNotFound(true); setLoading(false); return; }
+
+    tenantService.getFormTemplate(tenantSlug, formSlug)
+      .then((tmpl) => {
+        setTemplate(tmpl);
+        const map = new Map<string, Form3Answer>();
+        tmpl.blocks.forEach((block) => {
+          block.questions.forEach((q) => {
+            map.set(q.questionKey, { questionId: q.questionKey, value: q.scale === "nps" ? -1 : 0 });
+          });
+        });
+        setAnswers(map);
+      })
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
+  }, [tenantSlug, formSlug]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-teal-base border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (notFound || !template) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4 py-8">
         <div className="bg-white rounded-3xl p-8 text-center shadow-xl max-w-sm w-full">
@@ -242,34 +231,27 @@ export default function SurveyForm3() {
     );
   }
 
-  function setAnswer(questionId: string, value: number) {
+  function setAnswer(questionKey: string, value: number) {
     setAnswers((prev) => {
       const next = new Map(prev);
-      const existing = prev.get(questionId);
-      // Clear sub-reasons when rating improves to Bom or Excelente
-      if (value >= 3) {
-        next.set(questionId, { questionId, value });
-      } else {
-        next.set(questionId, { ...existing, questionId, value });
-      }
+      const existing = prev.get(questionKey);
+      next.set(questionKey, value >= 3 ? { questionId: questionKey, value } : { ...existing, questionId: questionKey, value });
       return next;
     });
   }
 
-  function setAnswerReasons(questionId: string, reasons: string[]) {
+  function setAnswerReasons(questionKey: string, reasons: string[]) {
     setAnswers((prev) => {
       const next = new Map(prev);
-      const existing = prev.get(questionId)!;
-      next.set(questionId, { ...existing, reasons });
+      next.set(questionKey, { ...prev.get(questionKey)!, reasons });
       return next;
     });
   }
 
-  function setAnswerNote(questionId: string, note: string) {
+  function setAnswerNote(questionKey: string, note: string) {
     setAnswers((prev) => {
       const next = new Map(prev);
-      const existing = prev.get(questionId)!;
-      next.set(questionId, { ...existing, note });
+      next.set(questionKey, { ...prev.get(questionKey)!, note });
       return next;
     });
   }
@@ -282,22 +264,24 @@ export default function SurveyForm3() {
       setDateError("A data de alta não pode ser anterior à data de admissão"); valid = false;
     } else setDateError("");
     if (!valid) return;
-    const answersArray = config.blocks.flatMap((block) =>
-      block.questions.map((q) => answers.get(q.id) ?? { questionId: q.id, value: q.scale === "nps" ? 0 : 1 })
+
+    const answersArray = template.blocks.flatMap((block) =>
+      block.questions.map((q) => answers.get(q.questionKey) ?? { questionId: q.questionKey, value: q.scale === "nps" ? 0 : 1 })
     );
+
     try {
-      await form3Service.create({
-        formType,
+      await form3Service.create(tenantSlug, {
+        formType: formSlug,
         ...patientInfo,
         patientCpf: patientInfo.patientCpf.replace(/\D/g, ""),
         patientAge: parseInt(patientInfo.patientAge),
-        evaluatedDepartment: formType,
+        evaluatedDepartment: template.name,
         answers: answersArray,
         comments,
       });
       setSubmitted(true);
-      setTimeout(() => navigate(location.pathname), 3000);
-    } catch { /* retry */ }
+      setTimeout(() => navigate(`/${tenantSlug}/${formSlug}`), 3000);
+    } catch { /* errors will surface via toast in future iteration */ }
   };
 
   if (submitted) {
@@ -309,7 +293,7 @@ export default function SurveyForm3() {
           </div>
           <div>
             <h2 className="text-3xl font-bold text-gray-400 font-sans">Obrigado!</h2>
-            <p className="text-gray-300 font-sans mt-2">Sua pesquisa foi enviada com sucesso.</p>
+            <p className="text-gray-300 font-sans mt-2">Sua pesquisa foi enviada com sucesso. Obrigado!</p>
           </div>
         </div>
       </div>
@@ -320,7 +304,7 @@ export default function SurveyForm3() {
     <div className="min-h-screen py-6 px-3 sm:px-4">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-6 px-2">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-400 font-sans">{formType}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-400 font-sans">{template.name}</h1>
           <p className="text-gray-300 font-sans mt-1 text-sm sm:text-base">
             Pesquisa de Satisfação &amp; Experiência do Paciente
           </p>
@@ -331,7 +315,6 @@ export default function SurveyForm3() {
 
           <form onSubmit={handleSubmit} className="p-5 sm:p-8 flex flex-col gap-8">
 
-            {/* Patient Info */}
             <section className="flex flex-col gap-4">
               <SectionHeader icon="👤" title="Informações do Paciente" />
               <Input label="Nome Completo" type="text" value={patientInfo.patientName}
@@ -346,76 +329,55 @@ export default function SurveyForm3() {
                   <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">Gênero</span>
                   <div className="flex rounded-xl border-2 border-gray-200 overflow-hidden h-12.5">
                     {(["Masculino", "Feminino", "Outro"] as const).map((g) => (
-                      <button
-                        key={g}
-                        type="button"
-                        onClick={() => setPatientInfo({ ...patientInfo, patientGender: g })}
-                        className={`flex-1 text-sm font-semibold font-sans transition-all duration-150 ${
-                          patientInfo.patientGender === g
-                            ? "bg-teal-base text-white"
-                            : "bg-white text-gray-300 hover:bg-teal-light/30"
-                        }`}
-                      >
-                        {g}
-                      </button>
+                      <button key={g} type="button" onClick={() => setPatientInfo({ ...patientInfo, patientGender: g })}
+                        className={`flex-1 text-sm font-semibold font-sans transition-all duration-150 ${patientInfo.patientGender === g ? "bg-teal-base text-white" : "bg-white text-gray-300 hover:bg-teal-light/30"}`}
+                      >{g}</button>
                     ))}
                   </div>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <DateInput
-                  label="Data de Admissão"
-                  value={patientInfo.admissionDate}
-                  required
+                <DateInput label="Data de Admissão" value={patientInfo.admissionDate} required
                   onChange={(v) => {
                     const next = { ...patientInfo, admissionDate: v };
-                    // clear discharge if it would become before admission
                     if (patientInfo.dischargeDate && v && patientInfo.dischargeDate < v) next.dischargeDate = "";
                     if (dateError) setDateError("");
                     setPatientInfo(next);
-                  }}
-                />
-                <DateInput
-                  label="Data de Alta / Atendimento"
-                  value={patientInfo.dischargeDate}
-                  required
-                  minDate={patientInfo.admissionDate || undefined}
-                  error={dateError}
-                  onChange={(v) => { setPatientInfo({ ...patientInfo, dischargeDate: v }); if (dateError) setDateError(""); }}
-                />
+                  }} />
+                <DateInput label="Data de Alta / Atendimento" value={patientInfo.dischargeDate} required
+                  minDate={patientInfo.admissionDate || undefined} error={dateError}
+                  onChange={(v) => { setPatientInfo({ ...patientInfo, dischargeDate: v }); if (dateError) setDateError(""); }} />
               </div>
             </section>
 
-            {/* Dynamic question blocks */}
-            {config.blocks.map((block) => (
-              <section key={block.title} className="flex flex-col gap-4">
+            {template.blocks.map((block) => (
+              <section key={block.id} className="flex flex-col gap-4">
                 <SectionHeader icon="📋" title={block.title} />
                 {block.questions.map((question) =>
                   question.scale === "rating4" ? (
                     <Rating4Input
                       key={question.id}
                       label={question.text}
-                      value={answers.get(question.id)?.value ?? 0}
-                      onChange={(v) => setAnswer(question.id, v)}
+                      value={answers.get(question.questionKey)?.value ?? 0}
+                      onChange={(v) => setAnswer(question.questionKey, v)}
                       subReasons={question.subReasons}
-                      selectedReasons={answers.get(question.id)?.reasons ?? []}
-                      note={answers.get(question.id)?.note ?? ""}
-                      onReasonsChange={(r) => setAnswerReasons(question.id, r)}
-                      onNoteChange={(n) => setAnswerNote(question.id, n)}
+                      selectedReasons={answers.get(question.questionKey)?.reasons ?? []}
+                      note={answers.get(question.questionKey)?.note ?? ""}
+                      onReasonsChange={(r) => setAnswerReasons(question.questionKey, r)}
+                      onNoteChange={(n) => setAnswerNote(question.questionKey, n)}
                     />
                   ) : (
                     <NpsInput
                       key={question.id}
                       label={question.text}
-                      value={answers.get(question.id)?.value === -1 ? null : (answers.get(question.id)?.value ?? null)}
-                      onChange={(v) => setAnswer(question.id, v)}
+                      value={answers.get(question.questionKey)?.value === -1 ? null : (answers.get(question.questionKey)?.value ?? null)}
+                      onChange={(v) => setAnswer(question.questionKey, v)}
                     />
                   )
                 )}
               </section>
             ))}
 
-            {/* Comments */}
             <section className="flex flex-col gap-3">
               <SectionHeader icon="📝" title="Comentários Adicionais" subtitle="Opcional" />
               <Textarea placeholder="Deixe aqui seus comentários, sugestões ou críticas..."
@@ -427,6 +389,10 @@ export default function SurveyForm3() {
             </Button>
           </form>
         </div>
+
+        <p className="text-center text-xs text-gray-300 font-sans mt-4 pb-2">
+          Hospital Regional de Guajará-Mirim
+        </p>
       </div>
     </div>
   );

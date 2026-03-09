@@ -5,7 +5,7 @@ import { api } from "../services/api";
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<User | null>;
   logout: () => void;
 }
 
@@ -25,7 +25,7 @@ function getStoredUser(): User | null {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(getStoredUser);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<User | null> => {
     try {
       const response = await api.post<{ accessToken: string; user: User }>(
         "auth/login",
@@ -34,9 +34,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(response.user);
       localStorage.setItem("user", JSON.stringify(response.user));
       localStorage.setItem("auth_token", response.accessToken);
-      return true;
+      return response.user;
     } catch {
-      return false;
+      return null;
     }
   };
 

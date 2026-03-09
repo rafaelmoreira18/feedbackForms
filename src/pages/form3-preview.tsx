@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { form3Service } from "../services/form3-service";
-import { getScaleAverage, getNpsScore } from "../services/form3-service";
-import type { Form3Response } from "../types";
-import { FORM3_CONFIGS, RATING4_LABELS } from "./survey-form3-config";
+import { form3Service, getScaleAverage, getNpsScore } from "../services/form3-service";
+import { tenantService } from "../services/tenant-service";
+import type { Form3Response, FormTemplate } from "../types";
 import { formatDate } from "../utils/format";
+
+const RATING4_LABELS: Record<number, string> = { 1: "Ruim", 2: "Regular", 3: "Bom", 4: "Excelente" };
 import Text from "../components/text";
 import Button from "../components/button";
 import Card from "../components/card";
@@ -118,18 +119,23 @@ function SubReasonReadonly({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Form3Preview() {
-  const { id } = useParams<{ id: string }>();
+  const { tenantSlug = "", id } = useParams<{ tenantSlug: string; id: string }>();
   const navigate = useNavigate();
   const [form, setForm] = useState<Form3Response | null>(null);
+  const [template, setTemplate] = useState<FormTemplate | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) { setLoading(false); return; }
-    form3Service
-      .getById(id)
-      .then((data) => { setForm(data); setLoading(false); })
-      .catch(() => { setLoading(false); });
-  }, [id]);
+    if (!id || !tenantSlug) { setLoading(false); return; }
+    form3Service.getById(tenantSlug, id)
+      .then(async (data) => {
+        setForm(data);
+        const tmpl = await tenantService.getFormTemplate(tenantSlug, data.formType);
+        setTemplate(tmpl);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [tenantSlug, id]);
 
   if (loading) {
     return (
@@ -152,7 +158,6 @@ export default function Form3Preview() {
     );
   }
 
-  const config = FORM3_CONFIGS[form.formType];
   const avgScale = getScaleAverage(form);
   const nps = getNpsScore(form);
 
@@ -198,19 +203,19 @@ export default function Form3Preview() {
           </div>
         </Card>
 
-        {/* Answers by block */}
-        {config.blocks.map((block) => {
+        {/* Answers by block — rendered from API template */}
+        {template?.blocks.map((block) => {
           const rating4Qs = block.questions.filter((q) => q.scale === "rating4");
           const npsQuestion = block.questions.find((q) => q.scale === "nps");
           if (rating4Qs.length === 0 && !npsQuestion) return null;
 
           return (
-            <Card key={block.title} shadow="md">
+            <Card key={block.id} shadow="md">
               <div className="flex flex-col gap-5">
                 <Text variant="heading-sm" className="text-gray-400">{block.title}</Text>
 
                 {rating4Qs.map((q) => {
-                  const answer = form.answers.find((a) => a.questionId === q.id);
+                  const answer = form.answers.find((a) => a.questionId === q.questionKey);
                   const val = answer?.value ?? 0;
                   const selectedReasons = answer?.reasons ?? [];
                   const note = answer?.note;
@@ -250,10 +255,7 @@ export default function Form3Preview() {
                           else colorClass = "bg-green-base border-green-base text-white opacity-100";
                         }
                         return (
-                          <div
-                            key={n}
-                            className={`w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-sm ${colorClass}`}
-                          >
+                          <div key={n} className={`w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-sm ${colorClass}`}>
                             {n}
                           </div>
                         );

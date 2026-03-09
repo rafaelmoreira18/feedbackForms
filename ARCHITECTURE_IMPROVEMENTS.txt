@@ -1,0 +1,478 @@
+================================================================================
+  FEEDBACKFORMS - ARCHITECTURAL IMPROVEMENT REPORT
+  Date: 2026-03-09 (revised 2026-03-09 — updated to reflect row-level multi-tenancy arch)
+  Scope: Frontend (React 19 + TypeScript + Vite) & Backend (NestJS + TypeORM + PostgreSQL)
+================================================================================
+
+
+EXECUTIVE SUMMARY
+-----------------
+The project is a functional MVP with solid security practices and good TypeScript
+coverage. The architecture now uses row-level multi-tenancy (single DB, tenantId
+column on every tenant-scoped table). Several architectural gaps would limit
+scalability, testability, and maintainability as the platform grows. The issues
+below are prioritized from most critical to nice-to-have.
+
+NOTE ON ARCHITECTURE CHANGES SINCE FIRST REPORT:
+  - Row-level multi-tenancy is now implemented. All routes are scoped to
+    /api/tenants/:tenantSlug/... and all service calls receive tenantId.
+  - form-templates module exists with GET (public) and POST (protected) endpoints.
+    Form config can already be served from the backend.
+  - forms.entity.ts already has @Index() on tenantId, formType, and createdAt.
+  - The forms module is exclusively Form 3 (Form3ResponseEntity).
+
+
+================================================================================
+FRONTEND
+================================================================================
+
+--- 1. BREAK UP THE MONOLITHIC PAGE COMPONENT (CRITICAL) ---
+
+Problem:
+  survey-form3.tsx is 650+ lines, mixing form state, navigation logic, API calls,
+  validation, and rendering all in one component.
+
+Impact:
+  Hard to test, debug, or modify any single concern without risking regressions.
+
+Fix:
+  Split into focused modules:
+    - hooks/useForm3.ts          — all useState + business logic
+    - hooks/useFormNavigation.ts — step transitions, validation
+    - components/Form3Step1.tsx  — department selection screen
+    - components/Form3Step2.tsx  — question rendering
+    - components/Form3Success.tsx — confirmation screen
+
+  The page component becomes a thin orchestrator under 100 lines.
+
+
+--- 2. ADOPT A SERVER STATE LIBRARY (HIGH) ---
+
+Problem:
+  Every page load triggers a fresh API call with no caching, no loading states,
+  and no error recovery. analytics3.tsx fetches all data synchronously with no
+  feedback to the user.
+
+Impact:
+  Poor UX, unnecessary load on the API, hard to manage loading/error states
+  consistently.
+
+Fix:
+  Adopt TanStack Query (React Query) for all server-side data:
+    - useQuery/useMutation with automatic caching and background refetch
+    - Built-in isLoading, isError, isFetching states
+    - Stale-while-revalidate behavior out of the box
+    - Centralized error boundaries
+
+  This replaces the current pattern of useState + useEffect + manual fetch.
+
+
+--- 3. IMPLEMENT CONSISTENT ERROR HANDLING & UI FEEDBACK (HIGH) ---
+
+Problem:
+  Errors are silently caught in several places. There are no toast notifications,
+  no error boundaries, and no loading spinners in analytics pages.
+
+Impact:
+  Users have no feedback when something fails. Developers can't diagnose issues.
+
+Fix:
+  - Add a global toast/notification system (react-hot-toast or shadcn/ui Sonner)
+  - Wrap async operations in try/catch with user-visible messages
+  - Add React ErrorBoundary around route-level components
+  - Show skeleton loaders or spinners during data fetches
+
+
+--- 4. MIGRATE FRONTEND TO USE BACKEND FORM-TEMPLATES API (MEDIUM) ---
+
+Status:
+  The backend already has GET /api/tenants/:tenantSlug/form-templates and
+  GET /api/tenants/:tenantSlug/form-templates/:slug (public, no auth required).
+  The FormTemplateEntity + blocks + questions are seeded in the DB.
+  The frontend still uses a hardcoded survey-form3-config.ts (402 lines).
+
+Problem:
+  Frontend config and server data are out of sync. Adding a department or
+  question requires a frontend deployment even though the backend supports it.
+
+Fix:
+  - Replace survey-form3-config.ts with a useQuery call to
+    GET /api/tenants/:tenantSlug/form-templates
+  - Fall back to local cache if offline (TanStack Query handles this)
+  - Keeps frontend and data concerns properly separated
+  - Enables content changes without a redeploy
+
+
+--- 5. EXTRACT COMPONENT VARIANTS WITH CVA (MEDIUM) ---
+
+Problem:
+  Button, Text, and other components use inline className string maps instead
+  of Class Variance Authority (CVA).
+
+Impact:
+  Variant logic is harder to read, type, and extend. New variants require manual
+  string management.
+
+Fix:
+  Use CVA for components with multiple variants:
+    import { cva } from 'class-variance-authority'
+    const buttonVariants = cva('base-classes', {
+      variants: { intent: {...}, size: {...} }
+    })
+
+  This gives full TypeScript autocompletion for variant props.
+
+
+--- 6. ADD FRONTEND TESTS (MEDIUM) ---
+
+Problem:
+  No unit or integration tests exist on the frontend.
+
+Impact:
+  Regressions can't be caught automatically. Refactoring is risky.
+
+Fix:
+  - Vitest + React Testing Library for component and hook tests
+  - Test form validation logic (CPF, required fields, NPS bounds)
+  - Test service functions with mocked fetch
+  - At minimum: smoke tests for form submission flows
+
+
+--- 7. REPLACE LOCALSTORAGE TOKEN STORAGE (LOW) ---
+
+Problem:
+  JWT token is stored in localStorage, which is accessible to any JS running
+  on the page (XSS vector).
+
+Impact:
+  If XSS occurs, attacker can steal the auth token.
+
+Fix:
+  - Move token storage to httpOnly cookies (set by the backend)
+  - Backend sets Set-Cookie header with HttpOnly, Secure, SameSite=Strict
+  - Frontend no longer handles the token directly
+  - This is a larger change but significantly improves security posture
+
+
+--- 8. CENTRALIZE ROUTE DEFINITIONS (LOW) ---
+
+Problem:
+  Routes are defined inline in App.tsx as string literals scattered across the
+  codebase (e.g., navigate('/analytics3'), <Link to="/form3/..."}).
+
+Impact:
+  Renaming a route requires grep-and-replace across multiple files.
+
+Fix:
+  - Create src/routes.ts with a typed ROUTES constant:
+      export const ROUTES = {
+        home: '/',
+        analytics3: '/analytics3',
+        form3: (id: string) => `/form3/${id}`,
+        ...
+      } as const
+  - Import ROUTES wherever navigation or link targets are needed
+
+
+================================================================================
+BACKEND
+================================================================================
+
+--- 1. ADD PAGINATION TO GET /api/tenants/:tenantSlug/forms3 (CRITICAL) ---
+
+Problem:
+  findAll() in Form3Service returns ALL records for a tenant with no limit.
+  As data grows, this will cause out-of-memory errors, slow queries, and timeouts.
+
+Impact:
+  A table with 10,000+ responses will cause the endpoint to fail or become
+  unusably slow. This also affects getMetrics() which calls findAll() internally.
+
+Fix:
+  Add offset pagination to the endpoint:
+    GET /api/tenants/:tenantSlug/forms3?page=1&limit=50
+
+  Use TypeORM's findAndCount() or QueryBuilder with .skip()/.take() to return
+  { data, total, page, limit }. The frontend analytics page should paginate or
+  virtualize the table.
+
+
+--- 2. MOVE METRICS CALCULATION OUT OF IN-MEMORY (CRITICAL) ---
+
+Problem:
+  getMetrics() calls findAll() to load ALL form responses into memory, then
+  calculates averages and NPS in JavaScript. This is O(n) in both memory and time.
+
+  Current code (forms.service.ts:67):
+    const forms = await this.findAll(tenantId, filters);  // loads ALL records
+    // then does .reduce() and .filter() in JS
+
+Impact:
+  With large datasets, this will be slow, memory-intensive, and will return
+  stale data between API calls. Particularly bad after pagination is added to
+  findAll() — metrics would then be calculated only on the current page.
+
+Fix:
+  Use PostgreSQL aggregation instead:
+    SELECT
+      COUNT(*) AS total_responses,
+      AVG((elem->>'value')::float) FILTER (WHERE elem->>'questionId' != 'nps') AS avg_satisfaction,
+      COUNT(*) FILTER (WHERE (elem->>'value')::int >= 9 AND elem->>'questionId' = 'nps') AS promoters,
+      COUNT(*) FILTER (WHERE (elem->>'value')::int <= 6 AND elem->>'questionId' = 'nps') AS detractors
+    FROM form3_responses, jsonb_array_elements(answers) AS elem
+    WHERE tenant_id = :tenantId
+
+  TypeORM QueryBuilder with .select() and raw SQL aggregations handles this.
+  Run the calculation in the DB engine where it belongs — not in Node.js memory.
+
+
+--- 3. DB INDEXES — ALREADY IMPLEMENTED, ADD COMPOSITE INDEX (HIGH) ---
+
+Status:
+  forms.entity.ts already has @Index() on tenantId, formType, and createdAt.
+  This covers the basic cases.
+
+Remaining gap:
+  The most common query filters by BOTH formType AND createdAt within a tenant.
+  A composite index covers this better than three separate single-column indexes.
+
+Fix:
+  Add a composite index to Form3ResponseEntity:
+    @Index(['tenantId', 'formType', 'createdAt'])
+    @Entity('form3_responses')
+    export class Form3ResponseEntity { ... }
+
+  This index covers: filter by tenant, filter by tenant+type, and
+  filter by tenant+type+date range — all with a single index scan.
+
+
+--- 4. ADD RATE LIMITING TO PUBLIC ENDPOINTS (HIGH) ---
+
+Problem:
+  POST /api/tenants/:tenantSlug/forms3 is public and has no rate limiting.
+  Anyone can flood the endpoint with automated submissions or spam data.
+
+Impact:
+  Data integrity is compromised. Backend can be overwhelmed. Survey results
+  become meaningless with spam. With multi-tenancy, a single bad actor can
+  corrupt data across a tenant.
+
+Fix:
+  Use @nestjs/throttler:
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 5 }])
+
+  Apply @Throttle() decorator to the public POST endpoint. Consider stricter
+  limits per IP for the public form than for authenticated endpoints. The
+  tenant slug in the URL can also be used as a throttle key to limit per-tenant.
+
+
+--- 5. ADD REQUEST LOGGING AND AUDIT TRAIL (HIGH) ---
+
+Problem:
+  No request logging middleware or audit trail exists. There is no way to know
+  who accessed what data or when. No tracing of errors in production.
+
+Impact:
+  Impossible to debug production issues. No compliance audit trail for LGPD
+  requirements on patient data. With multi-tenancy, there is no way to detect
+  if one tenant's data is being accessed by another.
+
+Fix:
+  - Add a NestJS LoggingInterceptor or use the built-in Logger
+  - Log: method, path, status code, duration, tenantSlug, user ID (if authenticated)
+  - For patient data, log who accessed which records and when
+  - Consider structured JSON logs for ingestion by a log aggregator (CloudWatch,
+    Datadog, etc. — the app is on AWS RDS so CloudWatch is a natural fit)
+
+
+--- 6. ADD BACKEND UNIT AND INTEGRATION TESTS (HIGH) ---
+
+Problem:
+  No tests exist. The CPF validator, NPS calculation, satisfaction averaging,
+  and filter logic are completely untested.
+
+Impact:
+  Any refactor can silently break business-critical calculations.
+
+Fix:
+  - Jest unit tests for Form3Service.getMetrics() with fixture data
+  - Test CPF validator edge cases (valid CPF, all-zeros, invalid modulo)
+  - Integration tests for the full POST → GET → metrics flow using an in-memory
+    SQLite DB or a Dockerized PostgreSQL test container
+  - Test tenant isolation: ensure tenant A cannot read tenant B's data
+  - Target: forms.service.ts and dto validators first
+
+
+--- 7. IMPLEMENT SOFT DELETES (MEDIUM) ---
+
+Problem:
+  The only delete operation is a bulk deleteAll() scoped to a tenant. Individual
+  records cannot be deleted. If a fraudulent or erroneous submission needs
+  removal, it cannot be done without deleting all data for that tenant.
+
+Impact:
+  Data management is inflexible. No audit trail of deletions.
+
+Fix:
+  - Add a deletedAt: Date | null column (TypeORM @DeleteDateColumn)
+  - Use TypeORM soft-delete behavior: findAll() automatically excludes soft-deleted
+  - Add a protected DELETE /api/tenants/:tenantSlug/forms3/:id endpoint for admins
+  - Preserve hard delete for emergency bulk wipes
+
+
+--- 8. ADD ROLE-BASED ACCESS CONTROL (MEDIUM) ---
+
+Problem:
+  The User entity has a role field ('viewer' default) but it is never enforced.
+  All authenticated users within a tenant have identical access to all protected
+  endpoints.
+
+Impact:
+  No way to distinguish admins from viewers within a tenant. Any logged-in user
+  can delete all records for their tenant.
+
+Fix:
+  - Implement a Roles guard that reads user.role from the JWT payload
+  - Annotate endpoints with @Roles('admin') decorator
+  - Only admins can access DELETE /api/tenants/:tenantSlug/forms3
+  - Viewers can only read analytics
+  - Ensure role checks always run after tenant scoping (user must belong to
+    the tenant in the URL, not just any tenant)
+
+
+--- 9. DISABLE DB_SYNCHRONIZE IN PRODUCTION (MEDIUM) ---
+
+Problem:
+  DB_SYNCHRONIZE=true is the default in development. If accidentally set to
+  true in production, TypeORM can drop and recreate columns on restart.
+
+Impact:
+  Data loss in production on AWS RDS. This is a documented risk in TypeORM.
+
+Fix:
+  - Default DB_SYNCHRONIZE to false
+  - Use TypeORM migrations for all schema changes in staging and production:
+      typeorm migration:generate
+      typeorm migration:run
+  - Document migration workflow in DEPLOY.md
+  - Add a startup check that throws an error if DB_SYNCHRONIZE=true in production
+
+
+--- 10. EXTERNALIZE CPF VALIDATOR (LOW) ---
+
+Problem:
+  The CPF validation class (IsCpfConstraint) lives inside create-form.dto.ts
+  alongside the DTO definition. It is a reusable utility embedded in a DTO file.
+
+Impact:
+  Cannot reuse the validator in other DTOs without importing from an unrelated file.
+
+Fix:
+  Move to backend/src/common/validators/cpf.validator.ts and import where needed.
+
+
+================================================================================
+CROSS-CUTTING CONCERNS
+================================================================================
+
+--- API CONTRACT & DOCUMENTATION ---
+
+There is no machine-readable API contract. The frontend and backend are only
+loosely coupled through manually maintained types. With multi-tenancy, the
+:tenantSlug path parameter is on every route but is not documented anywhere.
+
+Fix:
+  - Add Swagger/OpenAPI with @nestjs/swagger
+  - Decorate DTOs with @ApiProperty() for auto-generated docs
+  - Publish Swagger UI at /api/docs (dev only)
+  - Document the tenant scoping convention (/api/tenants/:tenantSlug/...)
+  - Consider generating frontend types from the OpenAPI spec to eliminate drift
+
+
+--- ENVIRONMENT VALIDATION ON STARTUP ---
+
+Problem:
+  If a required env var (JWT_SECRET, DB_HOST) is missing, the app boots and
+  fails silently or crashes at runtime rather than at startup.
+
+Fix:
+  Use @nestjs/config with Joi schema validation:
+    ConfigModule.forRoot({
+      validationSchema: Joi.object({
+        JWT_SECRET: Joi.string().required(),
+        DB_HOST: Joi.string().required(),
+        DB_SYNCHRONIZE: Joi.boolean().default(false),
+        ...
+      })
+    })
+  This makes misconfiguration fail loudly at startup, not in production traffic.
+  Also use this to enforce DB_SYNCHRONIZE=false in production.
+
+
+--- CI/CD PIPELINE ---
+
+No CI/CD configuration exists. All deployments are presumably manual.
+
+Fix:
+  - Add GitHub Actions workflows:
+      .github/workflows/test.yml  — run tests on every PR
+      .github/workflows/deploy.yml — deploy on push to main
+  - Add lint (eslint) and type check (tsc --noEmit) as pre-deploy gates
+  - Add database migration step to the deploy workflow
+
+
+--- TENANT ISOLATION TESTING ---
+
+Problem (new — not in original report):
+  With row-level multi-tenancy, every service method accepts a tenantId and
+  appends it to queries. There are no tests verifying that this isolation
+  actually holds — a bug in any query could silently leak cross-tenant data.
+
+Fix:
+  - Add integration tests that create two tenants with separate data
+  - Assert that GET /api/tenants/tenant-a/forms3 never returns tenant-b records
+  - Assert that POST /api/tenants/tenant-a/forms3 always stores tenantId = tenant-a
+  - Test that a JWT issued for tenant-a cannot access tenant-b endpoints
+  - This is especially important for patient data under LGPD
+
+
+================================================================================
+PRIORITY SUMMARY
+================================================================================
+
+  CRITICAL (fix before scale):
+    [ ] Paginate GET /api/tenants/:tenantSlug/forms3
+    [ ] Move metrics to SQL aggregation (currently O(n) in-memory)
+    [ ] Break up survey-form3.tsx into focused modules
+
+  HIGH (fix in next iteration):
+    [ ] Add composite index (tenantId, formType, createdAt)
+    [ ] Add rate limiting to public POST endpoint
+    [ ] Implement TanStack Query for server state
+    [ ] Add request logging and audit trail (include tenantSlug in logs)
+    [ ] Add backend unit + integration tests (include tenant isolation tests)
+    [ ] Add consistent error/loading UI states
+
+  MEDIUM (plan for near future):
+    [ ] Migrate frontend to use existing form-templates API (infra already exists)
+    [ ] Add RBAC enforcement (use the existing role field, scope to tenant)
+    [ ] Implement soft deletes for individual records
+    [ ] Migrate to TypeORM migrations, disable DB_SYNCHRONIZE in prod
+    [ ] Add Swagger/OpenAPI documentation (document tenant scoping)
+    [ ] Add environment variable startup validation
+    [ ] Add tenant isolation integration tests
+
+  LOW (polish):
+    [ ] Replace localStorage token with httpOnly cookies
+    [ ] Centralize route definitions (src/routes.ts)
+    [ ] Migrate components to CVA variant API
+    [ ] Extract CPF validator to common/validators/
+
+  RESOLVED (no longer action items):
+    [x] DB indexes on tenantId, formType, createdAt — already implemented
+    [x] Separate Form 3 module from generic "forms" — already done (Form3ResponseEntity)
+    [x] Move form config to backend API — endpoint exists, frontend migration pending
+
+================================================================================
+END OF REPORT
+================================================================================

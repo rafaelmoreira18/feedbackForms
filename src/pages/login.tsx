@@ -20,8 +20,8 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const success = await login(email, password);
-      if (success) {
+      const loggedUser = await login(email, password);
+      if (loggedUser) {
         navigate("/dashboard");
       } else {
         setError("Email ou senha incorretos");

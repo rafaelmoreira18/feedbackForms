@@ -1,6 +1,7 @@
-import { useNavigate } from "react-router-dom";
-import { FORM3_DEPARTMENT_OPTIONS, FORM3_SLUGS } from "./survey-form3-config";
-import type { Form3Type } from "../types";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { tenantService } from "../services/tenant-service";
+import type { FormTemplate } from "../types";
 import {
   BedDouble,
   FlaskConical,
@@ -9,31 +10,41 @@ import {
   Ambulance,
   Droplets,
   Scissors,
+  ClipboardList,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-const DEPARTMENT_ICONS: Record<Form3Type, LucideIcon> = {
-  "Internação Hospitalar": BedDouble,
-  "Exames Laboratoriais e de Imagem": FlaskConical,
-  "Ambulatório": Stethoscope,
-  "UTI": HeartPulse,
-  "Pronto Socorro": Ambulance,
-  "Hemodiálise": Droplets,
-  "Centro Cirúrgico": Scissors,
-};
-
-const DEPARTMENT_DESCRIPTIONS: Record<Form3Type, string> = {
-  "Internação Hospitalar": "Avalie o conforto, limpeza, organização e o atendimento recebido durante sua internação",
-  "Exames Laboratoriais e de Imagem": "Avalie as instalações, a clareza das orientações e o cuidado da equipe durante seus exames",
-  "Ambulatório": "Avalie as condições do ambulatório e o atendimento recebido no seu consulta",
-  "UTI": "Avalie as instalações da UTI e o atendimento da equipe médica e de enfermagem",
-  "Pronto Socorro": "Avalie as condições do Pronto Socorro e o cuidado recebido no seu atendimento",
-  "Hemodiálise": "Avalie as instalações e o atendimento recebido durante suas sessões de hemodiálise",
-  "Centro Cirúrgico": "Avalie as instalações e as orientações recebidas antes e após seu procedimento cirúrgico",
+const SLUG_ICONS: Record<string, LucideIcon> = {
+  "internacao": BedDouble,
+  "exames": FlaskConical,
+  "ambulatorio": Stethoscope,
+  "uti": HeartPulse,
+  "pronto-socorro": Ambulance,
+  "hemodialise": Droplets,
+  "centro-cirurgico": Scissors,
 };
 
 export default function Pesquisa() {
+  const { tenantSlug = "" } = useParams<{ tenantSlug: string }>();
   const navigate = useNavigate();
+  const [templates, setTemplates] = useState<FormTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!tenantSlug) { setLoading(false); return; }
+    tenantService.getFormTemplates(tenantSlug)
+      .then(setTemplates)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [tenantSlug]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-300 font-sans">Carregando...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-8 px-4">
@@ -51,13 +62,13 @@ export default function Pesquisa() {
 
         {/* Department cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {FORM3_DEPARTMENT_OPTIONS.map((dept) => {
-            const Icon = DEPARTMENT_ICONS[dept];
+          {templates.map((tmpl) => {
+            const Icon = SLUG_ICONS[tmpl.slug] ?? ClipboardList;
             return (
               <button
-                key={dept}
+                key={tmpl.slug}
                 type="button"
-                onClick={() => navigate(`/${FORM3_SLUGS[dept]}`)}
+                onClick={() => navigate(`/${tenantSlug}/${tmpl.slug}`)}
                 className="text-left group"
               >
                 <div className="h-full bg-white rounded-2xl p-5 flex flex-col gap-3 border-2 border-transparent group-hover:border-teal-base transition-all duration-200 group-hover:shadow-xl shadow-md">
@@ -65,12 +76,9 @@ export default function Pesquisa() {
                     <Icon size={24} className="text-white" />
                   </div>
                   <h2 className="text-base font-bold text-gray-400 font-sans group-hover:text-teal-dark transition-colors">
-                    {dept}
+                    {tmpl.name}
                   </h2>
-                  <p className="text-sm text-gray-300 font-sans flex-1 leading-relaxed">
-                    {DEPARTMENT_DESCRIPTIONS[dept]}
-                  </p>
-                  <div className="flex items-center gap-1 mt-1 text-teal-base font-sans font-semibold text-sm">
+                  <div className="flex items-center gap-1 mt-auto text-teal-base font-sans font-semibold text-sm">
                     Responder pesquisa
                     <span className="group-hover:translate-x-1 transition-transform duration-200 inline-block">→</span>
                   </div>
