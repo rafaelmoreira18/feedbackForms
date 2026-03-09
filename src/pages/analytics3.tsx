@@ -58,29 +58,6 @@ function filterByDate(forms: Form3Response[], startDate: string, endDate: string
   });
 }
 
-// Custom tooltip shown on hover of question bar
-function QuestionBarTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
-  if (!active || !payload?.length) return null;
-  const d = payload[0].payload;
-  return (
-    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 max-w-xs shadow-xl">
-      <p className="text-white text-sm font-semibold mb-1 leading-snug">{d.question}</p>
-      <p className="text-blue-300 text-sm">
-        Avaliação média: <strong>{d.value}/4</strong>
-      </p>
-      <p className="text-gray-400 text-xs mt-1">{d.count} respostas</p>
-      {d.value < 2.5 && d.subReasons && (
-        <div className="mt-2 border-t border-gray-700 pt-2">
-          <p className="text-red-400 text-xs font-semibold mb-1">Principais motivos de insatisfação:</p>
-          {d.subReasons.map((r: string, i: number) => (
-            <p key={i} className="text-gray-300 text-xs leading-snug">• {r}</p>
-          ))}
-        </div>
-      )}
-      <p className="text-gray-500 text-xs mt-2 italic">Clique para análise detalhada</p>
-    </div>
-  );
-}
 
 // Distribution bar for rating breakdown
 function RatingDistributionBar({ distribution }: { distribution: QuestionDetail["distribution"] }) {
@@ -374,10 +351,10 @@ function CustomYAxisTick({
 export default function Analytics3() {
   const navigate = useNavigate();
   const [allForms, setAllForms] = useState<Form3Response[]>([]);
-  const [selectedDept, setSelectedDept] = useState<Form3Type | "">("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [drillDetail, setDrillDetail] = useState<QuestionDetail | null>(null);
+  const [selectedQuestionDept, setSelectedQuestionDept] = useState<string>("");
 
   useEffect(() => {
     form3Service.getAll().then(setAllForms);
@@ -390,10 +367,6 @@ export default function Analytics3() {
 
   const summary = useMemo(() => getSummaryMetrics(filtered), [filtered]);
   const byFormType = useMemo(() => getAverageByFormType(filtered), [filtered]);
-  const byQuestion = useMemo(
-    () => (selectedDept ? getAverageByQuestion(filtered, selectedDept as Form3Type) : []),
-    [filtered, selectedDept]
-  );
   const byQuestionAllDepts = useMemo(
     () =>
       FORM3_DEPARTMENT_OPTIONS.map((dept) => ({
@@ -405,11 +378,6 @@ export default function Analytics3() {
   const npsBreakdown = useMemo(() => getNpsBreakdown(filtered), [filtered]);
   const monthlyTrend = useMemo(() => getMonthlyTrend(filtered), [filtered]);
   const npsCrossForm = useMemo(() => getNpsCrossForm(filtered), [filtered]);
-
-  const deptOptions = [
-    { value: "", label: "Todos os setores" },
-    ...FORM3_DEPARTMENT_OPTIONS.map((d) => ({ value: d, label: d })),
-  ];
 
   const hasDateFilter = !!(startDate || endDate);
 
@@ -509,11 +477,10 @@ export default function Analytics3() {
           </Card>
 
           {/* Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <SummaryCard label="Total de Respostas" value={summary.total} />
             <SummaryCard label="Média de Satisfação" value={`${summary.avgSatisfaction}/4`} />
             <SummaryCard label="Média NPS" value={`${summary.avgNps}/10`} />
-            <SummaryCard label="NPS Score" value={`${summary.npsScore}`} />
           </div>
 
           {/* NPS cross-form */}
@@ -530,7 +497,7 @@ export default function Analytics3() {
                 <XAxis dataKey="formType" tick={{ fontSize: 10 }} />
                 <YAxis domain={[0, 10]} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }}
+                  contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }} wrapperStyle={{ opacity: 1, zIndex: 50 }}
                   formatter={(value: number) => [`${value.toFixed(1)}/10`, "NPS Médio"]}
                 />
                 <ReferenceLine y={summary.avgNps} stroke={COLORS.primary} strokeDasharray="4 4" label={{ value: `Média geral: ${summary.avgNps}`, position: "insideTopRight", fontSize: 11 }} />
@@ -549,7 +516,7 @@ export default function Analytics3() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" domain={[0, 4]} />
                 <YAxis dataKey="formType" type="category" width={200} tick={{ fontSize: 12 }} />
-                <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }} wrapperStyle={{ opacity: 1, zIndex: 50 }} />
                 <Bar dataKey="value" fill={COLORS.primary} name="Avaliação (1–4)" />
               </BarChart>
             </ResponsiveContainer>
@@ -557,13 +524,26 @@ export default function Analytics3() {
 
           {/* Per-department question drill-down — one chart per dept */}
           <div className="flex flex-col gap-6">
-            <div>
-              <Text variant="heading-sm" className="text-gray-400">
-                Avaliação por Pergunta — Análise de Setor
-              </Text>
-              <Text variant="caption" className="text-gray-400 mt-1">
-                Clique em uma barra para ver análise detalhada com distribuição de notas e motivos de insatisfação
-              </Text>
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+              <div className="flex-1">
+                <Text variant="heading-sm" className="text-gray-400">
+                  Avaliação por Pergunta — Análise de Setor
+                </Text>
+                <Text variant="caption" className="text-gray-400 mt-1">
+                  Clique em uma barra para ver análise detalhada com distribuição de notas e motivos de insatisfação
+                </Text>
+              </div>
+              <div className="shrink-0 w-full sm:w-72">
+                <Select
+                  label="Setor"
+                  value={selectedQuestionDept}
+                  onChange={(e) => setSelectedQuestionDept(e.target.value)}
+                  options={[
+                    { value: "", label: "Selecione um setor..." },
+                    ...byQuestionAllDepts.map(({ dept }) => ({ value: dept, label: dept })),
+                  ]}
+                />
+              </div>
             </div>
 
             {/* Shared legend */}
@@ -582,7 +562,7 @@ export default function Analytics3() {
               </div>
             </div>
 
-            {byQuestionAllDepts.map(({ dept, questions }) => {
+            {byQuestionAllDepts.filter(({ dept }, i) => selectedQuestionDept ? dept === selectedQuestionDept : i === 0).map(({ dept, questions }) => {
               const onClick = handleBarClick(dept);
               return (
                 <Card key={dept} shadow="md" padding="lg">
@@ -603,7 +583,12 @@ export default function Analytics3() {
                         width={235}
                         tick={(props) => <CustomYAxisTick {...props} width={230} />}
                       />
-                      <Tooltip content={<QuestionBarTooltip />} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }}
+                        wrapperStyle={{ opacity: 1, zIndex: 50 }}
+                        formatter={(value: number) => [`${value.toFixed(2)}/4`, "Avaliação média"]}
+                        labelFormatter={(label) => label}
+                      />
                       <Bar dataKey="value" name="Avaliação (1–4)" radius={[0, 4, 4, 0]}>
                         {questions.map((q) => (
                           <Cell key={q.questionId} fill={questionBarColor(q.value)} />
@@ -635,7 +620,7 @@ export default function Analytics3() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="formType" tick={{ fontSize: 10 }} />
                   <YAxis allowDecimals={false} />
-                  <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }} />
+                  <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }} wrapperStyle={{ opacity: 1, zIndex: 50 }} />
                   <Legend />
                   <Bar dataKey="Promotores" fill={COLORS.success} />
                   <Bar dataKey="Neutros" fill={COLORS.warning} />
@@ -656,7 +641,7 @@ export default function Analytics3() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="mes" />
                   <YAxis />
-                  <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }} />
+                  <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }} wrapperStyle={{ opacity: 1, zIndex: 50 }} />
                   <Legend />
                   <Line
                     type="monotone"
