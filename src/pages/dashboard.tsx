@@ -1,8 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../contexts/auth-context";
-import { form3Service, getScaleAverage } from "../services/form3-service";
-import type { Form3Response, Form3Filters, Form3Metrics } from "../types";
+import { ROUTES } from "../routes";
+import { form3Service } from "../services/form3-service";
+import { getScaleAverage } from "../services/analytics3-service";
+import type { Form3Response, Form3Filters } from "../types";
 import { formatDate } from "../utils/format";
 import Text from "../components/text";
 import Select from "../components/select";
@@ -41,16 +44,6 @@ export default function Dashboard() {
   const tenantSlug = user?.tenantSlug ?? "";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  const [forms3, setForms3] = useState<Form3Response[]>([]);
-  const [filteredForms3, setFilteredForms3] = useState<Form3Response[]>([]);
-  const [metrics3, setMetrics3] = useState<Form3Metrics>({
-    totalResponses: 0,
-    averageSatisfaction: 0,
-    responsesThisMonth: 0,
-    responsesLastMonth: 0,
-    averageNps: 0,
-  });
   const [form3DeptFilter, setForm3DeptFilter] = useState<string>("");
 
   const startDate = searchParams.get("startDate") || "";
@@ -69,30 +62,40 @@ export default function Dashboard() {
     [searchParams, setSearchParams],
   );
 
-  useEffect(() => {
-    const load = async () => {
-      const f3Filters: Form3Filters = {
-        startDate,
-        endDate,
-        sortSatisfaction,
-        formType: form3DeptFilter || undefined,
-      };
-      const [all, filtered, m] = await Promise.all([
-        form3Service.getAll(tenantSlug),
-        form3Service.filter(tenantSlug, f3Filters),
-        form3Service.getMetrics(tenantSlug, f3Filters),
-      ]);
-      setForms3(all);
-      setFilteredForms3(filtered);
-      setMetrics3(m);
-    };
-    load().catch((err) => {
-      console.error('Dashboard load error:', err?.message || err);
-      if (String(err?.message).includes('401') || String(err?.message).toLowerCase().includes('unauthorized')) {
-        logout();
-      }
-    });
-  }, [searchParams, form3DeptFilter]);
+  const filteredFilters: Form3Filters = {
+    startDate,
+    endDate,
+    sortSatisfaction,
+    formType: form3DeptFilter || undefined,
+  };
+
+  // All forms — used for dept dropdown options (unfiltered)
+  const { data: allForms = [] } = useQuery({
+    queryKey: ["forms3-all", tenantSlug],
+    queryFn: () => form3Service.getAll(tenantSlug),
+    enabled: !!tenantSlug,
+  });
+
+  // Filtered forms for table
+  const { data: filteredPage } = useQuery({
+    queryKey: ["forms3-paginated", tenantSlug, filteredFilters],
+    queryFn: () => form3Service.getPaginated(tenantSlug, filteredFilters),
+    enabled: !!tenantSlug,
+  });
+
+  // Metrics
+  const { data: metrics } = useQuery({
+    queryKey: ["forms3-metrics", tenantSlug, filteredFilters],
+    queryFn: () => form3Service.getMetrics(tenantSlug, filteredFilters),
+    enabled: !!tenantSlug,
+  });
+
+  const filteredForms = filteredPage?.data ?? [];
+  const totalResponses = metrics?.totalResponses ?? 0;
+  const averageSatisfaction = metrics?.averageSatisfaction ?? 0;
+  const averageNps = metrics?.averageNps ?? 0;
+  const responsesThisMonth = metrics?.responsesThisMonth ?? 0;
+  const responsesLastMonth = metrics?.responsesLastMonth ?? 0;
 
   const clearFilters = () => {
     setSearchParams({}, { replace: true });
@@ -117,7 +120,7 @@ export default function Dashboard() {
           <Text variant="body-sm" className="text-gray-300 hidden sm:block">
             {user?.name}
           </Text>
-          <Button variant="outline" size="sm" onClick={() => navigate(`/${tenantSlug}/analytics`)}>
+          <Button variant="outline" size="sm" onClick={() => navigate(ROUTES.analytics(tenantSlug))}>
             Analytics
           </Button>
           <Button variant="secondary" size="sm" onClick={logout}>
@@ -133,23 +136,23 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             <MetricCard
               title="Total de Respostas"
-              value={metrics3.totalResponses}
-              subtitle={hasActiveFilters ? `${forms3.length} no total` : undefined}
+              value={totalResponses}
+              subtitle={hasActiveFilters ? `${allForms.length} no total` : undefined}
             />
             <MetricCard
               title="Média Satisfação (1–4)"
-              value={`${metrics3.averageSatisfaction}/4`}
+              value={`${averageSatisfaction}/4`}
               subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
             />
             <MetricCard
               title="Média NPS (0–10)"
-              value={`${metrics3.averageNps}/10`}
+              value={`${averageNps}/10`}
               subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
             />
             <MetricCard
               title="Respostas Este Mês"
-              value={metrics3.responsesThisMonth}
-              subtitle={`${metrics3.responsesLastMonth} no mês anterior`}
+              value={responsesThisMonth}
+              subtitle={`${responsesLastMonth} no mês anterior`}
             />
           </div>
 
@@ -182,15 +185,16 @@ export default function Dashboard() {
                   label="Ordenar Satisfação"
                   options={satisfactionSortOptions}
                   value={sortSatisfaction || ""}
-                  onChange={(e) =>
-                    setFilters({ sortSatisfaction: e.target.value })
-                  }
+                  onChange={(e) => setFilters({ sortSatisfaction: e.target.value })}
                 />
                 <Select
                   label="Setor"
                   options={[
                     { value: "", label: "Todos os setores" },
-                    ...Array.from(new Set(forms3.map((f) => f.formType))).map((d) => ({ value: d, label: d })),
+                    ...Array.from(new Set(allForms.map((f) => f.formType))).map((d) => ({
+                      value: d,
+                      label: d,
+                    })),
                   ]}
                   value={form3DeptFilter}
                   onChange={(e) => setForm3DeptFilter(e.target.value)}
@@ -200,7 +204,10 @@ export default function Dashboard() {
           </Card>
 
           {/* Responses Table */}
-          <Form3Table forms={filteredForms3} onRowClick={(id) => navigate(`/${tenantSlug}/responses/${id}`)} />
+          <Form3Table
+            forms={filteredForms}
+            onRowClick={(id) => navigate(ROUTES.response(tenantSlug, id))}
+          />
         </div>
       </div>
     </div>
@@ -277,7 +284,7 @@ function Form3Table({
                             {h}
                           </Text>
                         </th>
-                      )
+                      ),
                     )}
                   </tr>
                 </thead>
@@ -298,13 +305,19 @@ function Form3Table({
                           <Text variant="body-md">{form.patientCpf}</Text>
                         </td>
                         <td className="py-3 px-4">
-                          <Text variant="body-sm" className="text-gray-300">{form.formType}</Text>
+                          <Text variant="body-sm" className="text-gray-300">
+                            {form.formType}
+                          </Text>
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
                             <div
                               className={`w-2 h-2 rounded-full ${
-                                avg >= 3 ? "bg-green-base" : avg >= 2 ? "bg-yellow-base" : "bg-red-base"
+                                avg >= 3
+                                  ? "bg-green-base"
+                                  : avg >= 2
+                                    ? "bg-yellow-base"
+                                    : "bg-red-base"
                               }`}
                             />
                             <Text variant="body-md">

@@ -1,5 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState, useMemo, useCallback } from "react";
+import { useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 import {
   BarChart, Bar, LineChart, Line, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -7,7 +9,6 @@ import {
 } from "recharts";
 import { form3Service } from "../services/form3-service";
 import { tenantService } from "../services/tenant-service";
-import type { FormTemplate } from "../types";
 import {
   getAverageByFormType,
   getAverageByQuestion,
@@ -352,19 +353,23 @@ function CustomYAxisTick({
 
 export default function Analytics3() {
   const { tenantSlug = "" } = useParams<{ tenantSlug: string }>();
-  const navigate = useNavigate();
-  const [allForms, setAllForms] = useState<Form3Response[]>([]);
-  const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [drillDetail, setDrillDetail] = useState<QuestionDetail | null>(null);
   const [selectedQuestionDept, setSelectedQuestionDept] = useState<string>("");
 
-  useEffect(() => {
-    if (!tenantSlug) return;
-    form3Service.getAll(tenantSlug).then(setAllForms);
-    tenantService.getFormTemplates(tenantSlug).then(setTemplates).catch(() => {});
-  }, [tenantSlug]);
+  const { data: allForms = [], isLoading: formsLoading } = useQuery({
+    queryKey: ["forms3", tenantSlug],
+    queryFn: () => form3Service.getAll(tenantSlug),
+    enabled: !!tenantSlug,
+    throwOnError: (err) => { toast.error(`Erro ao carregar respostas: ${(err as Error).message}`); return false; },
+  });
+
+  const { data: templates = [] } = useQuery({
+    queryKey: ["form-templates", tenantSlug],
+    queryFn: () => tenantService.getFormTemplates(tenantSlug),
+    enabled: !!tenantSlug,
+  });
 
   // Build a map: formSlug -> questionKey -> full question text
   const questionTextMap = useMemo(() => {
@@ -417,19 +422,17 @@ export default function Analytics3() {
     [filtered]
   );
 
+  if (formsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-teal-base border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (allForms.length === 0) {
     return (
       <div className="min-h-screen">
-        <header className="bg-white shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <Text variant="heading-md" className="text-gray-400">
-              Analytics — Satisfação & Experiência por Setor
-            </Text>
-            <Button variant="secondary" size="sm" onClick={() => navigate("/dashboard")}>
-              Voltar ao Dashboard
-            </Button>
-          </div>
-        </header>
         <div className="max-w-7xl mx-auto px-4 py-8">
           <Card shadow="md" className="text-center py-12">
             <Text variant="heading-sm" className="text-gray-300">Nenhum dado disponível ainda</Text>
@@ -451,17 +454,6 @@ export default function Analytics3() {
       {drillDetail && (
         <QuestionDrillDown detail={drillDetail} onClose={() => setDrillDetail(null)} />
       )}
-
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Text variant="heading-md" className="text-gray-400">
-            Analytics — Satisfação & Experiência por Setor
-          </Text>
-          <Button variant="secondary" size="sm" onClick={() => navigate("/dashboard")}>
-            Voltar ao Dashboard
-          </Button>
-        </div>
-      </header>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-col gap-8">
@@ -622,7 +614,7 @@ export default function Analytics3() {
                             return (
                               <div style={{ backgroundColor: "#1f2937", border: "1px solid #374151", borderRadius: 8, padding: "10px 14px", maxWidth: 320 }}>
                                 <p style={{ color: "#d1d5db", fontSize: 12, marginBottom: 6, lineHeight: 1.5, whiteSpace: "normal", wordBreak: "break-word" }}>{q.question}</p>
-                                <p style={{ color: "#f9fafb", fontSize: 13, fontWeight: 600 }}>{payload[0].value?.toFixed ? `${(payload[0].value as number).toFixed(2)}/4` : payload[0].value} — Avaliação média</p>
+                                <p style={{ color: "#f9fafb", fontSize: 13, fontWeight: 600 }}>{typeof payload[0].value === 'number' ? `${payload[0].value.toFixed(2)}/4` : payload[0].value} — Avaliação média</p>
                               </div>
                             );
                           }}

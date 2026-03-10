@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import { ROUTES } from "../routes";
 import { form3Service, getScaleAverage, getNpsScore } from "../services/form3-service";
 import { tenantService } from "../services/tenant-service";
-import type { Form3Response, FormTemplate } from "../types";
+import type { Form3Response } from "../types";
 import { formatDate } from "../utils/format";
 
 const RATING4_LABELS: Record<number, string> = { 1: "Ruim", 2: "Regular", 3: "Bom", 4: "Excelente" };
@@ -121,21 +123,21 @@ function SubReasonReadonly({
 export default function Form3Preview() {
   const { tenantSlug = "", id } = useParams<{ tenantSlug: string; id: string }>();
   const navigate = useNavigate();
-  const [form, setForm] = useState<Form3Response | null>(null);
-  const [template, setTemplate] = useState<FormTemplate | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!id || !tenantSlug) { setLoading(false); return; }
-    form3Service.getById(tenantSlug, id)
-      .then(async (data) => {
-        setForm(data);
-        const tmpl = await tenantService.getFormTemplate(tenantSlug, data.formType);
-        setTemplate(tmpl);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [tenantSlug, id]);
+  const { data: form, isLoading: formLoading } = useQuery({
+    queryKey: ["form3", tenantSlug, id],
+    queryFn: () => form3Service.getById(tenantSlug, id!),
+    enabled: !!tenantSlug && !!id,
+    throwOnError: (err) => { toast.error(`Erro ao carregar resposta: ${(err as Error).message}`); return false; },
+  });
+
+  const { data: template, isLoading: templateLoading } = useQuery({
+    queryKey: ["form-template", tenantSlug, form?.formType],
+    queryFn: () => tenantService.getFormTemplate(tenantSlug, form!.formType),
+    enabled: !!form,
+  });
+
+  const loading = formLoading || templateLoading;
 
   if (loading) {
     return (
@@ -151,7 +153,7 @@ export default function Form3Preview() {
         <Card className="w-full max-w-md text-center" shadow="md">
           <div className="flex flex-col gap-4">
             <Text variant="heading-md" className="text-gray-400">Formulário não encontrado</Text>
-            <Button onClick={() => navigate("/dashboard")}>Voltar ao Dashboard</Button>
+            <Button onClick={() => navigate(ROUTES.analytics(tenantSlug))}>Voltar ao Analytics</Button>
           </div>
         </Card>
       </div>

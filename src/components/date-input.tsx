@@ -70,21 +70,21 @@ export default function DateInput({
 
   return (
     <div ref={wrapRef} className="flex flex-col gap-1.5 relative">
-      <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">{label}</span>
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-teal-dark font-sans">{label}</span>
 
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 font-sans text-base transition-all duration-200 bg-white/80 ${
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border font-sans text-sm transition-all duration-200 bg-white ${
           error
-            ? "border-brand-red ring-4 ring-brand-red/10"
+            ? "border-brand-red ring-2 ring-brand-red/10"
             : open
-            ? "border-teal-base ring-4 ring-teal-base/10"
-            : "border-gray-200"
+            ? "border-teal-base ring-2 ring-teal-base/10"
+            : "border-gray-200 hover:border-gray-300"
         } ${parsed ? "text-gray-400" : "text-gray-300"}`}
       >
         <span>{displayLabel}</span>
-        <svg className="w-4 h-4 text-teal-dark shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+        <svg className="w-3.5 h-3.5 text-teal-dark shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
           <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
         </svg>
       </button>
@@ -93,26 +93,26 @@ export default function DateInput({
       {required && <input tabIndex={-1} required value={value} onChange={() => {}} className="sr-only" />}
 
       {open && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 flex flex-col gap-3">
+        <div className="absolute top-full left-0 z-50 mt-1 w-64 bg-white rounded-xl shadow-lg border border-gray-100 p-3 flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <button
               type="button" onClick={prevMonth} disabled={!canPrev}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${canPrev ? "hover:bg-gray-100 text-gray-400" : "text-gray-200 cursor-default"}`}
+              className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${canPrev ? "hover:bg-gray-100 text-gray-400" : "text-gray-200 cursor-default"}`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
             </button>
-            <span className="font-bold text-gray-400 font-sans text-sm">{MONTHS_PT[cursor.m]}, {cursor.y}</span>
+            <span className="font-semibold text-gray-400 font-sans text-xs">{MONTHS_PT[cursor.m]}, {cursor.y}</span>
             <button
               type="button" onClick={nextMonth} disabled={!canNext}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${canNext ? "hover:bg-gray-100 text-gray-400" : "text-gray-200 cursor-default"}`}
+              className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${canNext ? "hover:bg-gray-100 text-gray-400" : "text-gray-200 cursor-default"}`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
             </button>
           </div>
 
-          <div className="grid grid-cols-7 gap-0.5">
+          <div className="grid grid-cols-7 gap-0">
             {DAYS_PT.map(d => (
-              <div key={d} className="text-center text-xs font-semibold text-gray-300 font-sans py-1">{d}</div>
+              <div key={d} className="text-center text-[10px] font-semibold text-gray-300 font-sans py-0.5">{d}</div>
             ))}
             {cells.map((day, i) => {
               if (!day) return <div key={i} />;
@@ -126,13 +126,13 @@ export default function DateInput({
                   type="button"
                   disabled={!!disabled}
                   onClick={() => selectDay(day)}
-                  className={`h-9 w-full rounded-lg text-sm font-sans font-semibold transition-all duration-100 ${
+                  className={`h-7 w-full rounded-md text-xs font-sans font-medium transition-all duration-100 ${
                     disabled
                       ? "text-gray-200 cursor-default"
                       : isSelected
-                      ? "bg-teal-base text-white shadow-sm"
+                      ? "bg-teal-base text-white"
                       : isToday
-                      ? "border-2 border-teal-base text-teal-dark hover:bg-teal-light/40"
+                      ? "border border-teal-base text-teal-dark hover:bg-teal-light/40"
                       : "text-gray-400 hover:bg-gray-100"
                   }`}
                 >
@@ -146,7 +146,7 @@ export default function DateInput({
             <button
               type="button"
               onClick={() => { onChange(today.toISOString().slice(0, 10)); setOpen(false); }}
-              className="w-full py-2 rounded-xl bg-teal-base text-white text-sm font-semibold font-sans hover:bg-teal-dark transition-colors"
+              className="w-full py-1.5 rounded-lg bg-teal-base text-white text-xs font-semibold font-sans hover:bg-teal-dark transition-colors"
             >
               Hoje
             </button>

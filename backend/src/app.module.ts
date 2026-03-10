@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantModule } from './modules/tenants/tenant.module';
@@ -17,7 +19,17 @@ import {
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: (config: Record<string, unknown>) => {
+        const required = ['JWT_SECRET', 'DB_HOST', 'DB_USERNAME', 'DB_PASSWORD', 'DB_DATABASE'];
+        const missing = required.filter((key) => !config[key]);
+        if (missing.length) {
+          throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+        }
+        return config;
+      },
+    }),
 
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -40,16 +52,25 @@ import {
         synchronize: config.get<string>('DB_SYNCHRONIZE', 'false') === 'true',
         ssl:
           config.get<string>('DB_SSL', 'false') === 'true'
-            ? { rejectUnauthorized: false }
+            ? {
+                rejectUnauthorized: true,
+                ...(config.get<string>('DB_SSL_CA') ? { ca: config.get<string>('DB_SSL_CA') } : {}),
+              }
             : false,
       }),
     }),
+
+    // Global: 60 requests per minute per IP (strict limit applied per-route on public endpoints)
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
 
     AuthModule,
     UserModule,
     TenantModule,
     FormTemplateModule,
     Form3Module,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

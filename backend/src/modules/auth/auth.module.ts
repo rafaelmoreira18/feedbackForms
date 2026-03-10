@@ -18,7 +18,7 @@ import { TenantModule } from '../tenants/tenant.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.getOrThrow<string>('JWT_SECRET'),
-        signOptions: { expiresIn: 86400 },
+        signOptions: { expiresIn: config.get<string>('JWT_EXPIRES_IN', '1d') },
       }),
     }),
   ],

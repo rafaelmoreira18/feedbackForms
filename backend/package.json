@@ -7,12 +7,25 @@
     "start": "nest start",
     "start:dev": "npx ts-node -r tsconfig-paths/register src/main.ts",
     "start:prod": "node dist/main",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d src/database/data-source.ts",
     "migration:generate": "npm run build && npm run typeorm -- migration:generate",
     "migration:run": "npm run build && npm run typeorm -- migration:run",
     "migration:revert": "npm run build && npm run typeorm -- migration:revert",
-    "seed:first-tenant": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-first-tenant.ts",
-    "seed:demo-responses": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-demo-responses.ts"
+    "seed:first-tenant": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-first-tenant.ts"
+  },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": ["**/*.(t|j)s"],
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -21,6 +34,8 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/passport": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/swagger": "^11.2.6",
+    "@nestjs/throttler": "^6.0.0",
     "@nestjs/typeorm": "^11.0.0",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
@@ -36,10 +51,14 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
+    "@nestjs/testing": "^11.1.16",
     "@types/bcrypt": "^5.0.2",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/uuid": "^10.0.0",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.0"

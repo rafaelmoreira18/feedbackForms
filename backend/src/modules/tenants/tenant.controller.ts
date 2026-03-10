@@ -9,6 +9,8 @@ import {
 import { TenantService } from './tenant.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('tenants')
 export class TenantController {
@@ -20,15 +22,18 @@ export class TenantController {
     return this.tenantService.findBySlug(slug);
   }
 
-  /** Protected: only admins list/create tenants */
+  /** Protected: any authenticated admin can list tenants */
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('holding_admin', 'hospital_admin')
   findAll() {
     return this.tenantService.findAll();
   }
 
+  /** Protected: only holding_admin can create new tenants */
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('holding_admin')
   create(@Body() dto: CreateTenantDto) {
     return this.tenantService.create(dto);
   }

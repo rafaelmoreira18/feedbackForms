@@ -1,12 +1,13 @@
-import { IsOptional, IsString, IsIn } from 'class-validator';
+import { IsOptional, IsDateString, IsString, IsIn, IsInt, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class FilterForm3Dto {
   @IsOptional()
-  @IsString()
+  @IsDateString({}, { message: 'startDate deve ser uma data válida (YYYY-MM-DD)' })
   startDate?: string;
 
   @IsOptional()
-  @IsString()
+  @IsDateString({}, { message: 'endDate deve ser uma data válida (YYYY-MM-DD)' })
   endDate?: string;
 
   @IsOptional()
@@ -16,4 +17,17 @@ export class FilterForm3Dto {
   @IsOptional()
   @IsString()
   formType?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number;
 }

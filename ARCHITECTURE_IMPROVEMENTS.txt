@@ -441,37 +441,46 @@ PRIORITY SUMMARY
 ================================================================================
 
   CRITICAL (fix before scale):
-    [ ] Paginate GET /api/tenants/:tenantSlug/forms3
-    [ ] Move metrics to SQL aggregation (currently O(n) in-memory)
-    [ ] Break up survey-form3.tsx into focused modules
+    [x] Paginate GET /api/tenants/:tenantSlug/forms3 — done 2026-03-10 (?page&limit, findAndCount)
+    [x] Move metrics to SQL aggregation — done 2026-03-10 (PostgreSQL AVG/COUNT/FILTER, O(1) memory)
+    [x] Break up survey-form3.tsx — done 2026-03-10
+        hooks/useForm3.ts, components/form3/{Rating4Input,NpsInput,SectionHeader}.tsx
 
   HIGH (fix in next iteration):
-    [ ] Add composite index (tenantId, formType, createdAt)
-    [ ] Add rate limiting to public POST endpoint
-    [ ] Implement TanStack Query for server state
-    [ ] Add request logging and audit trail (include tenantSlug in logs)
     [ ] Add backend unit + integration tests (include tenant isolation tests)
-    [ ] Add consistent error/loading UI states
+    [x] Add composite index (tenantId, formType, createdAt) — done 2026-03-10
+    [x] Add request logging and audit trail — done 2026-03-10 (LoggingInterceptor)
+    [x] Add rate limiting to public POST endpoint — done 2026-03-10 (@nestjs/throttler, 5/min/IP)
+    [x] Implement TanStack Query — done 2026-03-10 (analytics3.tsx, form3-preview.tsx)
+    [x] Consistent error/loading UI — done 2026-03-10 (react-hot-toast + spinner states)
 
   MEDIUM (plan for near future):
-    [ ] Migrate frontend to use existing form-templates API (infra already exists)
-    [ ] Add RBAC enforcement (use the existing role field, scope to tenant)
-    [ ] Implement soft deletes for individual records
-    [ ] Migrate to TypeORM migrations, disable DB_SYNCHRONIZE in prod
-    [ ] Add Swagger/OpenAPI documentation (document tenant scoping)
-    [ ] Add environment variable startup validation
-    [ ] Add tenant isolation integration tests
+    [x] Migrate frontend to use form-templates API — already done; survey-form3-config.ts deleted 2026-03-10
+    [x] Add RBAC enforcement — done 2026-03-10 (RolesGuard + @Roles decorator; DELETE requires hospital_admin+)
+    [x] Implement soft deletes — done 2026-03-10 (@DeleteDateColumn + softDeleteOne(); DELETE :id endpoint added)
+    [x] TypeORM migrations data-source — already existed (src/database/data-source.ts + migrations/ dir)
+    [x] Add Swagger/OpenAPI — done 2026-03-10 (@nestjs/swagger; /api/docs in dev; @ApiTags on controllers)
+    [x] Add backend unit + integration tests — done 2026-03-10 (37 tests: CPF validator, Form3Service, tenant isolation)
+    [x] Add tenant isolation tests — done 2026-03-10 (tenant-isolation.spec.ts; verifies all queries scope to tenantId)
+    [x] Disable DB_SYNCHRONIZE in prod — done 2026-03-10 (startup guard + .env.example fix)
+    [x] Add environment variable startup validation — done 2026-03-10 (ConfigModule validate)
 
   LOW (polish):
     [ ] Replace localStorage token with httpOnly cookies
-    [ ] Centralize route definitions (src/routes.ts)
-    [ ] Migrate components to CVA variant API
-    [ ] Extract CPF validator to common/validators/
+    [x] Migrate components to CVA variant API — done 2026-03-10 (button.tsx; text.tsx was already done)
+    [x] Centralize route definitions (src/routes.ts) — done 2026-03-10
+    [x] Extract CPF validator to common/validators/ — done 2026-03-10
 
   RESOLVED (no longer action items):
     [x] DB indexes on tenantId, formType, createdAt — already implemented
+    [x] Composite index (tenantId, formType, createdAt) — done 2026-03-10
     [x] Separate Form 3 module from generic "forms" — already done (Form3ResponseEntity)
     [x] Move form config to backend API — endpoint exists, frontend migration pending
+    [x] Centralize route definitions — done 2026-03-10 (src/routes.ts)
+    [x] Extract CPF validator — done 2026-03-10 (common/validators/cpf.validator.ts)
+    [x] Disable DB_SYNCHRONIZE in prod — done 2026-03-10
+    [x] Env var startup validation — done 2026-03-10
+    [x] Request logging interceptor — done 2026-03-10 (LoggingInterceptor)
 
 ================================================================================
 END OF REPORT

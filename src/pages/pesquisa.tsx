@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ROUTES } from "../routes";
 import { tenantService } from "../services/tenant-service";
 import type { FormTemplate } from "../types";
 import {
@@ -29,19 +30,38 @@ export default function Pesquisa() {
   const navigate = useNavigate();
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!tenantSlug) { setLoading(false); return; }
+    setLoading(true);
+    setError(false);
     tenantService.getFormTemplates(tenantSlug)
       .then(setTemplates)
-      .catch(() => {})
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [tenantSlug]);
+  }, [tenantSlug, retryCount]);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-gray-300 font-sans">Carregando...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <p className="text-red-500 font-sans">Erro ao carregar pesquisas.</p>
+        <button
+          type="button"
+          onClick={() => setRetryCount(c => c + 1)}
+          className="px-4 py-2 rounded-xl bg-teal-base text-white font-sans font-semibold text-sm hover:bg-teal-dark transition-colors"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }
@@ -68,7 +88,7 @@ export default function Pesquisa() {
               <button
                 key={tmpl.slug}
                 type="button"
-                onClick={() => navigate(`/${tenantSlug}/${tmpl.slug}`)}
+                onClick={() => navigate(ROUTES.survey(tenantSlug, tmpl.slug))}
                 className="text-left group"
               >
                 <div className="h-full bg-white rounded-2xl p-5 flex flex-col gap-3 border-2 border-transparent group-hover:border-teal-base transition-all duration-200 group-hover:shadow-xl shadow-md">

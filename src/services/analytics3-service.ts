@@ -1,5 +1,14 @@
 import type { Form3Response } from "../types";
-import { getScaleAverage } from "./form3-service";
+
+export function getScaleAverage(form: Form3Response): number {
+  const scaleAnswers = form.answers.filter((a) => a.questionId !== "nps");
+  if (scaleAnswers.length === 0) return 0;
+  return scaleAnswers.reduce((sum, a) => sum + a.value, 0) / scaleAnswers.length;
+}
+
+export function getNpsScore(form: Form3Response): number | undefined {
+  return form.answers.find((a) => a.questionId === "nps")?.value;
+}
 
 /**
  * All analytics functions derive department lists from the actual response data.

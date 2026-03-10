@@ -1,30 +1,37 @@
-import type { Form3Response, Form3Filters, Form3Metrics } from '../types';
+import type { Form3Response, Form3Filters, Form3Metrics, PaginatedResponse } from '../types';
 import { api } from './api';
 
-function buildQueryString(filters?: Form3Filters): string {
+export { getScaleAverage, getNpsScore } from './analytics3-service';
+
+function buildQueryString(filters?: Form3Filters & { page?: number; limit?: number }): string {
   if (!filters) return '';
   const params = new URLSearchParams();
   if (filters.startDate) params.set('startDate', filters.startDate);
   if (filters.endDate) params.set('endDate', filters.endDate);
   if (filters.sortSatisfaction) params.set('sortSatisfaction', filters.sortSatisfaction);
   if (filters.formType) params.set('formType', filters.formType);
+  if (filters.page) params.set('page', String(filters.page));
+  if (filters.limit) params.set('limit', String(filters.limit));
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }
 
-export function getScaleAverage(form: Form3Response): number {
-  const scaleAnswers = form.answers.filter((a) => a.questionId !== 'nps');
-  if (scaleAnswers.length === 0) return 0;
-  return scaleAnswers.reduce((sum, a) => sum + a.value, 0) / scaleAnswers.length;
-}
-
-export function getNpsScore(form: Form3Response): number | undefined {
-  return form.answers.find((a) => a.questionId === 'nps')?.value;
-}
-
 export const form3Service = {
+  // Returns all records for analytics (high limit). Unwraps paginated envelope.
   getAll: async (tenantSlug: string): Promise<Form3Response[]> => {
-    return api.get<Form3Response[]>(`tenants/${tenantSlug}/forms3`);
+    const res = await api.get<PaginatedResponse<Form3Response>>(
+      `tenants/${tenantSlug}/forms3?limit=200`,
+    );
+    return res.data;
+  },
+
+  // Returns paginated list for dashboard table.
+  getPaginated: async (
+    tenantSlug: string,
+    filters?: Form3Filters & { page?: number; limit?: number },
+  ): Promise<PaginatedResponse<Form3Response>> => {
+    const qs = buildQueryString(filters);
+    return api.get<PaginatedResponse<Form3Response>>(`tenants/${tenantSlug}/forms3${qs}`);
   },
 
   getById: async (tenantSlug: string, id: string): Promise<Form3Response> => {
@@ -38,15 +45,8 @@ export const form3Service = {
     return api.post<Form3Response>(`tenants/${tenantSlug}/forms3`, formData);
   },
 
-  filter: async (tenantSlug: string, filters: Form3Filters): Promise<Form3Response[]> => {
-    const qs = buildQueryString(filters);
-    return api.get<Form3Response[]>(`tenants/${tenantSlug}/forms3${qs}`);
-  },
-
   getMetrics: async (tenantSlug: string, filters?: Form3Filters): Promise<Form3Metrics> => {
     const qs = buildQueryString(filters);
     return api.get<Form3Metrics>(`tenants/${tenantSlug}/forms3/metrics${qs}`);
   },
-
-  getScaleAverage,
 };

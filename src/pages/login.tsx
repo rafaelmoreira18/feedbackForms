@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
+import { ROUTES } from "../routes";
 import Text from "../components/text";
 import Input from "../components/input";
 import Button from "../components/button";
@@ -11,8 +12,13 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+
+  // Already logged in → go straight to the tenant's forms
+  if (isAuthenticated && user) {
+    return <Navigate to={ROUTES.pesquisa(user.tenantSlug ?? 'hgm')} replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +28,8 @@ export default function Login() {
     try {
       const loggedUser = await login(email, password);
       if (loggedUser) {
-        navigate("/dashboard");
+        const slug = loggedUser.tenantSlug ?? 'hgm';
+        navigate(ROUTES.pesquisa(slug));
       } else {
         setError("Email ou senha incorretos");
       }
@@ -76,14 +83,6 @@ export default function Login() {
             </Button>
           </form>
 
-          <div className="border-t border-gray-200 pt-4">
-            <Text variant="body-sm" className="text-gray-300 text-center">
-              Credenciais de teste:
-            </Text>
-            <Text variant="caption" className="text-gray-300 text-center block mt-1">
-              Email: admin@hospital.com | Senha: admin123
-            </Text>
-          </div>
         </div>
       </Card>
     </div>

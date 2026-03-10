@@ -1,215 +1,38 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { form3Service } from "../services/form3-service";
-import { tenantService } from "../services/tenant-service";
-import type { Form3Answer, FormTemplate } from "../types";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useForm3, formatCpf } from "../hooks/useForm3";
 import Input from "../components/input";
 import Textarea from "../components/textarea";
 import Button from "../components/button";
 import DateInput from "../components/date-input";
-import SubReasonPanel from "../components/sub-reason-panel";
-
-// ─── Rating 4 config ──────────────────────────────────────────────────────────
-
-const NOTO_BASE = "https://fonts.gstatic.com/s/e/notoemoji/latest";
-const RATING4_EMOJI_URLS: Record<number, string> = {
-  1: `${NOTO_BASE}/1f614/512.webp`,
-  2: `${NOTO_BASE}/1f610/512.webp`,
-  3: `${NOTO_BASE}/1f642/512.webp`,
-  4: `${NOTO_BASE}/1f601/512.webp`,
-};
-
-const RATING4_LABELS: Record<number, string> = { 1: "Ruim", 2: "Regular", 3: "Bom", 4: "Excelente" };
-
-const RATING4_STYLES: Record<number, { active: string; inactive: string }> = {
-  1: { active: "bg-red-base border-red-base text-white shadow-md", inactive: "bg-white border-gray-200 text-gray-300 hover:border-red-base hover:text-red-base" },
-  2: { active: "bg-yellow-base border-yellow-base text-white shadow-md", inactive: "bg-white border-gray-200 text-gray-300 hover:border-yellow-base hover:text-yellow-base" },
-  3: { active: "bg-teal-base border-teal-base text-white shadow-md", inactive: "bg-white border-gray-200 text-gray-300 hover:border-teal-base hover:text-teal-base" },
-  4: { active: "bg-green-base border-green-base text-white shadow-md", inactive: "bg-white border-gray-200 text-gray-300 hover:border-green-base hover:text-green-base" },
-};
-
-const ANIM = `
-@keyframes popIn {
-  0%   { transform: scale(0.5); opacity: 0; }
-  60%  { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
-.emoji-pop { animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards; }
-`;
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function SectionHeader({ icon, title, subtitle }: { icon: string; title: string; subtitle?: string }) {
-  return (
-    <div className="flex items-start gap-3 pb-3 border-b-2 border-teal-light">
-      <div className="w-10 h-10 rounded-xl bg-linear-to-br from-teal-base to-teal-dark flex items-center justify-center text-xl shrink-0 shadow-sm">
-        {icon}
-      </div>
-      <div>
-        <h2 className="text-base font-bold text-gray-400 font-sans">{title}</h2>
-        {subtitle && <p className="text-xs text-gray-300 font-sans mt-0.5">{subtitle}</p>}
-      </div>
-    </div>
-  );
-}
-
-function Rating4Input({
-  label, value, onChange, subReasons, selectedReasons, note, onReasonsChange, onNoteChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  subReasons?: [string, string, string] | null;
-  selectedReasons: string[];
-  note: string;
-  onReasonsChange: (reasons: string[]) => void;
-  onNoteChange: (note: string) => void;
-}) {
-  return (
-    <>
-      <style>{ANIM}</style>
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-semibold text-gray-400 font-sans">{label}</p>
-        <div className="grid grid-cols-2 sm:flex gap-2">
-          {[1, 2, 3, 4].map((r) => {
-            const isActive = value === r;
-            return (
-              <button
-                key={r}
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onChange(value === r ? 0 : r)}
-                className={`flex items-center justify-center gap-2 px-3 py-3 rounded-xl border-2 font-semibold text-sm transition-all duration-150 w-full sm:w-auto ${isActive ? RATING4_STYLES[r].active : RATING4_STYLES[r].inactive}`}
-              >
-                {isActive && (
-                  <img key={`${r}-active`} src={RATING4_EMOJI_URLS[r]} alt={RATING4_LABELS[r]}
-                    width={24} height={24} className="emoji-pop shrink-0" />
-                )}
-                <span>{RATING4_LABELS[r]}</span>
-              </button>
-            );
-          })}
-        </div>
-        {value > 0 && value <= 2 && subReasons && (
-          <SubReasonPanel
-            reasons={subReasons}
-            selectedReasons={selectedReasons}
-            note={note}
-            rating={value as 1 | 2}
-            onReasonsChange={onReasonsChange}
-            onNoteChange={onNoteChange}
-          />
-        )}
-      </div>
-    </>
-  );
-}
-
-function NpsInput({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number) => void }) {
-  function getColor(n: number): string {
-    if (value !== n) return "bg-gray-100 text-gray-300 hover:bg-gray-200";
-    if (n <= 6) return "bg-red-base text-white";
-    if (n <= 8) return "bg-yellow-base text-white";
-    return "bg-green-base text-white";
-  }
-
-  function Bracket({ color, label: bl }: { color: string; label: string }) {
-    return (
-      <div className="flex flex-col items-center">
-        <div
-          className={`w-full flex items-end h-2 ${color}`}
-          style={{ borderLeft: "2px solid currentColor", borderTop: "2px solid currentColor", borderRight: "2px solid currentColor", borderRadius: "2px 2px 0 0" }}
-        />
-        <span className={`text-[10px] font-semibold font-sans mt-0.5 ${color}`}>{bl}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="text-sm font-semibold text-gray-400 font-sans">{label}</p>
-      <div className="grid grid-cols-11 gap-1">
-        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-          <button key={n} type="button" onMouseDown={(e) => e.preventDefault()}
-            onClick={() => onChange(n)}
-            className={`h-10 w-full rounded-lg font-bold text-sm transition-all duration-150 ${getColor(n)}`}
-          >
-            {n}
-          </button>
-        ))}
-      </div>
-      <div className="grid grid-cols-11 gap-1">
-        <div className="col-span-7"><Bracket color="text-red-base" label="Detrator" /></div>
-        <div className="col-span-2"><Bracket color="text-yellow-base" label="Neutro" /></div>
-        <div className="col-span-2"><Bracket color="text-green-base" label="Promotor" /></div>
-      </div>
-    </div>
-  );
-}
-
-function formatCpf(value: string): string {
-  const d = value.replace(/\D/g, "").slice(0, 11);
-  if (d.length <= 3) return d;
-  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
-  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
-  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
-}
-
-function isValidCpf(cpf: string): boolean {
-  const d = cpf.replace(/\D/g, "");
-  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
-  let s = 0;
-  for (let i = 0; i < 9; i++) s += parseInt(d[i]) * (10 - i);
-  let c = 11 - (s % 11); if (c >= 10) c = 0;
-  if (parseInt(d[9]) !== c) return false;
-  s = 0;
-  for (let i = 0; i < 10; i++) s += parseInt(d[i]) * (11 - i);
-  c = 11 - (s % 11); if (c >= 10) c = 0;
-  return parseInt(d[10]) === c;
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
+import Rating4Input from "../components/form3/rating4-input";
+import NpsInput from "../components/form3/nps-input";
+import SectionHeader from "../components/form3/section-header";
+import { ROUTES } from "../routes";
 
 export default function SurveyForm3() {
-  const { tenantSlug = "", formSlug = "" } = useParams<{ tenantSlug: string; formSlug: string }>();
+  const {
+    tenantSlug,
+    template,
+    loading,
+    notFound,
+    submitted,
+    cpfError,
+    dateError,
+    patientInfo,
+    setPatientInfo,
+    answers,
+    setAnswer,
+    setAnswerReasons,
+    setAnswerNote,
+    comments,
+    setComments,
+    setCpfError,
+    setDateError,
+    handleSubmit,
+  } = useForm3();
+
   const navigate = useNavigate();
-
-  const [template, setTemplate] = useState<FormTemplate | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [cpfError, setCpfError] = useState("");
-  const [dateError, setDateError] = useState("");
-
-  const [patientInfo, setPatientInfo] = useState({
-    patientName: "",
-    patientCpf: "",
-    patientAge: "",
-    patientGender: "Masculino" as "Masculino" | "Feminino" | "Outro",
-    admissionDate: "",
-    dischargeDate: "",
-  });
-
-  const [answers, setAnswers] = useState<Map<string, Form3Answer>>(new Map());
-  const [comments, setComments] = useState("");
-
-  useEffect(() => {
-    if (!tenantSlug || !formSlug) { setNotFound(true); setLoading(false); return; }
-
-    tenantService.getFormTemplate(tenantSlug, formSlug)
-      .then((tmpl) => {
-        setTemplate(tmpl);
-        const map = new Map<string, Form3Answer>();
-        tmpl.blocks.forEach((block) => {
-          block.questions.forEach((q) => {
-            map.set(q.questionKey, { questionId: q.questionKey, value: q.scale === "nps" ? -1 : 0 });
-          });
-        });
-        setAnswers(map);
-      })
-      .catch(() => setNotFound(true))
-      .finally(() => setLoading(false));
-  }, [tenantSlug, formSlug]);
 
   if (loading) {
     return (
@@ -225,79 +48,14 @@ export default function SurveyForm3() {
         <div className="bg-white rounded-3xl p-8 text-center shadow-xl max-w-sm w-full">
           <div className="text-4xl mb-4">🔍</div>
           <h2 className="text-xl font-bold text-gray-400 font-sans mb-2">Setor não encontrado</h2>
-          <Button onClick={() => navigate("/")} className="mt-4">Voltar ao início</Button>
+          <Button onClick={() => navigate(ROUTES.pesquisa(tenantSlug))} className="mt-4">Voltar aos setores</Button>
         </div>
       </div>
     );
   }
-
-  function setAnswer(questionKey: string, value: number) {
-    setAnswers((prev) => {
-      const next = new Map(prev);
-      const existing = prev.get(questionKey);
-      next.set(questionKey, value >= 3 ? { questionId: questionKey, value } : { ...existing, questionId: questionKey, value });
-      return next;
-    });
-  }
-
-  function setAnswerReasons(questionKey: string, reasons: string[]) {
-    setAnswers((prev) => {
-      const next = new Map(prev);
-      next.set(questionKey, { ...prev.get(questionKey)!, reasons });
-      return next;
-    });
-  }
-
-  function setAnswerNote(questionKey: string, note: string) {
-    setAnswers((prev) => {
-      const next = new Map(prev);
-      next.set(questionKey, { ...prev.get(questionKey)!, note });
-      return next;
-    });
-  }
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    let valid = true;
-    if (!isValidCpf(patientInfo.patientCpf)) { setCpfError("CPF inválido"); valid = false; } else setCpfError("");
-    if (patientInfo.admissionDate && patientInfo.dischargeDate && patientInfo.dischargeDate < patientInfo.admissionDate) {
-      setDateError("A data de alta não pode ser anterior à data de admissão"); valid = false;
-    } else setDateError("");
-    if (!valid) return;
-
-    const answersArray = template.blocks.flatMap((block) =>
-      block.questions.map((q) => answers.get(q.questionKey) ?? { questionId: q.questionKey, value: q.scale === "nps" ? 0 : 1 })
-    );
-
-    try {
-      await form3Service.create(tenantSlug, {
-        formType: formSlug,
-        ...patientInfo,
-        patientCpf: patientInfo.patientCpf.replace(/\D/g, ""),
-        patientAge: parseInt(patientInfo.patientAge),
-        evaluatedDepartment: template.name,
-        answers: answersArray,
-        comments,
-      });
-      setSubmitted(true);
-      setTimeout(() => navigate(`/${tenantSlug}/${formSlug}`), 3000);
-    } catch { /* errors will surface via toast in future iteration */ }
-  };
 
   if (submitted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4 py-8">
-        <div className="text-center flex flex-col items-center gap-6">
-          <div className="w-24 h-24 rounded-full bg-green-base border-4 border-green-base flex items-center justify-center">
-            <span className="text-4xl text-white">✓</span>
-          </div>
-          <div>
-            <h2 className="text-3xl font-bold text-gray-400 font-sans">Obrigado!</h2>
-            <p className="text-gray-300 font-sans mt-2">Sua pesquisa foi enviada com sucesso. Obrigado!</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <SubmittedScreen tenantSlug={tenantSlug} />;
   }
 
   return (
@@ -393,6 +151,33 @@ export default function SurveyForm3() {
         <p className="text-center text-xs text-gray-300 font-sans mt-4 pb-2">
           Hospital Regional de Guajará-Mirim
         </p>
+      </div>
+    </div>
+  );
+}
+
+function SubmittedScreen({ tenantSlug }: { tenantSlug: string }) {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const timer = setTimeout(() => navigate(ROUTES.pesquisa(tenantSlug), { replace: true }), 3000);
+    return () => clearTimeout(timer);
+  }, [tenantSlug, navigate]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4 py-8">
+      <div className="text-center flex flex-col items-center gap-6">
+        <div className="w-24 h-24 rounded-full bg-green-base border-4 border-green-base flex items-center justify-center">
+          <span className="text-4xl text-white">✓</span>
+        </div>
+        <div>
+          <h2 className="text-3xl font-bold text-gray-400 font-sans">Enviado!</h2>
+          <p className="text-gray-300 font-sans mt-2">Pesquisa registrada com sucesso.</p>
+          <p className="text-gray-300 font-sans text-sm mt-1">Voltando para os setores em instantes...</p>
+        </div>
+        <Button variant="outline" onClick={() => navigate(ROUTES.pesquisa(tenantSlug), { replace: true })}>
+          Novo paciente agora
+        </Button>
       </div>
     </div>
   );

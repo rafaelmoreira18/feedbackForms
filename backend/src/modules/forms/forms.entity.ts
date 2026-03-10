@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Index,
   ManyToOne,
   JoinColumn,
@@ -16,6 +17,7 @@ export interface Form3Answer {
   note?: string;
 }
 
+@Index(['tenantId', 'formType', 'createdAt'])
 @Entity('form3_responses')
 export class Form3ResponseEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -65,6 +67,10 @@ export class Form3ResponseEntity {
   @Index()
   @CreateDateColumn()
   createdAt: Date;
+
+  /** Soft-delete timestamp. null = active. Set via softDelete(), excluded from all queries automatically. */
+  @DeleteDateColumn({ nullable: true })
+  deletedAt: Date | null;
 }
 
 export type Form3Response = Form3ResponseEntity;
