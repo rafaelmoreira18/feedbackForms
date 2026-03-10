@@ -11,7 +11,8 @@
     "migration:generate": "npm run build && npm run typeorm -- migration:generate",
     "migration:run": "npm run build && npm run typeorm -- migration:run",
     "migration:revert": "npm run build && npm run typeorm -- migration:revert",
-    "seed:first-tenant": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-first-tenant.ts"
+    "seed:first-tenant": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-first-tenant.ts",
+    "seed:demo-responses": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-demo-responses.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
