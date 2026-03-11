@@ -15,21 +15,25 @@ function buildQueryString(filters?: Form3Filters): string {
 }
 
 export const form3Service = {
-  // Returns all records for analytics. Unwraps paginated envelope.
+  // Returns all records. Handles both array and paginated envelope responses.
   getAll: async (tenantSlug: string): Promise<Form3Response[]> => {
-    const res = await api.get<PaginatedResponse<Form3Response>>(
+    const res = await api.get<Form3Response[] | PaginatedResponse<Form3Response>>(
       `tenants/${tenantSlug}/forms3`,
     );
-    return res.data;
+    return Array.isArray(res) ? res : res.data;
   },
 
-  // Returns filtered list for dashboard table.
+  // Returns filtered list for dashboard table. Normalizes to PaginatedResponse.
   getPaginated: async (
     tenantSlug: string,
     filters?: Form3Filters,
   ): Promise<PaginatedResponse<Form3Response>> => {
     const qs = buildQueryString(filters);
-    return api.get<PaginatedResponse<Form3Response>>(`tenants/${tenantSlug}/forms3${qs}`);
+    const res = await api.get<Form3Response[] | PaginatedResponse<Form3Response>>(`tenants/${tenantSlug}/forms3${qs}`);
+    if (Array.isArray(res)) {
+      return { data: res, total: res.length, page: 1, limit: res.length };
+    }
+    return res;
   },
 
   getById: async (tenantSlug: string, id: string): Promise<Form3Response> => {
