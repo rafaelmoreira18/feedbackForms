@@ -3,32 +3,30 @@ import { api } from './api';
 
 export { getScaleAverage, getNpsScore } from './analytics3-service';
 
-function buildQueryString(filters?: Form3Filters & { page?: number; limit?: number }): string {
+function buildQueryString(filters?: Form3Filters): string {
   if (!filters) return '';
   const params = new URLSearchParams();
   if (filters.startDate) params.set('startDate', filters.startDate);
   if (filters.endDate) params.set('endDate', filters.endDate);
   if (filters.sortSatisfaction) params.set('sortSatisfaction', filters.sortSatisfaction);
   if (filters.formType) params.set('formType', filters.formType);
-  if (filters.page) params.set('page', String(filters.page));
-  if (filters.limit) params.set('limit', String(filters.limit));
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }
 
 export const form3Service = {
-  // Returns all records for analytics (high limit). Unwraps paginated envelope.
+  // Returns all records for analytics. Unwraps paginated envelope.
   getAll: async (tenantSlug: string): Promise<Form3Response[]> => {
     const res = await api.get<PaginatedResponse<Form3Response>>(
-      `tenants/${tenantSlug}/forms3?limit=200`,
+      `tenants/${tenantSlug}/forms3`,
     );
     return res.data;
   },
 
-  // Returns paginated list for dashboard table.
+  // Returns filtered list for dashboard table.
   getPaginated: async (
     tenantSlug: string,
-    filters?: Form3Filters & { page?: number; limit?: number },
+    filters?: Form3Filters,
   ): Promise<PaginatedResponse<Form3Response>> => {
     const qs = buildQueryString(filters);
     return api.get<PaginatedResponse<Form3Response>>(`tenants/${tenantSlug}/forms3${qs}`);
