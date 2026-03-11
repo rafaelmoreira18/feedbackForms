@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -129,6 +129,10 @@ function QuestionDrillDown({
   detail: QuestionDetail;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
   const scoreColor =
     detail.avg >= 3.5 ? "text-green-base" : detail.avg >= 2.5 ? "text-yellow-base" : "text-red-base";
 

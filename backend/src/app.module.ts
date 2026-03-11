@@ -53,7 +53,7 @@ import {
         ssl:
           config.get<string>('DB_SSL', 'false') === 'true'
             ? {
-                rejectUnauthorized: true,
+                rejectUnauthorized: false,
                 ...(config.get<string>('DB_SSL_CA') ? { ca: config.get<string>('DB_SSL_CA') } : {}),
               }
             : false,
