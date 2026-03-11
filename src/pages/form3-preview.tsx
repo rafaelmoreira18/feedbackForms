@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { ROUTES } from "../routes";
 import { form3Service, getScaleAverage, getNpsScore } from "../services/form3-service";
 import { tenantService } from "../services/tenant-service";
-import type { Form3Response } from "../types";
+
 import { formatDate } from "../utils/format";
 
 const RATING4_LABELS: Record<number, string> = { 1: "Ruim", 2: "Regular", 3: "Bom", 4: "Excelente" };
