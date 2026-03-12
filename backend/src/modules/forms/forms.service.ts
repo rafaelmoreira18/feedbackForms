@@ -138,8 +138,22 @@ export class Form3Service {
               FROM jsonb_array_elements(form.answers) AS elem
               WHERE elem->>'questionId' = 'nps'
               LIMIT 1
-            ) >= 7 THEN 100.0
-            ELSE 0.0
+            ) IN (0, 1) THEN
+              -- New binary format: 1=Sim, 0=Não
+              CASE WHEN (
+                SELECT (elem->>'value')::float
+                FROM jsonb_array_elements(form.answers) AS elem
+                WHERE elem->>'questionId' = 'nps'
+                LIMIT 1
+              ) = 1 THEN 100.0 ELSE 0.0 END
+            ELSE
+              -- Legacy 0–10 scale: >=7 is Sim
+              CASE WHEN (
+                SELECT (elem->>'value')::float
+                FROM jsonb_array_elements(form.answers) AS elem
+                WHERE elem->>'questionId' = 'nps'
+                LIMIT 1
+              ) >= 7 THEN 100.0 ELSE 0.0 END
           END
         )`,
         'avgNps',
