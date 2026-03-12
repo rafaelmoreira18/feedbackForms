@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import toast from "react-hot-toast";
 import {
   BarChart, Bar, LineChart, Line, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -366,7 +365,7 @@ export default function Analytics3() {
     queryKey: ["forms3", tenantSlug],
     queryFn: () => form3Service.getAll(tenantSlug),
     enabled: !!tenantSlug,
-    throwOnError: (err) => { toast.error(`Erro ao carregar respostas: ${(err as Error).message}`); return false; },
+    throwOnError: false,
   });
 
   const { data: templates = [] } = useQuery({

@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/auth-context";
 import { ROUTES } from "../routes";
 import { form3Service } from "../services/form3-service";
 import { getScaleAverage } from "../services/analytics3-service";
+import { generateDashboardReport } from "../services/report-service";
 import type { Form3Response, Form3Filters } from "../types";
 import { formatDate } from "../utils/format";
 import Text from "../components/text";
@@ -122,6 +123,18 @@ export default function Dashboard() {
           </Text>
           <Button variant="outline" size="sm" onClick={() => navigate(ROUTES.analytics(tenantSlug))}>
             Analytics
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (metrics && filteredForms.length > 0) {
+                generateDashboardReport(filteredForms, metrics, filteredFilters, allForms.length);
+              }
+            }}
+            disabled={!metrics || filteredForms.length === 0}
+          >
+            Exportar PDF
           </Button>
           <Button variant="secondary" size="sm" onClick={logout}>
             Sair

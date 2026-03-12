@@ -23,6 +23,11 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
     const error = await response.json().catch(() => ({ message: 'Erro na requisição' }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
