@@ -201,7 +201,7 @@ export default function Form3Preview() {
               {nps !== undefined && (
                 <InfoItem
                   label="Recomendaria"
-                  value={nps === 1 || nps >= 7 ? "Sim" : "Não"}
+                  value={nps === 1 ? "Sim" : "Não"}
                 />
               )}
             </div>
@@ -248,8 +248,8 @@ export default function Form3Preview() {
 
                 {npsQuestion && (() => {
                   const npsVal = form.answers.find((a) => a.questionId === "nps")?.value;
-                  const isSim = npsVal !== undefined && (npsVal === 1 || npsVal >= 7);
-                  const isNao = npsVal !== undefined && !isSim;
+                  const isSim = npsVal === 1;
+                  const isNao = npsVal === 0;
                   return (
                     <div className="flex flex-col gap-2 pt-2">
                       <Text variant="body-sm" className="text-gray-300">{npsQuestion.text}</Text>
