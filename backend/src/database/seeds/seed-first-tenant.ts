@@ -49,7 +49,7 @@ const FORM_TEMPLATES = [
       {
         title: 'Recomendação',
         questions: [
-          { questionKey: 'nps', text: 'De 0 a 10, qual a probabilidade de você recomendar este serviço para um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
+          { questionKey: 'nps', text: 'Você recomendaria este serviço a um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
         ],
       },
     ],
@@ -77,7 +77,7 @@ const FORM_TEMPLATES = [
       {
         title: 'Recomendação',
         questions: [
-          { questionKey: 'nps', text: 'De 0 a 10, qual a probabilidade de você recomendar este serviço para um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
+          { questionKey: 'nps', text: 'Você recomendaria este serviço a um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
         ],
       },
     ],
@@ -107,7 +107,7 @@ const FORM_TEMPLATES = [
       {
         title: 'Recomendação',
         questions: [
-          { questionKey: 'nps', text: 'De 0 a 10, qual a probabilidade de você recomendar este serviço para um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
+          { questionKey: 'nps', text: 'Você recomendaria este serviço a um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
         ],
       },
     ],
@@ -135,7 +135,7 @@ const FORM_TEMPLATES = [
       {
         title: 'Recomendação',
         questions: [
-          { questionKey: 'nps', text: 'De 0 a 10, qual a probabilidade de você recomendar este hospital para um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
+          { questionKey: 'nps', text: 'Você recomendaria este hospital a um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
         ],
       },
     ],
@@ -164,7 +164,7 @@ const FORM_TEMPLATES = [
       {
         title: 'Recomendação',
         questions: [
-          { questionKey: 'nps', text: 'De 0 a 10, qual a probabilidade de você recomendar este serviço para um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
+          { questionKey: 'nps', text: 'Você recomendaria este serviço a um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
         ],
       },
     ],
@@ -192,7 +192,7 @@ const FORM_TEMPLATES = [
       {
         title: 'Recomendação',
         questions: [
-          { questionKey: 'nps', text: 'De 0 a 10, qual a probabilidade de você recomendar este serviço para um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
+          { questionKey: 'nps', text: 'Você recomendaria este serviço a um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
         ],
       },
     ],
@@ -220,7 +220,7 @@ const FORM_TEMPLATES = [
       {
         title: 'Recomendação',
         questions: [
-          { questionKey: 'nps', text: 'De 0 a 10, qual a probabilidade de você recomendar este serviço para um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
+          { questionKey: 'nps', text: 'Você recomendaria este serviço a um amigo ou familiar?', scale: 'nps' as const, subReasons: null },
         ],
       },
     ],

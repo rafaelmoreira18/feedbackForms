@@ -502,28 +502,28 @@ export default function Analytics3() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <SummaryCard label="Total de Respostas" value={summary.total} />
             <SummaryCard label="Média de Satisfação" value={`${summary.avgSatisfaction}/4`} />
-            <SummaryCard label="Média NPS" value={`${summary.avgNps}/10`} />
+            <SummaryCard label="Recomendariam" value={`${summary.pctRecomendaria}%`} />
           </div>
 
-          {/* NPS cross-form */}
+          {/* Recomendação cross-form */}
           <Card shadow="md" padding="lg">
             <Text variant="heading-sm" className="text-gray-400 mb-1">
-              NPS — Média por Setor
+              Recomendação — % por Setor
             </Text>
             <Text variant="body-sm" className="text-gray-300 mb-4">
-              "De 0 a 10, qual a probabilidade de você recomendar este serviço para um amigo ou familiar?" — média global e por setor
+              "Você recomendaria este serviço a um amigo ou familiar?" — % de Sim por setor
             </Text>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={npsCrossForm} margin={{ left: 10, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="formType" tick={{ fontSize: 10 }} />
-                <YAxis domain={[0, 10]} />
+                <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                 <Tooltip
                   contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }} wrapperStyle={{ opacity: 1, zIndex: 50 }}
-                  formatter={(value: number) => [`${value.toFixed(1)}/10`, "NPS Médio"]}
+                  formatter={(value: number) => [`${value.toFixed(1)}%`, "Recomendam"]}
                 />
-                <ReferenceLine y={summary.avgNps} stroke={COLORS.primary} strokeDasharray="4 4" label={{ value: `Média geral: ${summary.avgNps}`, position: "insideTopRight", fontSize: 11 }} />
-                <Bar dataKey="avgNps" fill={COLORS.teal} name="NPS Médio (0–10)" />
+                <ReferenceLine y={summary.pctRecomendaria} stroke={COLORS.primary} strokeDasharray="4 4" label={{ value: `Média geral: ${summary.pctRecomendaria}%`, position: "insideTopRight", fontSize: 11 }} />
+                <Bar dataKey="pctSim" fill={COLORS.teal} name="% Recomendariam" />
               </BarChart>
             </ResponsiveContainer>
           </Card>
@@ -642,11 +642,11 @@ export default function Analytics3() {
             )}
           </div>
 
-          {/* NPS breakdown (promoters/neutrals/detractors) */}
+          {/* Sim/Não breakdown por setor */}
           {npsBreakdown.length > 0 && (
             <Card shadow="md" padding="lg">
               <Text variant="heading-sm" className="text-gray-400 mb-4">
-                NPS por Setor — Promotores / Neutros / Detratores
+                Recomendação por Setor — Sim / Não
               </Text>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={npsBreakdown} margin={{ left: 10, right: 20 }}>
@@ -655,9 +655,8 @@ export default function Analytics3() {
                   <YAxis allowDecimals={false} />
                   <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }} wrapperStyle={{ opacity: 1, zIndex: 50 }} />
                   <Legend />
-                  <Bar dataKey="Promotores" fill={COLORS.success} />
-                  <Bar dataKey="Neutros" fill={COLORS.warning} />
-                  <Bar dataKey="Detratores" fill={COLORS.danger} />
+                  <Bar dataKey="Sim" fill={COLORS.success} />
+                  <Bar dataKey="Não" fill={COLORS.danger} />
                 </BarChart>
               </ResponsiveContainer>
             </Card>

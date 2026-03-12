@@ -158,8 +158,8 @@ export default function Dashboard() {
               subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
             />
             <MetricCard
-              title="Média NPS (0–10)"
-              value={`${averageNps}/10`}
+              title="Recomendariam"
+              value={`${averageNps}%`}
               subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
             />
             <MetricCard

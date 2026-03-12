@@ -132,10 +132,15 @@ export class Form3Service {
       )
       .addSelect(
         `AVG(
-          (SELECT (elem->>'value')::float
-           FROM jsonb_array_elements(form.answers) AS elem
-           WHERE elem->>'questionId' = 'nps'
-           LIMIT 1)
+          CASE
+            WHEN (
+              SELECT (elem->>'value')::float
+              FROM jsonb_array_elements(form.answers) AS elem
+              WHERE elem->>'questionId' = 'nps'
+              LIMIT 1
+            ) >= 7 THEN 100.0
+            ELSE 0.0
+          END
         )`,
         'avgNps',
       )
@@ -161,7 +166,7 @@ export class Form3Service {
     return {
       totalResponses: parseInt(row?.totalResponses ?? '0', 10),
       averageSatisfaction: Math.round((parseFloat(row?.avgSatisfaction ?? '0') || 0) * 10) / 10,
-      averageNps: Math.round((parseFloat(row?.avgNps ?? '0') || 0) * 10) / 10,
+      averageNps: Math.round((parseFloat(row?.avgNps ?? '0') || 0) * 10) / 10, // % de Sim (0–100)
       responsesThisMonth: parseInt(row?.responsesThisMonth ?? '0', 10),
       responsesLastMonth: parseInt(row?.responsesLastMonth ?? '0', 10),
     };

@@ -11,6 +11,16 @@ export function getNpsScore(form: Form3Response): number | undefined {
 }
 
 /**
+ * Normalizes NPS value to binary: 1 = Sim, 0 = Não.
+ * Legacy data (0–10 scale): 0–6 → Não (0), 7–10 → Sim (1).
+ * New data (binary): 0 → Não, 1 → Sim.
+ */
+function normalizeToBinary(npsValue: number): 0 | 1 {
+  if (npsValue === 0 || npsValue === 1) return npsValue as 0 | 1;
+  return npsValue >= 7 ? 1 : 0;
+}
+
+/**
  * All analytics functions derive department lists from the actual response data.
  * No hardcoded department lists or form configs — fully data-driven.
  */
@@ -146,26 +156,25 @@ export function getQuestionDetail(
   };
 }
 
+/** Returns { Sim, Não } counts per department, normalizing legacy 0–10 values. */
 export function getNpsBreakdown(forms: Form3Response[]) {
-  const deptMap = new Map<string, { p: number; n: number; d: number }>();
+  const deptMap = new Map<string, { sim: number; nao: number }>();
   forms.forEach((f) => {
-    const nps = f.answers.find((a) => a.questionId === "nps")?.value;
-    if (nps === undefined) return;
-    if (!deptMap.has(f.formType)) deptMap.set(f.formType, { p: 0, n: 0, d: 0 });
+    const raw = f.answers.find((a) => a.questionId === "nps")?.value;
+    if (raw === undefined) return;
+    if (!deptMap.has(f.formType)) deptMap.set(f.formType, { sim: 0, nao: 0 });
     const entry = deptMap.get(f.formType)!;
-    if (nps >= 9) entry.p++;
-    else if (nps >= 7) entry.n++;
-    else entry.d++;
+    if (normalizeToBinary(raw) === 1) entry.sim++;
+    else entry.nao++;
   });
 
   return Array.from(deptMap.entries())
-    .map(([formType, { p, n, d }]) => ({
+    .map(([formType, { sim, nao }]) => ({
       formType,
-      Promotores: p,
-      Neutros: n,
-      Detratores: d,
+      Sim: sim,
+      Não: nao,
     }))
-    .filter((d) => d.Promotores + d.Neutros + d.Detratores > 0);
+    .filter((d) => d.Sim + d.Não > 0);
 }
 
 export function getMonthlyTrend(forms: Form3Response[]) {
@@ -181,20 +190,23 @@ export function getMonthlyTrend(forms: Form3Response[]) {
     .map(([month, count]) => ({ mes: month, respostas: count }));
 }
 
+/** Returns % Sim por setor, normalizando dados legados (0–6 = Não, 7–10 = Sim). */
 export function getNpsCrossForm(forms: Form3Response[]) {
-  const deptMap = new Map<string, number[]>();
+  const deptMap = new Map<string, { sim: number; total: number }>();
   forms.forEach((f) => {
-    const nps = f.answers.find((a) => a.questionId === "nps")?.value;
-    if (nps === undefined) return;
-    if (!deptMap.has(f.formType)) deptMap.set(f.formType, []);
-    deptMap.get(f.formType)!.push(nps);
+    const raw = f.answers.find((a) => a.questionId === "nps")?.value;
+    if (raw === undefined) return;
+    if (!deptMap.has(f.formType)) deptMap.set(f.formType, { sim: 0, total: 0 });
+    const entry = deptMap.get(f.formType)!;
+    entry.total++;
+    if (normalizeToBinary(raw) === 1) entry.sim++;
   });
 
   return Array.from(deptMap.entries())
-    .map(([formType, values]) => ({
+    .map(([formType, { sim, total }]) => ({
       formType,
-      avgNps: Number((values.reduce((s, v) => s + v, 0) / values.length).toFixed(1)),
-      count: values.length,
+      pctSim: Number(((sim / total) * 100).toFixed(1)),
+      count: total,
     }))
     .filter((d) => d.count > 0);
 }
@@ -205,18 +217,18 @@ export function getSummaryMetrics(forms: Form3Response[]) {
       ? forms.reduce((sum, f) => sum + getScaleAverage(f), 0) / forms.length
       : 0;
 
-  const npsValues = forms
+  const npsAnswers = forms
     .map((f) => f.answers.find((a) => a.questionId === "nps")?.value)
     .filter((v): v is number => v !== undefined);
 
-  const avgNps =
-    npsValues.length > 0
-      ? Number((npsValues.reduce((s, v) => s + v, 0) / npsValues.length).toFixed(1))
+  const pctRecomendaria =
+    npsAnswers.length > 0
+      ? Number(((npsAnswers.filter((v) => normalizeToBinary(v) === 1).length / npsAnswers.length) * 100).toFixed(1))
       : 0;
 
   return {
     total: forms.length,
     avgSatisfaction: Number(avgSatisfaction.toFixed(1)),
-    avgNps,
+    pctRecomendaria,
   };
 }

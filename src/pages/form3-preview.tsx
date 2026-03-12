@@ -199,7 +199,10 @@ export default function Form3Preview() {
               <InfoItem label="Data da Resposta" value={formatDate(form.createdAt)} />
               <InfoItem label="Média de Satisfação" value={`${avgScale.toFixed(1)}/4`} />
               {nps !== undefined && (
-                <InfoItem label="NPS (0–10)" value={String(nps)} />
+                <InfoItem
+                  label="Recomendaria"
+                  value={nps === 1 || nps >= 7 ? "Sim" : "Não"}
+                />
               )}
             </div>
           </div>
@@ -243,28 +246,24 @@ export default function Form3Preview() {
                   );
                 })}
 
-                {npsQuestion && (
-                  <div className="flex flex-col gap-2 pt-2">
-                    <Text variant="body-sm" className="text-gray-300">{npsQuestion.text}</Text>
-                    <div className="flex gap-1 flex-wrap">
-                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => {
-                        const npsVal = form.answers.find((a) => a.questionId === "nps")?.value;
-                        const isSelected = npsVal === n;
-                        let colorClass = "bg-white border-2 border-gray-200 text-gray-300 opacity-40";
-                        if (isSelected) {
-                          if (n <= 6) colorClass = "bg-red-base border-red-base text-white opacity-100";
-                          else if (n <= 8) colorClass = "bg-yellow-base border-yellow-base text-white opacity-100";
-                          else colorClass = "bg-green-base border-green-base text-white opacity-100";
-                        }
-                        return (
-                          <div key={n} className={`w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-sm ${colorClass}`}>
-                            {n}
-                          </div>
-                        );
-                      })}
+                {npsQuestion && (() => {
+                  const npsVal = form.answers.find((a) => a.questionId === "nps")?.value;
+                  const isSim = npsVal !== undefined && (npsVal === 1 || npsVal >= 7);
+                  const isNao = npsVal !== undefined && !isSim;
+                  return (
+                    <div className="flex flex-col gap-2 pt-2">
+                      <Text variant="body-sm" className="text-gray-300">{npsQuestion.text}</Text>
+                      <div className="flex gap-3">
+                        <div className={`flex-1 h-12 rounded-xl border-2 flex items-center justify-center font-bold text-base ${isSim ? "bg-green-base border-green-base text-white" : "bg-white border-gray-200 text-gray-300 opacity-40"}`}>
+                          ✓ Sim
+                        </div>
+                        <div className={`flex-1 h-12 rounded-xl border-2 flex items-center justify-center font-bold text-base ${isNao ? "bg-red-base border-red-base text-white" : "bg-white border-gray-200 text-gray-300 opacity-40"}`}>
+                          ✗ Não
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             </Card>
           );
