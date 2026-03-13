@@ -132,12 +132,21 @@ export class Form3Service {
       )
       .addSelect(
         `AVG(
-          CASE WHEN (
-            SELECT (elem->>'value')::float
-            FROM jsonb_array_elements(form.answers) AS elem
-            WHERE elem->>'questionId' = 'nps'
-            LIMIT 1
-          ) = 1 THEN 100.0 ELSE 0.0 END
+          CASE
+            WHEN (
+              SELECT (elem->>'value')::float
+              FROM jsonb_array_elements(form.answers) AS elem
+              WHERE elem->>'questionId' = 'nps'
+              LIMIT 1
+            ) = 1 THEN 100.0
+            WHEN (
+              SELECT (elem->>'value')::float
+              FROM jsonb_array_elements(form.answers) AS elem
+              WHERE elem->>'questionId' = 'nps'
+              LIMIT 1
+            ) = 0 THEN 0.0
+            ELSE NULL
+          END
         )`,
         'avgNps',
       )
