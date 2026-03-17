@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
   Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -42,8 +43,22 @@ export class Form3Controller {
     return tenant.id;
   }
 
-  @ApiOperation({ summary: 'Submit a form 3 response (public, rate-limited to 5/min)' })
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  /**
+   * Resolves the tenantId for the slug and verifies the authenticated user
+   * is allowed to access it. holding_admin may access any tenant; all other
+   * roles may only access their own tenant.
+   */
+  private async resolveAndAssertTenant(slug: string, req: Request): Promise<string> {
+    const tenant = await this.tenantService.findBySlug(slug);
+    const user = req.user as { role: string; tenantId: string | null };
+    if (user.role !== 'holding_admin' && user.tenantId !== tenant.id) {
+      throw new ForbiddenException('Acesso negado a este tenant');
+    }
+    return tenant.id;
+  }
+
+  @ApiOperation({ summary: 'Submit a form 3 response (public, rate-limited to 30/min)' })
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @Post()
   async create(
     @Param('tenantSlug') tenantSlug: string,
@@ -60,9 +75,9 @@ export class Form3Controller {
   async getMetrics(
     @Param('tenantSlug') tenantSlug: string,
     @Query() filters: FilterForm3Dto,
-    @Req() _req: Request,
+    @Req() req: Request,
   ) {
-    const tenantId = await this.tenantId(tenantSlug);
+    const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
     return this.form3Service.getMetrics(tenantId, filters);
   }
 
@@ -73,8 +88,9 @@ export class Form3Controller {
   async findAll(
     @Param('tenantSlug') tenantSlug: string,
     @Query() filters: FilterForm3Dto,
+    @Req() req: Request,
   ) {
-    const tenantId = await this.tenantId(tenantSlug);
+    const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
     return this.form3Service.findAll(tenantId, filters);
   }
 
@@ -86,8 +102,9 @@ export class Form3Controller {
   async softDeleteOne(
     @Param('tenantSlug') tenantSlug: string,
     @Param('id') id: string,
+    @Req() req: Request,
   ) {
-    const tenantId = await this.tenantId(tenantSlug);
+    const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
     return this.form3Service.softDeleteOne(tenantId, id);
   }
 
@@ -96,8 +113,11 @@ export class Form3Controller {
   @Delete()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('hospital_admin', 'holding_admin')
-  async deleteAll(@Param('tenantSlug') tenantSlug: string) {
-    const tenantId = await this.tenantId(tenantSlug);
+  async deleteAll(
+    @Param('tenantSlug') tenantSlug: string,
+    @Req() req: Request,
+  ) {
+    const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
     return this.form3Service.deleteAll(tenantId);
   }
 
@@ -108,8 +128,9 @@ export class Form3Controller {
   async findById(
     @Param('tenantSlug') tenantSlug: string,
     @Param('id') id: string,
+    @Req() req: Request,
   ) {
-    const tenantId = await this.tenantId(tenantSlug);
+    const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
     return this.form3Service.findById(tenantId, id);
   }
 }
