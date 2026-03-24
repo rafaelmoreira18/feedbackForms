@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { ROUTES } from "@/routes";
 import { form3Service } from "@/services/form3-service";
+import { tenantService } from "@/services/tenant-service";
 import { generateDashboardReport } from "@/services/report-service";
 import type { Form3Filters } from "@/types";
 import Text from "@/components/ui/text";
@@ -16,10 +17,16 @@ import Form3Table from "@/components/dashboard/form3-table";
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
-  const tenantSlug = user?.tenantSlug ?? "";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [form3DeptFilter, setForm3DeptFilter] = useState<string>("");
+
+  const isHoldingAdmin = user?.role === 'holding_admin';
+
+  // holding_admin can switch tenants; hospital_admin is fixed to their own
+  const [selectedSlug, setSelectedSlug] = useState<string>(user?.tenantSlug ?? "");
+
+  const tenantSlug = isHoldingAdmin ? selectedSlug : (user?.tenantSlug ?? "");
 
   const startDate = searchParams.get("startDate") || "";
   const endDate = searchParams.get("endDate") || "";
@@ -43,6 +50,13 @@ export default function Dashboard() {
     sortSatisfaction,
     formType: form3DeptFilter || undefined,
   };
+
+  // Load all tenants for holding_admin selector
+  const { data: allTenants = [] } = useQuery({
+    queryKey: ["tenants"],
+    queryFn: tenantService.getAll,
+    enabled: isHoldingAdmin,
+  });
 
   const { data: allForms = [] } = useQuery({
     queryKey: ["forms3-all", tenantSlug],
@@ -75,13 +89,18 @@ export default function Dashboard() {
     ...Array.from(new Set(allForms.map((f) => f.formType))).map((d) => ({ value: d, label: d })),
   ];
 
+  const tenantOptions = [
+    { value: "", label: "Selecione uma unidade..." },
+    ...allTenants.map((t) => ({ value: t.slug, label: t.name })),
+  ];
+
   return (
     <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <Text variant="heading-md" className="text-gray-400">Dashboard</Text>
         <div className="flex items-center gap-3 flex-wrap">
           <Text variant="body-sm" className="text-gray-300 hidden sm:block">{user?.name}</Text>
-          <Button variant="outline" size="sm" onClick={() => navigate(ROUTES.analytics(tenantSlug))}>
+          <Button variant="outline" size="sm" onClick={() => navigate(ROUTES.analytics(tenantSlug))} disabled={!tenantSlug}>
             Analytics
           </Button>
           <Button
@@ -103,65 +122,104 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-col gap-8">
 
-          {/* Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            <MetricCard
-              title="Total de Respostas"
-              value={metrics?.totalResponses ?? 0}
-              subtitle={hasActiveFilters ? `${allForms.length} no total` : undefined}
-            />
-            <MetricCard
-              title="Média Satisfação (1–4)"
-              value={`${metrics?.averageSatisfaction ?? 0}/4`}
-              subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
-            />
-            <MetricCard
-              title="Recomendariam"
-              value={`${metrics?.averageNps ?? 0}%`}
-              subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
-            />
-            <MetricCard
-              title="Respostas Este Mês"
-              value={metrics?.responsesThisMonth ?? 0}
-              subtitle={`${metrics?.responsesLastMonth ?? 0} no mês anterior`}
-            />
-          </div>
+          {/* Tenant selector — only for holding_admin */}
+          {isHoldingAdmin && (
+            <Card shadow="sm">
+              <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+                <div className="flex-1">
+                  <Select
+                    label="Unidade"
+                    options={tenantOptions}
+                    value={selectedSlug}
+                    onChange={(e) => {
+                      setSelectedSlug(e.target.value);
+                      setForm3DeptFilter("");
+                      setSearchParams({}, { replace: true });
+                    }}
+                  />
+                </div>
+                {selectedSlug && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(ROUTES.analytics(selectedSlug))}
+                  >
+                    Ver Analytics desta unidade
+                  </Button>
+                )}
+              </div>
+            </Card>
+          )}
 
-          {/* Filters */}
-          <Card shadow="md">
-            <div className="flex flex-col gap-6">
-              <div className="flex flex-wrap justify-between items-center gap-2">
-                <Text variant="heading-sm" className="text-gray-400">Filtros</Text>
-                <Button variant="secondary" size="sm" onClick={clearFilters}>Limpar Filtros</Button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <DateInput label="Data Inicial" value={startDate} maxDate={endDate || undefined} onChange={(v) => setFilters({ startDate: v })} />
-                <DateInput label="Data Final" value={endDate} minDate={startDate || undefined} onChange={(v) => setFilters({ endDate: v })} />
-                <Select
-                  label="Ordenar Satisfação"
-                  options={[
-                    { value: "", label: "Sem ordenação" },
-                    { value: "desc", label: "Maior para Menor" },
-                    { value: "asc", label: "Menor para Maior" },
-                  ]}
-                  value={sortSatisfaction || ""}
-                  onChange={(e) => setFilters({ sortSatisfaction: e.target.value })}
-                />
-                <Select
-                  label="Setor"
-                  options={deptOptions}
-                  value={form3DeptFilter}
-                  onChange={(e) => setForm3DeptFilter(e.target.value)}
-                />
-              </div>
+          {/* Empty state for holding_admin with no tenant selected */}
+          {isHoldingAdmin && !selectedSlug ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
+              <Text variant="heading-sm" className="text-gray-300">Selecione uma unidade para visualizar as pesquisas</Text>
             </div>
-          </Card>
+          ) : (
+            <>
+              {/* Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <MetricCard
+                  title="Total de Respostas"
+                  value={metrics?.totalResponses ?? 0}
+                  subtitle={hasActiveFilters ? `${allForms.length} no total` : undefined}
+                />
+                <MetricCard
+                  title="Média Satisfação (1–4)"
+                  value={`${metrics?.averageSatisfaction ?? 0}/4`}
+                  subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
+                />
+                <MetricCard
+                  title="Recomendariam"
+                  value={`${metrics?.averageNps ?? 0}%`}
+                  subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
+                />
+                <MetricCard
+                  title="Respostas Este Mês"
+                  value={metrics?.responsesThisMonth ?? 0}
+                  subtitle={`${metrics?.responsesLastMonth ?? 0} no mês anterior`}
+                />
+              </div>
 
-          {/* Responses Table */}
-          <Form3Table
-            forms={filteredForms}
-            onRowClick={(id) => navigate(ROUTES.response(tenantSlug, id))}
-          />
+              {/* Filters */}
+              <Card shadow="md">
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-wrap justify-between items-center gap-2">
+                    <Text variant="heading-sm" className="text-gray-400">Filtros</Text>
+                    <Button variant="secondary" size="sm" onClick={clearFilters}>Limpar Filtros</Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <DateInput label="Data Inicial" value={startDate} maxDate={endDate || undefined} onChange={(v) => setFilters({ startDate: v })} />
+                    <DateInput label="Data Final" value={endDate} minDate={startDate || undefined} onChange={(v) => setFilters({ endDate: v })} />
+                    <Select
+                      label="Ordenar Satisfação"
+                      options={[
+                        { value: "", label: "Sem ordenação" },
+                        { value: "desc", label: "Maior para Menor" },
+                        { value: "asc", label: "Menor para Maior" },
+                      ]}
+                      value={sortSatisfaction || ""}
+                      onChange={(e) => setFilters({ sortSatisfaction: e.target.value })}
+                    />
+                    <Select
+                      label="Setor"
+                      options={deptOptions}
+                      value={form3DeptFilter}
+                      onChange={(e) => setForm3DeptFilter(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Responses Table */}
+              <Form3Table
+                forms={filteredForms}
+                onRowClick={(id) => navigate(ROUTES.response(tenantSlug, id))}
+              />
+            </>
+          )}
+
         </div>
       </div>
     </div>

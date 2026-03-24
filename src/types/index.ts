@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'tenant_admin' | 'viewer';
+export type UserRole = 'holding_admin' | 'hospital_admin' | 'viewer' | 'rh_admin';
 
 export interface User {
   id: string;
@@ -113,4 +113,27 @@ export interface PaginatedResponse<T> {
   total: number;
   page: number;
   limit: number;
+}
+
+// ─── Training Sessions ─────────────────────────────────────────────────────────
+
+export type TrainingType = 'eficacia' | 'reacao';
+
+export interface TrainingSession {
+  id: string;
+  tenantId: string;
+  slug: string;
+  title: string;
+  trainingDate: string;
+  trainingType: TrainingType;
+  instructor: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface CreateTrainingSessionDto {
+  title: string;
+  trainingDate: string;
+  trainingType: TrainingType;
+  instructor: string;
 }

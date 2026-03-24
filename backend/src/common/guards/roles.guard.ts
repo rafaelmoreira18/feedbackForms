@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { UserRole } from '../../modules/user/user.entity';
+import { UserRole } from '../types/roles';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
 interface AuthenticatedUser {

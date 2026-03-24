@@ -3,26 +3,31 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantModule } from './modules/tenants/tenant.module';
 import { FormTemplateModule } from './modules/form-templates/form-template.module';
 import { Form3Module } from './modules/forms/forms.module';
+import { TrainingSessionsModule } from './modules/training-sessions/training-sessions.module';
 import { TenantEntity } from './modules/tenants/tenant.entity';
-import { UserEntity } from './modules/user/user.entity';
 import { Form3ResponseEntity } from './modules/forms/forms.entity';
 import {
   FormTemplateEntity,
   FormTemplateBlockEntity,
   FormQuestionEntity,
 } from './modules/form-templates/form-template.entity';
+import { TrainingSessionEntity } from './modules/training-sessions/training-session.entity';
+import { TrainingResponseEntity } from './modules/training-sessions/training-response.entity';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       validate: (config: Record<string, unknown>) => {
-        const required = ['JWT_SECRET', 'DB_HOST', 'DB_USERNAME', 'DB_PASSWORD', 'DB_DATABASE'];
+        const required = [
+          'JWT_SECRET',
+          'DB_HOST', 'DB_USERNAME', 'DB_PASSWORD', 'DB_DATABASE',
+          'AUTH_DB_HOST', 'AUTH_DB_USERNAME', 'AUTH_DB_PASSWORD', 'AUTH_DB_DATABASE',
+        ];
         const missing = required.filter((key) => !config[key]);
         if (missing.length) {
           throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
@@ -43,11 +48,12 @@ import {
         database: config.getOrThrow<string>('DB_DATABASE'),
         entities: [
           TenantEntity,
-          UserEntity,
           Form3ResponseEntity,
           FormTemplateEntity,
           FormTemplateBlockEntity,
           FormQuestionEntity,
+          TrainingSessionEntity,
+          TrainingResponseEntity,
         ],
         synchronize: config.get<string>('DB_SYNCHRONIZE', 'false') === 'true',
         ssl:
@@ -57,14 +63,14 @@ import {
       }),
     }),
 
-    // Global: 60 requests per minute per IP (strict limit applied per-route on public endpoints)
+    // Global: 60 requests per minute per IP
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
 
     AuthModule,
-    UserModule,
     TenantModule,
     FormTemplateModule,
     Form3Module,
+    TrainingSessionsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

@@ -15,6 +15,8 @@ import Pesquisa from "@/pages/pesquisa";
 import Dashboard from "@/pages/dashboard";
 import Analytics3 from "@/pages/analytics";
 import Form3Preview from "@/pages/survey/survey-preview";
+import Treinamentos from "@/pages/treinamentos";
+import TrainingSurvey from "@/pages/treinamento";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -25,7 +27,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
-  if (user?.role === 'operator') return <Navigate to={ROUTES.home} replace />;
+  if (user?.role === 'viewer' || user?.role === 'rh_admin') return <Navigate to={ROUTES.home} replace />;
+  return <>{children}</>;
+}
+
+function RhRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
+  if (user?.role === 'viewer') return <Navigate to={ROUTES.home} replace />;
   return <>{children}</>;
 }
 
@@ -39,6 +48,11 @@ function AppRoutes() {
       {/* Protected — nurse operates these */}
       <Route path="/:tenantSlug/pesquisa" element={<ProtectedRoute><Pesquisa /></ProtectedRoute>} />
       <Route path="/:tenantSlug/:formSlug" element={<ProtectedRoute><SurveyForm3 /></ProtectedRoute>} />
+
+      {/* Training — RH manages sessions; public survey link */}
+      <Route path="/treinamentos" element={<RhRoute><Treinamentos /></RhRoute>} />
+      <Route path="/:tenantSlug/treinamentos" element={<RhRoute><Treinamentos /></RhRoute>} />
+      <Route path="/:tenantSlug/treinamento/:sessionSlug" element={<TrainingSurvey />} />
 
       {/* Admin only */}
       <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
@@ -60,12 +74,14 @@ function AppShell() {
   const location = useLocation();
   const path = location.pathname;
 
-  // Survey pages: two-segment paths that are not analytics, pesquisa, or response detail
+  // Survey pages: two-segment paths that are not admin pages or training
   const isSurvey =
     /^\/[^/]+\/[^/]+$/.test(path) &&
     !path.endsWith("/analytics") &&
     !path.endsWith("/pesquisa") &&
-    !path.includes("/responses/");
+    !path.endsWith("/treinamentos") &&
+    !path.includes("/responses/") &&
+    !path.includes("/treinamento/");
 
   return (
     <div

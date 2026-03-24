@@ -25,7 +25,7 @@ export class TenantController {
   /** Protected: any authenticated admin can list tenants */
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('holding_admin', 'hospital_admin')
+  @Roles('holding_admin', 'hospital_admin', 'rh_admin')
   findAll() {
     return this.tenantService.findAll();
   }

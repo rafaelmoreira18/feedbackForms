@@ -2,6 +2,11 @@ import type { Tenant, FormTemplate } from '@/types'
 import { api } from './api'
 
 export const tenantService = {
+  getAll: async (): Promise<Tenant[]> => {
+    const res = await api.get<Tenant[]>('tenants')
+    return res.data
+  },
+
   getBySlug: async (slug: string): Promise<Tenant> => {
     const res = await api.get<Tenant>(`tenants/${slug}`)
     return res.data

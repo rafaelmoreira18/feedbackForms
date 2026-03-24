@@ -15,10 +15,13 @@ export default function Login() {
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
-  // Already logged in → admin goes to dashboard, operator goes to pesquisa
+  // Already logged in → redirect by role
   if (isAuthenticated && user) {
     const slug = user.tenantSlug ?? '';
-    const dest = user.role === 'operator' ? ROUTES.pesquisa(slug) : ROUTES.dashboard;
+    const dest =
+      user.role === 'viewer' ? ROUTES.pesquisa(slug) :
+      user.role === 'rh_admin' ? (slug ? ROUTES.treinamentos(slug) : ROUTES.treinamentosGlobal) :
+      ROUTES.dashboard;
     return <Navigate to={dest} replace />;
   }
 
@@ -31,7 +34,10 @@ export default function Login() {
       const loggedUser = await login(email, password);
       if (loggedUser) {
         const slug = loggedUser.tenantSlug ?? '';
-        const dest = loggedUser.role === 'operator' ? ROUTES.pesquisa(slug) : ROUTES.dashboard;
+        const dest =
+          loggedUser.role === 'viewer' ? ROUTES.pesquisa(slug) :
+          loggedUser.role === 'rh_admin' ? (slug ? ROUTES.treinamentos(slug) : ROUTES.treinamentosGlobal) :
+          ROUTES.dashboard;
         navigate(dest);
       } else {
         setError("Email ou senha incorretos");

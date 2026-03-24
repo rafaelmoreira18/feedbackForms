@@ -6,4 +6,8 @@ export const ROUTES = {
   pesquisa: (tenantSlug: string) => `/${tenantSlug}/pesquisa`,
   analytics: (tenantSlug: string) => `/${tenantSlug}/analytics`,
   response: (tenantSlug: string, id: string) => `/${tenantSlug}/responses/${id}`,
+  // Training
+  treinamentosGlobal: '/treinamentos',
+  treinamentos: (tenantSlug: string) => `/${tenantSlug}/treinamentos`,
+  treinamento: (tenantSlug: string, sessionSlug: string) => `/${tenantSlug}/treinamento/${sessionSlug}`,
 } as const;

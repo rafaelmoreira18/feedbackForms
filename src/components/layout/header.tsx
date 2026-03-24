@@ -23,15 +23,17 @@ export default function Header() {
         />
         {isAuthenticated && user && (
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => navigate(ROUTES.pesquisa(tenantSlug))}
-              title="Pesquisas"
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-teal-base hover:bg-teal-light transition-colors duration-150"
-            >
-              <ClipboardList size={20} />
-              <span className="text-sm font-semibold font-sans hidden sm:inline">Pesquisas</span>
-            </button>
+            {user.role !== 'rh_admin' && (
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.pesquisa(tenantSlug))}
+                title="Pesquisas"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-teal-base hover:bg-teal-light transition-colors duration-150"
+              >
+                <ClipboardList size={20} />
+                <span className="text-sm font-semibold font-sans hidden sm:inline">Pesquisas</span>
+              </button>
+            )}
             {(isPesquisa || isAnalytics) && (
               <button
                 type="button"
