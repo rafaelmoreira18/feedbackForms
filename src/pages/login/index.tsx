@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
-import { useAuth } from "../contexts/auth-context";
-import { ROUTES } from "../routes";
-import Text from "../components/text";
-import Input from "../components/input";
-import Button from "../components/button";
-import Card from "../components/card";
+import { useAuth } from "@/contexts/auth-context";
+import { ROUTES } from "@/routes";
+import Text from "@/components/ui/text";
+import Input from "@/components/ui/input";
+import Button from "@/components/ui/button";
+import Card from "@/components/ui/card";
 
 export default function Login() {
   const [email, setEmail] = useState("");

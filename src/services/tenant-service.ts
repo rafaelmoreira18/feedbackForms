@@ -1,16 +1,19 @@
-import type { Tenant, FormTemplate } from '../types';
-import { api } from './api';
+import type { Tenant, FormTemplate } from '@/types'
+import { api } from './api'
 
 export const tenantService = {
   getBySlug: async (slug: string): Promise<Tenant> => {
-    return api.get<Tenant>(`tenants/${slug}`);
+    const res = await api.get<Tenant>(`tenants/${slug}`)
+    return res.data
   },
 
   getFormTemplates: async (tenantSlug: string): Promise<FormTemplate[]> => {
-    return api.get<FormTemplate[]>(`tenants/${tenantSlug}/form-templates`);
+    const res = await api.get<FormTemplate[]>(`tenants/${tenantSlug}/form-templates`)
+    return res.data
   },
 
   getFormTemplate: async (tenantSlug: string, formSlug: string): Promise<FormTemplate> => {
-    return api.get<FormTemplate>(`tenants/${tenantSlug}/form-templates/${formSlug}`);
+    const res = await api.get<FormTemplate>(`tenants/${tenantSlug}/form-templates/${formSlug}`)
+    return res.data
   },
-};
+}

@@ -1,48 +1,34 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+import axios from 'axios'
 
-function getToken(): string | null {
-  const stored = localStorage.getItem('auth_token');
-  return stored;
-}
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+})
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...((options.headers as Record<string, string>) || {}),
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+api.interceptors.response.use(
+  (res) => {
+    if (res.data && typeof res.data === 'object') {
+      // Unwrap NestJS envelope: { data, statusCode, timestamp } → data
+      if ('data' in res.data && 'statusCode' in res.data) {
+        res.data = res.data.data
+      // Unwrap Next.js envelope: { data } → data  (sem statusCode)
+      } else if ('data' in res.data && !('error' in res.data) && Object.keys(res.data).length <= 2) {
+        res.data = res.data.data
+      }
     }
-    const error = await response.json().catch(() => ({ message: 'Erro na requisição' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    return res
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('user')
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
   }
-
-  const json = await response.json();
-  // Backend wraps responses in { data, statusCode, timestamp }
-  return json.data !== undefined ? json.data : json;
-}
-
-export const api = {
-  get: <T>(endpoint: string) => request<T>(endpoint),
-
-  post: <T>(endpoint: string, body: unknown) =>
-    request<T>(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-};
+)

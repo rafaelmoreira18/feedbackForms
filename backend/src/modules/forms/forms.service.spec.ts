@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { Form3Service } from './forms.service';
 import { Form3ResponseEntity } from './forms.entity';
+import { FormTemplateEntity } from '../form-templates/form-template.entity';
 import type { Form3Answer } from './forms.entity';
 
 // Minimal mock repository factory
@@ -46,14 +47,17 @@ function makeForm(
 describe('Form3Service', () => {
   let service: Form3Service;
   let repo: ReturnType<typeof mockRepo>;
+  let templateRepo: ReturnType<typeof mockRepo>;
 
   beforeEach(async () => {
     repo = mockRepo();
+    templateRepo = mockRepo();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         Form3Service,
         { provide: getRepositoryToken(Form3ResponseEntity), useValue: repo },
+        { provide: getRepositoryToken(FormTemplateEntity), useValue: templateRepo },
       ],
     }).compile();
 
@@ -64,6 +68,7 @@ describe('Form3Service', () => {
 
   describe('create()', () => {
     it('saves a new form with the provided tenantId', async () => {
+      templateRepo.findOne.mockResolvedValue({ id: 'tmpl-1', slug: 'uti', active: true });
       const dto = {
         formType: 'uti',
         patientName: 'Maria',
@@ -89,6 +94,7 @@ describe('Form3Service', () => {
     });
 
     it('defaults comments to empty string when not provided', async () => {
+      templateRepo.findOne.mockResolvedValue({ id: 'tmpl-1', slug: 'uti', active: true });
       const dto = {
         formType: 'uti', patientName: 'X', patientCpf: '52998224725',
         patientAge: 20, patientGender: 'Outro' as const, admissionDate: '2026-01-01',

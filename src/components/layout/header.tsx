@@ -1,8 +1,8 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { ClipboardList, LayoutDashboard } from "lucide-react";
-import { useAuth } from "../contexts/auth-context";
-import { ROUTES } from "../routes";
-import logoMediall from "../assets/Logo_mediall.png";
+import { useAuth } from "@/contexts/auth-context";
+import { ROUTES } from "@/routes";
+import logoMediall from "@/assets/Logo_mediall.png";
 
 export default function Header() {
   const { isAuthenticated, user } = useAuth();

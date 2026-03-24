@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import type { User } from "../types";
-import { api } from "../services/api";
+import type { User } from "@/types";
+import { api } from "@/services/api";
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutos
 
@@ -57,14 +57,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<User | null> => {
     try {
-      const response = await api.post<{ accessToken: string; user: User }>(
+      const res = await api.post<{ accessToken: string; user: User }>(
         "auth/login",
         { email, password }
       );
-      setUser(response.user);
-      localStorage.setItem("user", JSON.stringify(response.user));
-      localStorage.setItem("auth_token", response.accessToken);
-      return response.user;
+      const { accessToken, user } = res.data;
+      setUser(user);
+      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("auth_token", accessToken);
+      return user;
     } catch {
       return null;
     }

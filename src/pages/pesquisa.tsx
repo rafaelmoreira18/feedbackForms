@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ROUTES } from "../routes";
-import { tenantService } from "../services/tenant-service";
-import type { FormTemplate } from "../types";
+import { ROUTES } from "@/routes";
+import { tenantService } from "@/services/tenant-service";
+import type { FormTemplate } from "@/types";
 import {
   BedDouble,
   FlaskConical,

@@ -1,4 +1,5 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -11,7 +12,8 @@ export class UserController {
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('holding_admin', 'hospital_admin')
-  findAll() {
-    return this.userService.findAll();
+  findAll(@Req() req: Request) {
+    const user = req.user as { role: string; tenantId: string | null };
+    return this.userService.findAll(user);
   }
 }

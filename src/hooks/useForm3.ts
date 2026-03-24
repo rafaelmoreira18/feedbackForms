@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { form3Service } from "../services/form3-service";
-import { tenantService } from "../services/tenant-service";
-import type { Form3Answer, FormTemplate } from "../types";
-import { ROUTES } from "../routes";
+import { form3Service } from "@/services/form3-service";
+import { tenantService } from "@/services/tenant-service";
+import type { Form3Answer, FormTemplate, Tenant } from "@/types";
+import { ROUTES } from "@/routes";
 
 export interface PatientInfo {
   patientName: string;
@@ -40,6 +40,7 @@ export function useForm3() {
   const { tenantSlug = "", formSlug = "" } = useParams<{ tenantSlug: string; formSlug: string }>();
   const navigate = useNavigate();
 
+  const [tenant, setTenant] = useState<Tenant | null>(null);
   const [template, setTemplate] = useState<FormTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -62,8 +63,12 @@ export function useForm3() {
   useEffect(() => {
     if (!tenantSlug || !formSlug) { setNotFound(true); setLoading(false); return; }
 
-    tenantService.getFormTemplate(tenantSlug, formSlug)
-      .then((tmpl) => {
+    Promise.all([
+      tenantService.getBySlug(tenantSlug),
+      tenantService.getFormTemplate(tenantSlug, formSlug),
+    ])
+      .then(([tn, tmpl]) => {
+        setTenant(tn);
         setTemplate(tmpl);
         const map = new Map<string, Form3Answer>();
         tmpl.blocks.forEach((block) => {
@@ -133,6 +138,7 @@ export function useForm3() {
   };
 
   return {
+    tenant,
     tenantSlug,
     template,
     loading,

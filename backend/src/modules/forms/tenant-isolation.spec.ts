@@ -13,6 +13,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { Form3Service } from './forms.service';
 import { Form3ResponseEntity } from './forms.entity';
+import { FormTemplateEntity } from '../form-templates/form-template.entity';
 
 const TENANT_A = 'aaaaaaaa-0000-0000-0000-000000000001';
 const TENANT_B = 'bbbbbbbb-0000-0000-0000-000000000002';
@@ -71,10 +72,15 @@ describe('Tenant Isolation — Form3Service', () => {
       createQueryBuilder: jest.fn().mockReturnValue(activeQb),
     };
 
+const templateRepoMock = {
+      findOne: jest.fn().mockResolvedValue({ id: 'tmpl-1', slug: 'uti', active: true }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         Form3Service,
         { provide: getRepositoryToken(Form3ResponseEntity), useValue: repoMock },
+        { provide: getRepositoryToken(FormTemplateEntity), useValue: templateRepoMock },
       ],
     }).compile();
 

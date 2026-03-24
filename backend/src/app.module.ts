@@ -52,10 +52,7 @@ import {
         synchronize: config.get<string>('DB_SYNCHRONIZE', 'false') === 'true',
         ssl:
           config.get<string>('DB_SSL', 'false') === 'true'
-            ? {
-                rejectUnauthorized: false,
-                ...(config.get<string>('DB_SSL_CA') ? { ca: config.get<string>('DB_SSL_CA') } : {}),
-              }
+            ? { rejectUnauthorized: false }
             : false,
       }),
     }),

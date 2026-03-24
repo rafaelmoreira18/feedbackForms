@@ -1,22 +1,5 @@
-import SubReasonPanel from "../sub-reason-panel";
-
-const NOTO_BASE = "https://fonts.gstatic.com/s/e/notoemoji/latest";
-
-const RATING4_EMOJI_URLS: Record<number, string> = {
-  1: `${NOTO_BASE}/1f614/512.webp`,
-  2: `${NOTO_BASE}/1f610/512.webp`,
-  3: `${NOTO_BASE}/1f642/512.webp`,
-  4: `${NOTO_BASE}/1f601/512.webp`,
-};
-
-const RATING4_LABELS: Record<number, string> = { 1: "Ruim", 2: "Regular", 3: "Bom", 4: "Excelente" };
-
-const RATING4_STYLES: Record<number, { active: string; inactive: string }> = {
-  1: { active: "bg-red-base border-red-base text-white shadow-md", inactive: "bg-white border-gray-200 text-gray-300 hover:border-red-base hover:text-red-base" },
-  2: { active: "bg-yellow-base border-yellow-base text-white shadow-md", inactive: "bg-white border-gray-200 text-gray-300 hover:border-yellow-base hover:text-yellow-base" },
-  3: { active: "bg-teal-base border-teal-base text-white shadow-md", inactive: "bg-white border-gray-200 text-gray-300 hover:border-teal-base hover:text-teal-base" },
-  4: { active: "bg-green-base border-green-base text-white shadow-md", inactive: "bg-white border-gray-200 text-gray-300 hover:border-green-base hover:text-green-base" },
-};
+import { RATING4_LABELS, RATING4_EMOJI_URLS, RATING4_ACTIVE_STYLES, RATING4_INACTIVE_STYLES } from "@/config/rating4-config";
+import SubReasonPanel from "@/components/forms/sub-reason-panel";
 
 const ANIM = `
 @keyframes popIn {
@@ -55,11 +38,17 @@ export default function Rating4Input({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => onChange(value === r ? 0 : r)}
-                className={`flex items-center justify-center gap-2 px-3 py-3 rounded-xl border-2 font-semibold text-sm transition-all duration-150 w-full sm:w-auto ${isActive ? RATING4_STYLES[r].active : RATING4_STYLES[r].inactive}`}
+                className={`flex items-center justify-center gap-2 px-3 py-3 rounded-xl border-2 font-semibold text-sm transition-all duration-150 w-full sm:w-auto ${isActive ? RATING4_ACTIVE_STYLES[r] : RATING4_INACTIVE_STYLES[r]}`}
               >
                 {isActive && (
-                  <img key={`${r}-active`} src={RATING4_EMOJI_URLS[r]} alt={RATING4_LABELS[r]}
-                    width={24} height={24} className="emoji-pop shrink-0" />
+                  <img
+                    key={`${r}-active`}
+                    src={RATING4_EMOJI_URLS[r]}
+                    alt={RATING4_LABELS[r]}
+                    width={24}
+                    height={24}
+                    className="emoji-pop shrink-0"
+                  />
                 )}
                 <span>{RATING4_LABELS[r]}</span>
               </button>

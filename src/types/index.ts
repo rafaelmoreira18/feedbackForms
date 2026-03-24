@@ -1,4 +1,4 @@
-export type UserRole = 'holding_admin' | 'hospital_admin' | 'viewer';
+export type UserRole = 'super_admin' | 'tenant_admin' | 'viewer';
 
 export interface User {
   id: string;
@@ -7,6 +7,16 @@ export interface User {
   role: UserRole;
   tenantId: string | null;
   tenantSlug: string | null;
+}
+
+// JWT payload contract — must match LinenSistem backend
+export interface JWTPayload {
+  sub: string
+  email: string
+  nome: string
+  role: UserRole
+  tenantId: string | null
+  tenantSlug: string | null
 }
 
 // ─── Tenant ────────────────────────────────────────────────────────────────────

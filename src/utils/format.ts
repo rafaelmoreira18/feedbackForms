@@ -14,5 +14,5 @@ export function formatPercentage(value: number): string {
 }
 
 export function formatRating(value: number): string {
-  return `${value.toFixed(1)}/5`;
+  return `${value.toFixed(1)}/4`;
 }

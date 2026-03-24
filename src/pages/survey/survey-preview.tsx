@@ -1,33 +1,14 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { ROUTES } from "../routes";
-import { form3Service, getScaleAverage, getNpsScore } from "../services/form3-service";
-import { tenantService } from "../services/tenant-service";
-
-import { formatDate } from "../utils/format";
-
-const RATING4_LABELS: Record<number, string> = { 1: "Ruim", 2: "Regular", 3: "Bom", 4: "Excelente" };
-import Text from "../components/text";
-import Button from "../components/button";
-import Card from "../components/card";
-
-// ─── Rating display config (mirrors survey-form3.tsx) ─────────────────────────
-
-const NOTO_BASE = "https://fonts.gstatic.com/s/e/notoemoji/latest";
-const RATING4_EMOJI_URLS: Record<number, string> = {
-  1: `${NOTO_BASE}/1f614/512.webp`,
-  2: `${NOTO_BASE}/1f610/512.webp`,
-  3: `${NOTO_BASE}/1f642/512.webp`,
-  4: `${NOTO_BASE}/1f601/512.webp`,
-};
-
-const RATING4_STYLES: Record<number, string> = {
-  1: "bg-red-base border-red-base text-white",
-  2: "bg-yellow-base border-yellow-base text-white",
-  3: "bg-teal-base border-teal-base text-white",
-  4: "bg-green-base border-green-base text-white",
-};
+import { ROUTES } from "@/routes";
+import { form3Service, getScaleAverage, getNpsScore } from "@/services/form3-service";
+import { tenantService } from "@/services/tenant-service";
+import { formatDate } from "@/utils/format";
+import { RATING4_LABELS, RATING4_EMOJI_URLS, RATING4_BADGE_STYLES } from "@/config/rating4-config";
+import Text from "@/components/ui/text";
+import Button from "@/components/ui/button";
+import Card from "@/components/ui/card";
 
 const INACTIVE_STYLE = "bg-white border-gray-200 text-gray-300 opacity-40";
 
@@ -51,7 +32,7 @@ function RatingDisplay({ value }: { value: number }) {
           <div
             key={r}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 font-semibold text-sm transition-all ${
-              isActive ? RATING4_STYLES[r] : INACTIVE_STYLE
+              isActive ? RATING4_BADGE_STYLES[r] : INACTIVE_STYLE
             }`}
           >
             {isActive && (

@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import { getScaleAverage } from "./analytics3-service";
-import { formatDate, formatRating } from "../utils/format";
-import type { Form3Response, Form3Filters, Form3Metrics } from "../types";
+import { formatDate, formatRating } from "@/utils/format";
+import type { Form3Response, Form3Filters, Form3Metrics } from "@/types";
 
 const COLORS = {
   primary: [41, 98, 255] as const,

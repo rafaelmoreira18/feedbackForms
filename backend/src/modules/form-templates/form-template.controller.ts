@@ -9,6 +9,8 @@ import {
 import { FormTemplateService } from './form-template.service';
 import { CreateFormTemplateDto } from './dto/create-form-template.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('tenants/:tenantSlug/form-templates')
 export class FormTemplateController {
@@ -28,7 +30,8 @@ export class FormTemplateController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('hospital_admin', 'holding_admin')
   create(
     @Param('tenantSlug') tenantSlug: string,
     @Body() dto: CreateFormTemplateDto,

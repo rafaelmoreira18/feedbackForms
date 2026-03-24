@@ -1,17 +1,18 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm3, formatCpf } from "../hooks/useForm3";
-import Input from "../components/input";
-import Textarea from "../components/textarea";
-import Button from "../components/button";
-import DateInput from "../components/date-input";
-import Rating4Input from "../components/form3/rating4-input";
-import NpsInput from "../components/form3/nps-input";
-import SectionHeader from "../components/form3/section-header";
-import { ROUTES } from "../routes";
+import { useForm3, formatCpf } from "@/hooks/useForm3";
+import Input from "@/components/ui/input";
+import Textarea from "@/components/ui/textarea";
+import Button from "@/components/ui/button";
+import DateInput from "@/components/ui/date-input";
+import Rating4Input from "@/components/forms/rating4-input";
+import NpsInput from "@/components/forms/nps-input";
+import SectionHeader from "@/components/forms/section-header";
+import { ROUTES } from "@/routes";
 
 export default function SurveyForm3() {
   const {
+    tenant,
     tenantSlug,
     template,
     loading,
@@ -149,7 +150,7 @@ export default function SurveyForm3() {
         </div>
 
         <p className="text-center text-xs text-gray-300 font-sans mt-4 pb-2">
-          Hospital Regional de Guajará-Mirim
+          {tenant?.name ?? tenantSlug}
         </p>
       </div>
     </div>

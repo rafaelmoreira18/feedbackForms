@@ -13,5 +13,7 @@ export default new DataSource({
   entities: ['dist/**/*.entity.js'],
   migrations: ['dist/database/migrations/*.js'],
   ssl:
-    process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+    process.env.DB_SSL === 'true'
+      ? { rejectUnauthorized: false }
+      : false,
 });

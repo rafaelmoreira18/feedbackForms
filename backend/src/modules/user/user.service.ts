@@ -18,8 +18,14 @@ export class UserService {
     return this.userRepository.findOne({ where: { id } });
   }
 
-  async findAll(): Promise<Omit<User, 'password'>[]> {
-    const users = await this.userRepository.find();
+  /**
+   * holding_admin sees all users; hospital_admin sees only their own tenant.
+   */
+  async findAll(requestingUser: { role: string; tenantId: string | null }): Promise<Omit<User, 'password'>[]> {
+    const where = requestingUser.role === 'holding_admin'
+      ? {}
+      : { tenantId: requestingUser.tenantId ?? undefined };
+    const users = await this.userRepository.find({ where });
     return users.map(({ password, ...user }) => user);
   }
 }

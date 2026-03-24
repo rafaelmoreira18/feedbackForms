@@ -1,4 +1,4 @@
-import type { Form3Response } from "../types";
+import type { Form3Response } from "@/types";
 
 export function getScaleAverage(form: Form3Response): number {
   const scaleAnswers = form.answers.filter((a) => a.questionId !== "nps");

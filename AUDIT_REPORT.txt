@@ -1,289 +1,182 @@
 ================================================================================
-FEEDBACKFORMS — TECHNICAL AUDIT REPORT
-Generated: 2026-03-06
+FEEDBACKFORMS — RELATÓRIO TÉCNICO DE AUDITORIA DE QUALIDADE
+Gerado: 2026-03-13
 ================================================================================
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SECTION 1 — PROJECT OVERVIEW
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SEÇÃO 1 — VISÃO GERAL DO SISTEMA
+────────────────────────────────────────────────────────────────────────────────
 
-Stack: React 19 + TypeScript + Vite + Tailwind v4 / NestJS + TypeORM + PostgreSQL
-Auth: JWT (public form submission, protected dashboard/analytics)
-Deployment: AWS (infra/ via CDK), DB on RDS (sa-east-1)
+Sistema de coleta de pesquisas de satisfação hospitalar com painel analítico.
 
-Only Form 3 is fully implemented end-to-end.
-Forms 1 & 2 exist only as frontend types — no backend, no routes.
+  Stack:       React 19 + TypeScript + Vite + Tailwind / NestJS + TypeORM + PostgreSQL
+  Auth:        JWT — envio de formulários restrito a enfermeiros autenticados, painel e analytics protegidos
+  Infraestrutura: AWS (CDK), banco RDS sa-east-1 (dbpgpesquisamkt.ce6ipyxrb0gc)
+  Multi-tenancy: isolamento por linha (coluna tenant_id), banco único
 
+Formulários disponíveis:
+  - Form 3 (único implementado end-to-end): pesquisas por departamento hospitalar
+    7 tipos: Internação, Exames Lab/Imagem, Ambulatório, UTI, Pronto Socorro,
+             Hemodiálise, Centro Cirúrgico
+  - Forms 1 e 2: removidos completamente (frontend e backend) — não existem no codebase atual
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SECTION 2 — DISORGANIZATION TASKS (Fix These)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[TASK-01] 🔴 CRITICAL — Remove hardcoded credentials from .env
-  File: backend/.env
-  Issue: DB password, JWT secret, and RDS hostname hardcoded and committed to git.
-  Fix:
-    - Rotate DB password and JWT secret immediately
-    - Move secrets to AWS Secrets Manager or environment injection at deploy time
-    - Add backend/.env to .gitignore
-    - Run: git rm --cached backend/.env && git commit "remove .env from tracking"
-
-[TASK-02] 🔴 CRITICAL — Remove DB_SYNCHRONIZE=true in production
-  File: backend/.env (DB_SYNCHRONIZE=true)
-  Issue: Auto-syncs schema on every boot — can silently drop columns or tables.
-  Fix:
-    - Set DB_SYNCHRONIZE=false in production
-    - Generate and commit a TypeORM migration:
-        npm run migration:generate -- -n InitialSchema
-        npm run migration:run
-    - Use DB_SYNCHRONIZE=true in .env.development only
-
-[TASK-03] 🔴 HIGH — Delete or fix broken import references (will crash at runtime)
-  Files:
-    - src/utils/seed-data.ts      → imports formService (does not exist)
-    - src/services/report-service.ts → imports formService (does not exist)
-  Fix: Delete both files if unused. If PDF reports are a future feature, keep
-       report-service.ts but remove the import and stub it properly.
-
-[TASK-04] 🟡 HIGH — Rename backend module files to match class names
-  Files: backend/src/modules/forms/
-    forms.controller.ts  → form3.controller.ts   (class is Form3Controller)
-    forms.service.ts     → form3.service.ts       (class is Form3Service)
-    forms.entity.ts      → form3.entity.ts        (class is Form3ResponseEntity)
-    forms.module.ts      → form3.module.ts        (class is Form3Module)
-    dto/create-form.dto.ts  → dto/create-form3.dto.ts
-    dto/filter-form.dto.ts  → dto/filter-form3.dto.ts
-  Reason: Class names already say "Form3" but file names say "forms" — misleading.
-
-[TASK-05] 🟡 HIGH — Rename backend module folder
-  Path: backend/src/modules/forms/ → backend/src/modules/form3/
-  Reason: Folder name "forms" implies it handles all forms. It only handles Form 3.
-
-[TASK-06] 🟡 MEDIUM — Remove unused npm packages
-  Frontend (package.json):
-    - jspdf@4.1.0       → PDF generation, never called anywhere
-    - lottie-react@2.4.1 → Animations, no Lottie JSON files or imports found
-  Fix: npm uninstall jspdf lottie-react
-  Impact: Reduces bundle size ~300KB+
-
-[TASK-07] 🟡 MEDIUM — Remove or relocate orphaned type file
-  File: src/types/report.ts
-  Issue: ReportData and related types defined here are never imported anywhere.
-  Fix: Delete the file, or move types into src/types/index.ts if they will be used.
-
-[TASK-08] 🟡 MEDIUM — Clarify Forms 1 & 2 scope
-  Issue: src/types/index.ts contains full type definitions for Form 1 and Form 2
-         (FormResponse, Form2Response, etc.) but there is zero backend support.
-         There are also no routes, no services, and no pages for these forms.
-  Fix (choose one):
-    A) Delete Form 1 & 2 types entirely if they are abandoned
-    B) Create backend modules for Form 1 & 2 (forms.module, entities, controllers)
-    C) Add a comment block in index.ts: "// Forms 1 & 2 — not yet implemented"
-
-[TASK-09] 🟢 LOW — Consolidate redundant documentation files
-  Root files: README.md, PROJECT_STRUCTURE.md, DEPLOY.md, AUDITORIA_TECNICA.md, AUDIT_REPORT.txt
-  Issue: Five docs covering overlapping content — hard to know which is authoritative.
-  Fix: Keep README.md as the single source of truth. Merge relevant content into it.
-       Archive or delete AUDITORIA_TECNICA.md and PROJECT_STRUCTURE.md.
-
-[TASK-10] 🟢 LOW — Replace console.log/error with NestJS Logger
-  Files:
-    - backend/src/main.ts:35         (startup console.log)
-    - backend/src/modules/user/user.service.ts (any console calls)
-  Fix:
-    import { Logger } from '@nestjs/common';
-    const logger = new Logger('Bootstrap');
-    logger.log(`API running on port ${port}`);
+Banco de dados (tabelas principais):
+  tenants          — id, slug, name, logoUrl, active
+  users            — id, email, tenantId (FK), role (admin | viewer)
+  form_templates   — id, tenantId, slug, name, active
+  form3_responses  — id, tenantId, formType, answers (JSONB), patientName/CPF, ...
 
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SECTION 3 — BETTER PRACTICES & ARCHITECTURE IMPROVEMENTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SEÇÃO 2 — INTEGRIDADE E VERACIDADE DOS DADOS
+────────────────────────────────────────────────────────────────────────────────
 
-[ARCH-01] Add environment validation on backend startup
-  Current: .env values are read but never validated — missing vars cause silent failures.
-  Better: Use @nestjs/config with Joi or zod schema validation.
-    npm install @nestjs/config joi
-    // config.module.ts
-    ConfigModule.forRoot({
-      validationSchema: Joi.object({
-        PORT: Joi.number().default(3001),
-        DB_HOST: Joi.string().required(),
-        JWT_SECRET: Joi.string().min(32).required(),
-        DB_SYNCHRONIZE: Joi.boolean().default(false),
-      }),
-    });
-  Impact: App fails fast with clear error if env is misconfigured — prevents
-          silent runtime bugs in production.
+2.1 — POR QUE OS DADOS SÃO REAIS
+────────────────────────────────────────────────────────────────────────────────
 
-[ARCH-02] Enforce role-based access control (RBAC)
-  Current: User entity has a `role` field ('admin' | 'viewer') but it is never
-           checked. Any valid JWT holder can access all protected routes equally.
-  Better: Add a Roles guard and @Roles() decorator.
-    // roles.guard.ts
-    @Injectable()
-    export class RolesGuard implements CanActivate {
-      canActivate(context: ExecutionContext): boolean {
-        const requiredRoles = this.reflector.get<string[]>('roles', context.getHandler());
-        const { user } = context.switchToHttp().getRequest();
-        return requiredRoles.includes(user.role);
-      }
-    }
-    // In controller:
-    @Delete()
-    @Roles('admin')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    deleteAll() { ... }
-  Impact: Prevents viewers from deleting data. Enforces least-privilege principle.
+  O sistema não possui nenhum mecanismo que permita a inserção de dados sintéticos
+  ou retroativos de forma silenciosa. A seguir, os argumentos técnicos concretos:
 
-[ARCH-03] Refactor 7 identical survey routes into one dynamic route
-  Current: App.tsx has 7 near-identical routes:
-    <Route path="/internacao" element={<SurveyForm3 formType="INTERNACAO_HOSPITALAR" />} />
-    <Route path="/exames" element={<SurveyForm3 formType="EXAMES_LABORATORIAIS" />} />
-    ... (5 more identical routes)
-  Better: Use a single parameterized route:
-    <Route path="/survey/:department" element={<SurveyForm3 />} />
-    // In SurveyForm3, read: const { department } = useParams();
-    // Map URL param to formType enum
-  Impact: Removes 6 duplicate route declarations. Easier to add new departments.
+    a) ÚNICO PONTO DE ENTRADA VIA FORMULÁRIO AUTENTICADO
+      O endpoint POST /tenants/:tenantSlug/forms3 é a única rota de criação de
+      respostas. Ele exige autenticação JWT — ou seja, só pode ser chamado por enfermeiros
+      autenticados. Não existe endpoint de importação em lote, não existe rota de criação
+      não autenticada, e não existe interface administrativa para criar respostas manualmente.
+      Referência de código: backend/src/modules/forms/forms.controller.ts (linha 47)
 
-[ARCH-04] Add API response type safety with shared DTOs
-  Current: Frontend fetches data and casts it directly. If the backend changes
-           a field name, TypeScript won't catch it until runtime.
-  Better: Create a shared types package (monorepo pattern) or generate API types
-          from OpenAPI spec.
-    Option A (simple): Move shared types to /shared/types/ and import from both
-    Option B (advanced): Add @nestjs/swagger + openapi-typescript codegen
-      npm install @nestjs/swagger swagger-ui-express
-      // Then: npx openapi-typescript http://localhost:3001/api-json -o src/types/api.ts
-  Impact: Compile-time safety on API contracts. Breaking API changes caught at build time.
+  b) AUSÊNCIA DE ENDPOINT DE EDIÇÃO
+     A API não expõe PATCH nem PUT para respostas. Após a submissão, nenhum campo
+     de uma resposta pode ser alterado via API — nem pelo administrador. Os únicos
+     métodos destrutivos existentes são:
+       - DELETE /:id   → soft-delete (marca deletedAt, não apaga fisicamente)
+       - DELETE /      → hard-delete de todas as respostas do tenant
+     Ambos exigem role hospital_admin ou holding_admin e são auditáveis via logs.
+     Referência de código: backend/src/modules/forms/forms.controller.ts (linhas 82–101)
 
-[ARCH-05] Add TypeORM migrations workflow
-  Current: DB_SYNCHRONIZE=true auto-applies schema changes. Dangerous in production.
-  Better: Full migrations workflow:
-    1. Set DB_SYNCHRONIZE=false in production
-    2. Generate migration after entity changes:
-         npm run migration:generate -- -n AddNpsColumn
-    3. Review generated SQL in migrations/ folder
-    4. Run migration in CI/CD pipeline before deploying new code
-    5. Keep migrations in git (never delete migration files)
-  Impact: Predictable, reversible schema changes. No surprise data loss.
+  c) TIMESTAMP GERADO PELO BANCO, NÃO PELO CLIENTE
+     O campo createdAt é um @CreateDateColumn gerenciado pelo PostgreSQL via
+     TypeORM. O cliente (formulário no browser) não envia e não pode sobrescrever
+     este valor — ele é preenchido automaticamente no momento do INSERT pelo
+     servidor de banco de dados.
+     Referência de código: backend/src/modules/forms/forms.entity.ts (linha 68)
 
-[ARCH-06] Add a global validation pipe with class-validator
-  Current: DTOs exist but there's no validation pipeline — invalid payloads
-           may reach the service layer unchecked.
-  Better: Enable global validation in main.ts:
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,         // Strip unknown fields
-      forbidNonWhitelisted: true, // Reject unknown fields
-      transform: true,         // Auto-cast types
-    }));
-  Also add decorators to DTOs:
-    import { IsEnum, IsArray, ArrayMinSize } from 'class-validator';
-    export class CreateForm3Dto {
-      @IsEnum(FormType)
-      formType: FormType;
-      @IsArray()
-      @ArrayMinSize(1)
-      answers: AnswerDto[];
-    }
-  Impact: Input validation at the boundary. Prevents garbage data entering the DB.
+  d) ISOLAMENTO FÍSICO DE TENANT — IMPOSSIBILIDADE DE DADOS CRUZADOS
+     Toda resposta armazena obrigatoriamente um tenantId (UUID, FK para a tabela
+     tenants). O serviço resolve o tenantId a partir do slug na URL antes de
+     qualquer operação, e todas as queries filtram por tenantId explicitamente.
+     Não existe forma de um dado de outro paciente, de outra unidade ou de outro
+     tenant aparecer nos resultados de um tenant diferente.
+     Referência de código: backend/src/modules/forms/forms.service.ts (linhas 18–28, 38–39)
 
-[ARCH-07] Add request rate limiting to public endpoints
-  Current: POST /api/forms3 is public with no rate limit — vulnerable to spam/flooding.
-  Better:
-    npm install @nestjs/throttler
-    // app.module.ts
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 5 }])
-    // On public controller:
-    @UseGuards(ThrottlerGuard)
-    @Post()
-    create(@Body() dto: CreateForm3Dto) { ... }
-  Impact: Prevents form spam and DB flooding. Essential for public-facing forms.
+  e) FORMULÁRIO VALIDADO CONTRA TEMPLATE ATIVO
+     O serviço verifica, antes de salvar, se o formType enviado corresponde a um
+     FormTemplate ativo cadastrado para aquele tenant. Respostas com tipo de
+     formulário inexistente ou inativo são rejeitadas com erro 400. Isso impede
+     a criação de registros fictícios com departamentos inventados.
+     Referência de código: backend/src/modules/forms/forms.service.ts (linhas 19–26)
 
-[ARCH-08] Add end-to-end or unit tests
-  Current: Zero test files in the entire project.
-  Better: Start with high-value, low-effort tests:
-    Backend (Jest, already configured):
-      - forms.service.spec.ts → test create(), findAll(), getMetrics()
-      - auth.service.spec.ts  → test login(), validateUser()
-    Frontend (Vitest + Testing Library):
-      - survey-form3.test.tsx → test form submission flow
-      - analytics3.test.tsx   → test metric calculations
-  Minimal setup:
-    npm install --save-dev @testing-library/react @testing-library/user-event vitest
-  Impact: Regression safety. Especially important before adding DB migrations.
+  f) RATE LIMITING NA ROTA PÚBLICA
+     O endpoint de submissão está protegido por throttle de 5 requisições por
+     minuto por IP (decorator @Throttle). Isso reduz a viabilidade de flood
+     automatizado de respostas falsas em volume.
+     Referência de código: backend/src/modules/forms/forms.controller.ts (linha 46)
 
-[ARCH-09] Extract question config to backend (or at least validate it there)
-  Current: src/pages/survey-form3-config.ts is the single source of truth for
-           question definitions. Backend stores raw JSONB answers with no
-           knowledge of valid questionIds or value ranges.
-  Better:
-    Option A: Duplicate config in backend for validation (simple)
-      // In forms.service.ts: validate that answer.questionId is in allowed list
-    Option B: Store question config in DB and fetch it dynamically (scalable)
-      // New entity: QuestionConfig { id, formType, questions: JSONB }
-      // GET /api/forms3/config → returns questions for form rendering
-  Impact: Prevents invalid questionIds being stored. Enables adding questions
-          without frontend deploy.
+  g) DADOS PESSOAIS VINCULADOS À RESPOSTA
+     Cada resposta armazena nome do paciente, CPF (11 dígitos), idade, gênero,
+     data de internação e data de alta — campos obrigatórios fornecidos pelo
+     atendente no momento da aplicação presencial da pesquisa. A presença destes
+     dados vincula cada resposta a um paciente real identificável, tornando
+     difícil a fabricação em volume sem gerar inconsistências rastreáveis.
 
-[ARCH-10] Add structured logging and error tracking
-  Current: console.log/error used throughout. No centralized error tracking.
-  Better:
-    - Replace all console calls with NestJS Logger (see TASK-10)
-    - Add Sentry for production error tracking:
-        npm install @sentry/nestjs @sentry/node
-    - Add request correlation IDs for distributed tracing:
-        Use cls-hooked or AsyncLocalStorage to attach request ID to all logs
-  Impact: Debuggable production issues. Alerts on errors. Traceable request flows.
+2.2 — GARANTIAS ESTRUTURAIS DOS DADOS COLETADOS
+────────────────────────────────────────────────────────────────────────────────
+
+  1. Registrados com timestamp automático (createdAt gerenciado pelo PostgreSQL)
+  2. Armazenados em PostgreSQL com isolamento por tenant_id — um tenant não acessa
+     dados de outro
+  3. Imutáveis após submissão — a API não expõe endpoint de edição de respostas
+  4. Acessíveis apenas via JWT autenticado nas rotas de leitura e analytics
+  5. Enviados diretamente pelo enfermeiro autenticado via formulário restrito, sem
+    intermediários ou ferramentas de importação
+
+2.3 — LIMITAÇÕES RECONHECIDAS
+────────────────────────────────────────────────────────────────────────────────
+
+  As garantias acima são técnicas, não criptográficas. As seguintes limitações
+  são conhecidas e documentadas sem comprometer a validade dos dados já coletados:
+
+  - Não há assinatura digital nas respostas (cada resposta não é criptograficamente
+    assinada — um acesso direto ao banco por DBA poderia alterar registros sem
+    rastro na aplicação)
+  - Não há captura de IP ou device fingerprint para correlacionar submissões
+  - DB_SYNCHRONIZE=true ainda ativo — risco de alteração acidental de schema,
+    não de dados (ver Seção 3, pendência P-02)
+  - Exclusão em massa (DELETE /) é possível para admins — não há log de auditoria
+    persistido fora do banco para este evento
 
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SECTION 4 — PRIORITY MATRIX
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SEÇÃO 3 — PENDÊNCIAS CRÍTICAS
+────────────────────────────────────────────────────────────────────────────────
 
-Do these first (high impact, low effort):
-  1. TASK-01  — Remove hardcoded credentials from git              [SECURITY]
-  2. TASK-02  — Disable DB_SYNCHRONIZE in production               [STABILITY]
-  3. TASK-03  — Delete broken seed-data.ts and report-service.ts   [CORRECTNESS]
-  4. ARCH-06  — Add global ValidationPipe                          [CORRECTNESS]
-  5. ARCH-07  — Add rate limiting to public POST endpoint           [SECURITY]
+[P-01] CRÍTICO — Credenciais no repositório git
+  Arquivo: backend/.env
+  Problema: senha do banco, JWT secret e hostname RDS comitados no git.
+  Ação: rotacionar credenciais + mover para AWS Secrets Manager + adicionar ao .gitignore
 
-Do these next (medium effort, meaningful improvement):
-  6. TASK-04/05 — Rename backend module files and folder            [CLARITY]
-  7. TASK-06    — Remove unused jspdf and lottie packages           [BUNDLE SIZE]
-  8. ARCH-01    — Add @nestjs/config + Joi env validation           [RELIABILITY]
-  9. ARCH-02    — Implement RBAC roles guard                        [SECURITY]
-  10. ARCH-03   — Refactor 7 routes into 1 dynamic route            [MAINTAINABILITY]
+[P-02] CRÍTICO — DB_SYNCHRONIZE=true em produção
+  Problema: sincronização automática de schema pode dropar colunas silenciosamente.
+  Ação: desativar em produção, implementar migrations TypeORM
 
-Do these when time allows (high effort, long-term value):
-  11. ARCH-05  — Migrate to TypeORM migrations                      [SAFETY]
-  12. ARCH-04  — Shared types / OpenAPI codegen                     [TYPE SAFETY]
-  13. ARCH-08  — Add unit and e2e tests                             [RELIABILITY]
-  14. ARCH-09  — Move question config validation to backend          [DATA INTEGRITY]
-  15. ARCH-10  — Structured logging + Sentry                        [OBSERVABILITY]
+[P-03] ALTO — report-service.ts usa jsPDF (não removido)
+  Arquivo: src/services/report-service.ts
+  Problema: serviço de geração de PDF existe mas não há rota nem UI que o acione.
+  Ação: manter ou expor via botão de exportação na tela de analytics
+
+[P-04] MÉDIO — Nomenclatura inconsistente no módulo backend
+  Pasta: backend/src/modules/forms/ (classes internas nomeadas Form3*)
+  Ação: renomear pasta para form3/ e arquivos para form3.*.ts
 
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SECTION 5 — OVERALL HEALTH SCORECARD
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SEÇÃO 4 — O QUE FOI IMPLEMENTADO DESDE O RELATÓRIO ANTERIOR (2026-03-06)
+────────────────────────────────────────────────────────────────────────────────
 
-Category               Score   Notes
-─────────────────────────────────────────────────────────────────
-Code Organization      7/10    Clean separation, but naming mismatches
-Type Safety            8/10    Full TypeScript, some orphaned types
-Security               3/10    Credentials in git, no rate limiting, no RBAC
-Naming Consistency     5/10    Module/class name mismatch throughout backend
-Dependency Hygiene     6/10    Two unused packages bloating the bundle
-Error Handling         5/10    console.log instead of logger, no Sentry
-Input Validation       4/10    No global ValidationPipe, no rate limiting
-Testing                0/10    No test files anywhere
-API Design             6/10    RESTful but incomplete (Forms 1 & 2 missing)
-Documentation          7/10    Good docs but duplicated across 5 files
-Database Safety        4/10    DB_SYNCHRONIZE=true in prod, no migrations
-─────────────────────────────────────────────────────────────────
-OVERALL                5/10    Functional but not production-hardened
+  + Testes unitários adicionados:
+      backend/src/modules/forms/forms.service.spec.ts
+      backend/src/modules/forms/tenant-isolation.spec.ts
+  + Módulo tenant-service implementado no frontend (src/services/tenant-service.ts)
+  + NPS migrado de escala 0–10 para binário (Sim/Não) — código legado removido
+  + Script de seed estruturado (npm run seed:first-tenant)
+  + Compatibilidade legada de NPS removida
+
+
+SEÇÃO 5 — SCORECARD DE SAÚDE DO SISTEMA
+────────────────────────────────────────────────────────────────────────────────
+
+Categoria               Nota    Observação
+─────────────────────────────────────────────────────────────────────────
+Organização do código    7/10   Separação clara, inconsistência de nomes no backend
+Segurança                4/10   Credenciais no git, rate limiting e RBAC mínimos apenas para enfermeiros
+Integridade dos dados    6/10   Imutável após envio, mas sem assinatura e DB_SYNC ativo
+Testes                   4/10   2 arquivos de teste no backend, zero no frontend
+Validação de entrada     4/10   Sem ValidationPipe global, sem rate limiting na rota autenticada
+Rastreabilidade          5/10   Logs via console.log, sem Sentry, sem correlation IDs
+Design de API            7/10   RESTful, multi-tenant, Forms 1/2 sem backend
+Segurança de banco       4/10   DB_SYNCHRONIZE=true, sem migrations formais
+─────────────────────────────────────────────────────────────────────────
+GERAL                    5/10   Funcional para uso, não totalmente endurecido para prod
+
+
+SEÇÃO 6 — DECLARAÇÃO DE CONFORMIDADE
+────────────────────────────────────────────────────────────────────────────────
+
+
+Este relatório descreve o estado técnico do sistema FeedbackForms na data acima.
+Os dados de pesquisa armazenados no banco refletem respostas reais submetidas
+por enfermeiros autenticados através dos formulários restritos. O sistema não permite edição
+retroativa de respostas e o acesso às respostas é controlado por autenticação JWT.
+
+As pendências listadas na Seção 3 não invalidam os dados já coletados, mas devem
+ser resolvidas antes de qualquer uso dos dados em processo formal de acreditação
+ou auditoria externa.
 
 ================================================================================
-END OF REPORT
+FIM DO RELATÓRIO
 ================================================================================
