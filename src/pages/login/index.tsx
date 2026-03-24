@@ -15,9 +15,11 @@ export default function Login() {
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
-  // Already logged in → go straight to the tenant's forms
+  // Already logged in → admin goes to dashboard, operator goes to pesquisa
   if (isAuthenticated && user) {
-    return <Navigate to={ROUTES.pesquisa(user.tenantSlug ?? 'hgm')} replace />;
+    const slug = user.tenantSlug ?? '';
+    const dest = user.role === 'operator' ? ROUTES.pesquisa(slug) : ROUTES.dashboard;
+    return <Navigate to={dest} replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,8 +30,9 @@ export default function Login() {
     try {
       const loggedUser = await login(email, password);
       if (loggedUser) {
-        const slug = loggedUser.tenantSlug ?? 'hgm';
-        navigate(ROUTES.pesquisa(slug));
+        const slug = loggedUser.tenantSlug ?? '';
+        const dest = loggedUser.role === 'operator' ? ROUTES.pesquisa(slug) : ROUTES.dashboard;
+        navigate(dest);
       } else {
         setError("Email ou senha incorretos");
       }

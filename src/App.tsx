@@ -22,6 +22,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
+  if (user?.role === 'operator') return <Navigate to={ROUTES.home} replace />;
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -33,15 +40,15 @@ function AppRoutes() {
       <Route path="/:tenantSlug/pesquisa" element={<ProtectedRoute><Pesquisa /></ProtectedRoute>} />
       <Route path="/:tenantSlug/:formSlug" element={<ProtectedRoute><SurveyForm3 /></ProtectedRoute>} />
 
-      {/* Protected */}
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      {/* Admin only */}
+      <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
       <Route
         path="/:tenantSlug/analytics"
-        element={<ProtectedRoute><Analytics3 /></ProtectedRoute>}
+        element={<AdminRoute><Analytics3 /></AdminRoute>}
       />
       <Route
         path="/:tenantSlug/responses/:id"
-        element={<ProtectedRoute><Form3Preview /></ProtectedRoute>}
+        element={<AdminRoute><Form3Preview /></AdminRoute>}
       />
 
       <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
