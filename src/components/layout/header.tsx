@@ -23,7 +23,7 @@ export default function Header() {
         />
         {isAuthenticated && user && (
           <div className="flex items-center gap-1">
-            {user.role !== 'rh_admin' && (
+            {user.role !== 'rh_admin' && user.role !== 'holding_admin' && user.tenantSlug && (
               <button
                 type="button"
                 onClick={() => navigate(ROUTES.pesquisa(tenantSlug))}

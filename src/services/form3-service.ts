@@ -54,4 +54,8 @@ export const form3Service = {
     const res = await api.get<Form3Metrics>(`tenants/${tenantSlug}/forms3/metrics${qs}`)
     return res.data
   },
+
+  deleteOne: async (tenantSlug: string, id: string): Promise<void> => {
+    await api.delete(`tenants/${tenantSlug}/forms3/${id}`)
+  },
 }

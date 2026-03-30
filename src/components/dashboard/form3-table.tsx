@@ -7,6 +7,7 @@ import Text from "@/components/ui/text";
 interface Form3TableProps {
   forms: Form3Response[];
   onRowClick: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 function satisfactionColor(avg: number) {
@@ -15,7 +16,7 @@ function satisfactionColor(avg: number) {
   return "bg-red-base";
 }
 
-export default function Form3Table({ forms, onRowClick }: Form3TableProps) {
+export default function Form3Table({ forms, onRowClick, onDelete }: Form3TableProps) {
   return (
     <Card shadow="md">
       <div className="flex flex-col gap-4">
@@ -36,20 +37,34 @@ export default function Form3Table({ forms, onRowClick }: Form3TableProps) {
                 return (
                   <div
                     key={form.id}
-                    onClick={() => onRowClick(form.id)}
-                    className="border border-gray-200 rounded-lg p-4 cursor-pointer active:bg-gray-50"
+                    className="border border-gray-200 rounded-lg p-4"
                   >
-                    <div className="flex justify-between items-start mb-2">
-                      <Text variant="body-sm-bold" className="text-gray-400">{form.patientName}</Text>
-                      <div className="flex items-center gap-1.5">
-                        <div className={`w-2 h-2 rounded-full ${satisfactionColor(avg)}`} />
-                        <Text variant="body-sm-bold">{(Math.round(avg * 10) / 10).toFixed(1)}/4</Text>
+                    <div
+                      onClick={() => onRowClick(form.id)}
+                      className="cursor-pointer active:bg-gray-50"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <Text variant="body-sm-bold" className="text-gray-400">{form.patientName}</Text>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-2 h-2 rounded-full ${satisfactionColor(avg)}`} />
+                          <Text variant="body-sm-bold">{(Math.round(avg * 10) / 10).toFixed(1)}/4</Text>
+                        </div>
+                      </div>
+                      <Text variant="caption" className="text-gray-300">{form.formType}</Text>
+                      <div className="flex justify-between items-center mt-1">
+                        <Text variant="caption" className="text-gray-300">{formatDate(form.createdAt)}</Text>
                       </div>
                     </div>
-                    <Text variant="caption" className="text-gray-300">{form.formType}</Text>
-                    <div className="flex justify-between items-center mt-1">
-                      <Text variant="caption" className="text-gray-300">{formatDate(form.createdAt)}</Text>
-                    </div>
+                    {onDelete && (
+                      <div className="flex justify-end mt-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onDelete(form.id); }}
+                          className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -60,8 +75,8 @@ export default function Form3Table({ forms, onRowClick }: Form3TableProps) {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    {["Nome do Paciente", "CPF", "Setor", "Média Satisfação", "NPS", "Data"].map((h) => (
-                      <th key={h} className="text-left py-3 px-4">
+                    {["Nome do Paciente", "CPF", "Setor", "Média Satisfação", "NPS", "Data", ...(onDelete ? [""] : [])].map((h, i) => (
+                      <th key={i} className="text-left py-3 px-4">
                         <Text variant="body-sm-bold" className="text-gray-400">{h}</Text>
                       </th>
                     ))}
@@ -98,6 +113,16 @@ export default function Form3Table({ forms, onRowClick }: Form3TableProps) {
                         <td className="py-3 px-4">
                           <Text variant="body-sm" className="text-gray-300">{formatDate(form.createdAt)}</Text>
                         </td>
+                        {onDelete && (
+                          <td className="py-3 px-4">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onDelete(form.id); }}
+                              className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
+                            >
+                              Excluir
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
