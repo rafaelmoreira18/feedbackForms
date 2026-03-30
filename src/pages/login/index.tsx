@@ -17,6 +17,7 @@ export default function Login() {
 
   // Already logged in → redirect by role
   if (isAuthenticated && user) {
+    if (user.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
     const slug = user.tenantSlug ?? '';
     const dest =
       user.role === 'viewer' ? ROUTES.pesquisa(slug) :
@@ -34,6 +35,10 @@ export default function Login() {
       const emailOrUsername = email.includes("@") ? email : `${email}@sistema.local`;
       const loggedUser = await login(emailOrUsername, password);
       if (loggedUser) {
+        if (loggedUser.mustChangePassword) {
+          navigate(ROUTES.changePassword);
+          return;
+        }
         const slug = loggedUser.tenantSlug ?? '';
         const dest =
           loggedUser.role === 'viewer' ? ROUTES.pesquisa(slug) :

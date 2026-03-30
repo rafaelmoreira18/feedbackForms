@@ -12,6 +12,8 @@ export default function ChangePassword() {
   const { user, clearMustChangePassword } = useAuth();
   const navigate = useNavigate();
 
+  const isForced = !!user?.mustChangePassword;
+
   const [form, setForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -23,7 +25,7 @@ export default function ChangePassword() {
 
   function validate(): boolean {
     const e: Partial<typeof form> = {};
-    if (!form.currentPassword) e.currentPassword = "Informe a senha atual";
+    if (!isForced && !form.currentPassword) e.currentPassword = "Informe a senha atual";
     if (form.newPassword.length < 8) e.newPassword = "Mínimo 8 caracteres";
     if (form.newPassword !== form.confirmPassword) e.confirmPassword = "As senhas não coincidem";
     setErrors(e);
@@ -38,7 +40,7 @@ export default function ChangePassword() {
     setServerError("");
     try {
       await api.post("auth/change-password", {
-        currentPassword: form.currentPassword,
+        ...(isForced ? {} : { currentPassword: form.currentPassword }),
         newPassword: form.newPassword,
       });
 
@@ -84,14 +86,16 @@ export default function ChangePassword() {
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Input
-              label="Senha atual"
-              type="password"
-              placeholder="••••••••"
-              value={form.currentPassword}
-              onChange={(e) => setForm((f) => ({ ...f, currentPassword: e.target.value }))}
-              error={errors.currentPassword}
-            />
+            {!isForced && (
+              <Input
+                label="Senha atual"
+                type="password"
+                placeholder="••••••••"
+                value={form.currentPassword}
+                onChange={(e) => setForm((f) => ({ ...f, currentPassword: e.target.value }))}
+                error={errors.currentPassword}
+              />
+            )}
 
             <Input
               label="Nova senha"

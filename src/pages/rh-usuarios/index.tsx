@@ -382,7 +382,7 @@ export default function RhUsuarios() {
                       {u.nome}
                     </Text>
                     <Text variant="caption" className="text-gray-300 block">
-                      {u.email}
+                      {u.email.replace('@sistema.local', '')}
                     </Text>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="text-xs font-sans px-1.5 py-0.5 rounded bg-teal-base/10 text-teal-base">

@@ -83,8 +83,8 @@ export class RhUsersService implements OnModuleDestroy {
     const tenantId = dto.tenantId ?? null;
 
     const result = await this.pool.query<{ id: string }>(
-      `INSERT INTO usuarios (id, email, nome, "senhaHash", role, "tenantId", ativo, "criadoEm", "atualizadoEm")
-       VALUES (gen_random_uuid(), $1, $2, $3, 'rh', $4, true, NOW(), NOW())
+      `INSERT INTO usuarios (id, email, nome, "senhaHash", role, "tenantId", ativo, "mustChangePassword", "criadoEm", "atualizadoEm")
+       VALUES (gen_random_uuid(), $1, $2, $3, 'rh', $4, true, true, NOW(), NOW())
        RETURNING id`,
       [email, dto.nome, senhaHash, tenantId],
     );

@@ -41,13 +41,13 @@ export class AuthController {
     @Req() req: Request,
   ) {
     const user = (req as Request & { user: { id: string } }).user;
-    if (!body.currentPassword || !body.newPassword) {
-      throw new BadRequestException('Campos obrigatórios');
+    if (!body.newPassword) {
+      throw new BadRequestException('Nova senha obrigatória');
     }
     if (body.newPassword.length < 8) {
       throw new BadRequestException('Nova senha deve ter ao menos 8 caracteres');
     }
-    await this.authService.changePassword(user.id, body.currentPassword, body.newPassword);
+    await this.authService.changePassword(user.id, body.newPassword, body.currentPassword);
     return { message: 'Senha alterada com sucesso' };
   }
 

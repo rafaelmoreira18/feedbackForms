@@ -115,16 +115,19 @@ export class AuthService implements OnModuleDestroy {
     };
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
-    const result = await this.pool.query<{ senhaHash: string }>(
-      `SELECT "senhaHash" FROM usuarios WHERE id = $1 LIMIT 1`,
+  async changePassword(userId: string, newPassword: string, currentPassword?: string): Promise<void> {
+    const result = await this.pool.query<{ senhaHash: string; mustChangePassword: boolean }>(
+      `SELECT "senhaHash", COALESCE("mustChangePassword", false) AS "mustChangePassword" FROM usuarios WHERE id = $1 LIMIT 1`,
       [userId],
     );
     const row = result.rows[0];
     if (!row) throw new UnauthorizedException('Usuário não encontrado');
 
-    const valid = await bcrypt.compare(currentPassword, row.senhaHash);
-    if (!valid) throw new UnauthorizedException('Senha atual incorreta');
+    if (!row.mustChangePassword) {
+      if (!currentPassword) throw new UnauthorizedException('Senha atual obrigatória');
+      const valid = await bcrypt.compare(currentPassword, row.senhaHash);
+      if (!valid) throw new UnauthorizedException('Senha atual incorreta');
+    }
 
     const newHash = await bcrypt.hash(newPassword, 10);
     await this.pool.query(
