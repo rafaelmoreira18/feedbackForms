@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { trainingService } from "@/services/training-service";
 import type { TrainingSession } from "@/types";
-import { ROUTES } from "@/routes";
 import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
 import Textarea from "@/components/ui/textarea";
@@ -406,8 +405,6 @@ export default function TrainingSurvey() {
     tenantSlug: string;
     sessionSlug: string;
   }>();
-  const navigate = useNavigate();
-
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);

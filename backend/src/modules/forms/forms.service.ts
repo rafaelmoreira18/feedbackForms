@@ -1,10 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Form3ResponseEntity, Form3Response } from './forms.entity';
 import { FormTemplateEntity } from '../form-templates/form-template.entity';
 import { CreateForm3Dto } from './dto/create-form.dto';
 import { FilterForm3Dto } from './dto/filter-form.dto';
+
+function parseDate(value: string, field: string): Date {
+  const d = new Date(value);
+  if (isNaN(d.getTime())) throw new BadRequestException(`${field} is not a valid date`);
+  return d;
+}
 
 @Injectable()
 export class Form3Service {
@@ -39,11 +45,11 @@ export class Form3Service {
     qb.where('form.tenantId = :tenantId', { tenantId });
 
     if (filters?.startDate) {
-      qb.andWhere('form.createdAt >= :startDate', { startDate: filters.startDate });
+      qb.andWhere('form.createdAt >= :startDate', { startDate: parseDate(filters.startDate, 'startDate') });
     }
     if (filters?.endDate) {
       qb.andWhere('form.createdAt <= :endDate', {
-        endDate: filters.endDate + 'T23:59:59',
+        endDate: new Date(parseDate(filters.endDate, 'endDate').setHours(23, 59, 59, 999)),
       });
     }
     if (filters?.formType) {
@@ -106,11 +112,11 @@ export class Form3Service {
       const qb = this.repo.createQueryBuilder('form');
       qb.where('form.tenantId = :tenantId', { tenantId });
       if (filters?.startDate) {
-        qb.andWhere('form.createdAt >= :startDate', { startDate: filters.startDate });
+        qb.andWhere('form.createdAt >= :startDate', { startDate: parseDate(filters.startDate, 'startDate') });
       }
       if (filters?.endDate) {
         qb.andWhere('form.createdAt <= :endDate', {
-          endDate: filters.endDate + 'T23:59:59',
+          endDate: new Date(parseDate(filters.endDate, 'endDate').setHours(23, 59, 59, 999)),
         });
       }
       if (filters?.formType) {

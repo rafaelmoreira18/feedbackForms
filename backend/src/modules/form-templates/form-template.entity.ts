@@ -18,6 +18,7 @@ export type QuestionScale = 'rating4' | 'nps';
 // ─── FormTemplate ──────────────────────────────────────────────────────────────
 
 @Entity('form_templates')
+@Index(['tenantId', 'slug'], { unique: true })
 export class FormTemplateEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -1,13 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantModule } from './modules/tenants/tenant.module';
 import { FormTemplateModule } from './modules/form-templates/form-template.module';
 import { Form3Module } from './modules/forms/forms.module';
 import { TrainingSessionsModule } from './modules/training-sessions/training-sessions.module';
+import { RhUsersModule } from './modules/rh-users/rh-users.module';
 import { TenantEntity } from './modules/tenants/tenant.entity';
 import { Form3ResponseEntity } from './modules/forms/forms.entity';
 import {
@@ -58,8 +60,11 @@ import { TrainingResponseEntity } from './modules/training-sessions/training-res
         synchronize: config.get<string>('DB_SYNCHRONIZE', 'false') === 'true',
         ssl:
           config.get<string>('DB_SSL', 'false') === 'true'
-            ? { rejectUnauthorized: false }
+            ? { rejectUnauthorized: config.get<string>('DB_SSL_REJECT_UNAUTHORIZED', 'true') !== 'false' }
             : false,
+        extra: {
+          statement_timeout: 30_000,
+        },
       }),
     }),
 
@@ -71,9 +76,10 @@ import { TrainingResponseEntity } from './modules/training-sessions/training-res
     FormTemplateModule,
     Form3Module,
     TrainingSessionsModule,
+    RhUsersModule,
   ],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: CustomThrottlerGuard },
   ],
 })
 export class AppModule {}

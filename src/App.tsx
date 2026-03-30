@@ -17,6 +17,7 @@ import Analytics3 from "@/pages/analytics";
 import Form3Preview from "@/pages/survey/survey-preview";
 import Treinamentos from "@/pages/treinamentos";
 import TrainingSurvey from "@/pages/treinamento";
+import RhUsuarios from "@/pages/rh-usuarios";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -34,7 +35,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function RhRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
-  if (user?.role === 'viewer') return <Navigate to={ROUTES.home} replace />;
+  if (user?.role !== 'rh_admin') return <Navigate to={ROUTES.login} replace />;
   return <>{children}</>;
 }
 
@@ -53,6 +54,9 @@ function AppRoutes() {
       <Route path="/treinamentos" element={<RhRoute><Treinamentos /></RhRoute>} />
       <Route path="/:tenantSlug/treinamentos" element={<RhRoute><Treinamentos /></RhRoute>} />
       <Route path="/:tenantSlug/treinamento/:sessionSlug" element={<TrainingSurvey />} />
+
+      {/* RH Users — only rh_admin */}
+      <Route path="/rh/usuarios" element={<RhRoute><RhUsuarios /></RhRoute>} />
 
       {/* Admin only */}
       <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />

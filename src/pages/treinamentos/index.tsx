@@ -6,6 +6,7 @@ import { trainingService, type TrainingResponse } from "@/services/training-serv
 import { tenantService } from "@/services/tenant-service";
 import type { TrainingSession, TrainingType, CreateTrainingSessionDto } from "@/types";
 import { ROUTES } from "@/routes";
+import { Link } from "react-router-dom";
 import Text from "@/components/ui/text";
 import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
@@ -229,132 +230,232 @@ function ConfirmDelete({
   );
 }
 
-// ─── Single response card ─────────────────────────────────────────────────────
+// ─── Single response row ──────────────────────────────────────────────────────
 
-function ResponseCard({
+function avgScore(answers: { questionId: string; value: number }[], count: number): number {
+  const scores = answers
+    .filter((a) => a.questionId !== "nps" && a.value > 0)
+    .slice(0, count)
+    .map((a) => a.value);
+  if (scores.length === 0) return 0;
+  return scores.reduce((s, v) => s + v, 0) / scores.length;
+}
+
+function avgColor(avg: number, max: number) {
+  const pct = avg / max;
+  if (pct >= 0.75) return "bg-green-base/10 text-green-base border border-green-base/30";
+  if (pct >= 0.5) return "bg-yellow-50 text-yellow-600 border border-yellow-300";
+  return "bg-red-base/10 text-red-base border border-red-base/30";
+}
+
+function npsColor(v: number) {
+  if (v >= 9) return "bg-green-base/10 text-green-base border border-green-base/30";
+  if (v >= 7) return "bg-yellow-50 text-yellow-600 border border-yellow-300";
+  return "bg-red-base/10 text-red-base border border-red-base/30";
+}
+
+function ResponseRow({
   response,
   trainingType,
 }: {
   response: TrainingResponse;
   trainingType: TrainingType;
 }) {
-  const questions =
-    trainingType === "eficacia" ? EFICACIA_QUESTIONS : REACAO_QUESTIONS;
+  const [expanded, setExpanded] = useState(false);
+
+  const questions = trainingType === "eficacia" ? EFICACIA_QUESTIONS : REACAO_QUESTIONS;
   const labels = trainingType === "eficacia" ? EFICACIA_LABELS : REACAO_LABELS;
   const colors = trainingType === "eficacia" ? EFICACIA_COLORS : REACAO_COLORS;
+  const scaleMax = trainingType === "eficacia" ? 3 : 5;
 
   const answerMap = new Map(response.answers.map((a) => [a.questionId, a.value]));
-  const npsValue = answerMap.get("nps");
+  const nps = answerMap.get("nps");
+  const avg = avgScore(response.answers, questions.length);
 
-  const npsColor =
-    npsValue == null
-      ? ""
-      : npsValue <= 6
-      ? "bg-red-base/10 text-red-base border border-red-base/30"
-      : npsValue <= 8
-      ? "bg-yellow-50 text-yellow-600 border border-yellow-300"
-      : "bg-green-base/10 text-green-base border border-green-base/30";
+  return (
+    <div
+      className={`rounded-xl border cursor-pointer transition-all duration-150 ${
+        expanded ? "border-teal-base/50 shadow-md" : "border-gray-100 hover:border-teal-base/30 shadow-sm"
+      } bg-white`}
+      onClick={() => setExpanded((v) => !v)}
+    >
+      {/* Summary row */}
+      <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
+        {/* Name */}
+        <Text variant="body-sm-bold" className="text-gray-400 flex-1 min-w-30">
+          {response.respondentName || "Anônimo"}
+        </Text>
+
+        {/* Avg rate */}
+        {avg > 0 && (
+          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border shrink-0 ${avgColor(avg, scaleMax)}`}>
+            Média {avg.toFixed(1)}/{scaleMax}
+          </span>
+        )}
+
+        {/* NPS (reação only) */}
+        {trainingType === "reacao" && nps != null && (
+          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border shrink-0 ${npsColor(nps)}`}>
+            Nota {nps}/10
+          </span>
+        )}
+
+        {/* Recomenda (reação only) */}
+        {trainingType === "reacao" && response.recomenda != null && (
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full font-semibold border shrink-0 ${
+              response.recomenda
+                ? "bg-green-base/10 text-green-base border-green-base/30"
+                : "bg-red-base/10 text-red-base border-red-base/30"
+            }`}
+          >
+            {response.recomenda ? "Recomenda" : "Não recomenda"}
+          </span>
+        )}
+
+        {/* Date */}
+        <Text variant="caption" className="text-gray-300 shrink-0 ml-auto">
+          {new Date(response.createdAt).toLocaleDateString("pt-BR", {
+            day: "2-digit", month: "2-digit", year: "numeric",
+          })}
+        </Text>
+
+        {/* Chevron */}
+        <span className={`text-gray-300 text-xs transition-transform duration-150 ${expanded ? "rotate-180" : ""}`}>
+          ▼
+        </span>
+      </div>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div
+          className="px-4 pb-4 flex flex-col gap-2 border-t border-gray-100 pt-3"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {questions.map((q, i) => {
+            const qid = `q${i + 1}`;
+            const val = answerMap.get(qid);
+            return (
+              <div key={qid} className="flex items-start gap-3">
+                <span className="text-xs text-gray-300 shrink-0 w-4 text-right mt-0.5">{i + 1}.</span>
+                <p className="text-xs text-gray-300 flex-1">{q}</p>
+                {val != null && val > 0 ? (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 ${colors[val] ?? ""}`}>
+                    {labels[val] ?? val}
+                  </span>
+                ) : (
+                  <span className="text-xs text-gray-200 shrink-0">—</span>
+                )}
+              </div>
+            );
+          })}
+
+          {trainingType === "reacao" && nps != null && (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-300 shrink-0 w-4 text-right">★</span>
+              <p className="text-xs text-gray-300 flex-1">Nota geral (0–10)</p>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 ${npsColor(nps)}`}>{nps}</span>
+            </div>
+          )}
+
+          {/* Qualitative fields */}
+          {(response.pontoAlto || response.jaAplica || response.recomenda != null || response.recomendaMotivo || response.comments) && (
+            <div className="flex flex-col gap-2 pt-2 border-t border-gray-100 mt-1">
+              {response.pontoAlto && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-300">Ponto alto:</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{response.pontoAlto}</p>
+                </div>
+              )}
+              {response.jaAplica && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-300">Já aplica:</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{response.jaAplica}</p>
+                </div>
+              )}
+              {response.recomenda != null && response.recomendaMotivo && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-300">Motivo:</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{response.recomendaMotivo}</p>
+                </div>
+              )}
+              {response.comments && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-300">
+                    {trainingType === "eficacia" ? "Observações:" : "Comentários:"}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">{response.comments}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Question analytics ───────────────────────────────────────────────────────
+
+function questionAvgColor(avg: number, max: number) {
+  const pct = avg / max;
+  if (pct >= 0.75) return { barColor: "#52a350", badge: "bg-green-base/10 text-green-base border border-green-base/30" };
+  if (pct >= 0.5)  return { barColor: "#facc15", badge: "bg-yellow-50 text-yellow-600 border border-yellow-300" };
+  return { barColor: "#e74c3c", badge: "bg-red-base/10 text-red-base border border-red-base/30" };
+}
+
+function QuestionAnalytics({
+  responses,
+  trainingType,
+}: {
+  responses: TrainingResponse[];
+  trainingType: TrainingType;
+}) {
+  const questions = trainingType === "eficacia" ? EFICACIA_QUESTIONS : REACAO_QUESTIONS;
+  const scaleMax = trainingType === "eficacia" ? 3 : 5;
+
+  const questionStats = questions.map((text, i) => {
+    const qid = `q${i + 1}`;
+    const values = responses
+      .map((r) => r.answers.find((a) => a.questionId === qid)?.value)
+      .filter((v): v is number => v != null && v > 0);
+    const avg = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0;
+    return { qid, text, avg, count: values.length };
+  }).filter((q) => q.count > 0).sort((a, b) => a.avg - b.avg);
+
+  if (questionStats.length === 0) return null;
 
   return (
     <Card shadow="sm" className="flex flex-col gap-4">
-      {/* Header row */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-        <Text variant="body-sm-bold" className="text-gray-400">
-          {response.respondentName || "Anônimo"}
-        </Text>
+      <div>
+        <Text variant="body-sm-bold" className="text-gray-400">Análise por Pergunta</Text>
         <Text variant="caption" className="text-gray-300">
-          {new Date(response.createdAt).toLocaleDateString("pt-BR", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          Ordenado da nota mais baixa para mais alta · escala 1–{scaleMax}
         </Text>
       </div>
 
-      {/* Quantitative answers */}
-      <div className="flex flex-col gap-2">
-        {questions.map((q, i) => {
-          const qid = `q${i + 1}`;
-          const val = answerMap.get(qid);
+      <div className="flex flex-col gap-3">
+        {questionStats.map((q) => {
+          const { barColor, badge } = questionAvgColor(q.avg, scaleMax);
+          const pct = (q.avg / scaleMax) * 100;
           return (
-            <div key={qid} className="flex items-start gap-3">
-              <span className="text-xs text-gray-300 shrink-0 mt-0.5 w-4 text-right">{i + 1}.</span>
-              <p className="text-xs text-gray-300 flex-1">{q}</p>
-              {val != null && val > 0 ? (
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 ${colors[val] ?? ""}`}
-                >
-                  {labels[val] ?? val}
+            <div key={q.qid} className="flex flex-col gap-1">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-xs text-gray-300 flex-1 leading-relaxed">{q.text}</p>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 border ${badge}`}>
+                  {q.avg.toFixed(1)}/{scaleMax}
                 </span>
-              ) : (
-                <span className="text-xs text-gray-200 shrink-0">—</span>
-              )}
+              </div>
+              <div className="relative w-full rounded-full overflow-hidden" style={{ height: 6, backgroundColor: "#e5e7eb" }}>
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full"
+                  style={{ width: `${pct}%`, backgroundColor: barColor }}
+                />
+              </div>
             </div>
           );
         })}
-
-        {/* NPS row (reação only) */}
-        {trainingType === "reacao" && npsValue != null && (
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-300 shrink-0 mt-0.5 w-4 text-right">★</span>
-            <p className="text-xs text-gray-300 flex-1">Nota geral (0–10)</p>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 ${npsColor}`}>
-              {npsValue}
-            </span>
-          </div>
-        )}
       </div>
-
-      {/* Qualitative fields (reação only) */}
-      {trainingType === "reacao" && (
-        <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
-          {response.pontoAlto && (
-            <div>
-              <p className="text-xs font-semibold text-gray-300">Ponto alto:</p>
-              <p className="text-xs text-gray-400 mt-0.5">{response.pontoAlto}</p>
-            </div>
-          )}
-          {response.jaAplica && (
-            <div>
-              <p className="text-xs font-semibold text-gray-300">Já aplica:</p>
-              <p className="text-xs text-gray-400 mt-0.5">{response.jaAplica}</p>
-            </div>
-          )}
-          {response.recomenda != null && (
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-semibold text-gray-300">Recomendaria:</p>
-              <span
-                className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                  response.recomenda
-                    ? "bg-green-base/10 text-green-base border border-green-base/30"
-                    : "bg-red-base/10 text-red-base border border-red-base/30"
-                }`}
-              >
-                {response.recomenda ? "Sim" : "Não"}
-              </span>
-              {response.recomendaMotivo && (
-                <span className="text-xs text-gray-300">— {response.recomendaMotivo}</span>
-              )}
-            </div>
-          )}
-          {response.comments && (
-            <div>
-              <p className="text-xs font-semibold text-gray-300">Comentários:</p>
-              <p className="text-xs text-gray-400 mt-0.5">{response.comments}</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Eficácia comments */}
-      {trainingType === "eficacia" && response.comments && (
-        <div className="pt-2 border-t border-gray-100">
-          <p className="text-xs font-semibold text-gray-300">Observações:</p>
-          <p className="text-xs text-gray-400 mt-0.5">{response.comments}</p>
-        </div>
-      )}
     </Card>
   );
 }
@@ -375,7 +476,8 @@ function ResponsesPanel({
     queryFn: () => trainingService.getResponses(tenantSlug, { session: session.slug }),
   });
 
-  const responses = data?.data ?? [];
+  const allResponses = data?.data ?? [];
+  const responses = allResponses;
 
   return (
     <div className="flex flex-col gap-4">
@@ -410,11 +512,12 @@ function ResponsesPanel({
         </Card>
       ) : (
         <div className="flex flex-col gap-3">
+          <QuestionAnalytics responses={allResponses} trainingType={session.trainingType} />
           <Text variant="caption" className="text-gray-300">
             {responses.length} {responses.length === 1 ? "resposta" : "respostas"}
           </Text>
           {responses.map((r) => (
-            <ResponseCard key={r.id} response={r} trainingType={session.trainingType} />
+            <ResponseRow key={r.id} response={r} trainingType={session.trainingType} />
           ))}
         </div>
       )}
@@ -452,10 +555,11 @@ export default function Treinamentos() {
     enabled: !!tenantSlug,
   });
 
-  const { data: metrics } = useQuery({
-    queryKey: ["training-metrics", tenantSlug],
-    queryFn: () => trainingService.getMetrics(tenantSlug),
-    enabled: !!tenantSlug,
+  const { data: sessionMetrics } = useQuery({
+    queryKey: ["training-metrics", tenantSlug, selectedSession?.slug],
+    queryFn: () =>
+      trainingService.getMetrics(tenantSlug, { session: selectedSession!.slug }),
+    enabled: !!tenantSlug && !!selectedSession,
   });
 
   const queryClient = useQueryClient();
@@ -497,6 +601,11 @@ export default function Treinamentos() {
           <Button size="sm" onClick={() => setShowCreate(true)} disabled={!tenantSlug}>
             + Nova Pesquisa
           </Button>
+          <Link to={ROUTES.rhUsuarios}>
+            <Button variant="outline" size="sm">
+              Usuários RH
+            </Button>
+          </Link>
           <Button variant="secondary" size="sm" onClick={logout}>
             Sair
           </Button>
@@ -519,27 +628,6 @@ export default function Treinamentos() {
           </Card>
         )}
 
-        {/* Metrics */}
-        {metrics && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <MetricCard title="Total de Respostas" value={metrics.totalResponses} />
-            <MetricCard
-              title="Média Satisfação"
-              value={`${metrics.averageSatisfaction}`}
-              subtitle="Escala do formulário"
-            />
-            <MetricCard
-              title="Recomendariam"
-              value={`${metrics.averageNps}%`}
-              subtitle="Avaliações de Reação"
-            />
-            <MetricCard
-              title="Respostas Este Mês"
-              value={metrics.responsesThisMonth}
-              subtitle={`${metrics.responsesLastMonth} no mês anterior`}
-            />
-          </div>
-        )}
 
         {isGlobal && !tenantSlug ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
@@ -581,6 +669,30 @@ export default function Treinamentos() {
               onDelete={() => setDeleteTarget(selectedSession)}
               onNavigate={() => navigate(ROUTES.treinamento(tenantSlug, selectedSession.slug))}
             />
+
+            {/* Metrics for selected session */}
+            {sessionMetrics && (
+              <div className={`grid gap-4 ${selectedSession.trainingType === "reacao" ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 lg:grid-cols-3"}`}>
+                <MetricCard title="Total de Respostas" value={sessionMetrics.totalResponses} />
+                <MetricCard
+                  title="Média Satisfação"
+                  value={`${sessionMetrics.averageSatisfaction}`}
+                  subtitle="Escala do formulário"
+                />
+                {selectedSession.trainingType === "reacao" && (
+                  <MetricCard
+                    title="Recomendariam"
+                    value={`${sessionMetrics.averageNps}%`}
+                    subtitle="Avaliações de Reação"
+                  />
+                )}
+                <MetricCard
+                  title="Respostas Este Mês"
+                  value={sessionMetrics.responsesThisMonth}
+                  subtitle={`${sessionMetrics.responsesLastMonth} no mês anterior`}
+                />
+              </div>
+            )}
 
             {/* Responses panel */}
             <ResponsesPanel

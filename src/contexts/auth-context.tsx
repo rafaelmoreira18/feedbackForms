@@ -28,11 +28,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(getStoredUser);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     setUser(null);
     localStorage.removeItem("user");
-    localStorage.removeItem("auth_token");
     if (timerRef.current) clearTimeout(timerRef.current);
+    // Ask backend to clear the HttpOnly auth cookie
+    try { await api.post("auth/logout"); } catch { /* ignore */ }
   }, []);
 
   const resetTimer = useCallback(() => {
@@ -57,16 +58,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<User | null> => {
     try {
-      const res = await api.post<{ accessToken: string; user: User }>(
-        "auth/login",
-        { email, password }
-      );
-      const { accessToken, user } = res.data;
+      const res = await api.post<{ user: User }>("auth/login", { email, password });
+      const { user } = res.data;
       setUser(user);
       localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("auth_token", accessToken);
+      // Token is set by backend as an HttpOnly cookie — never stored in JS
       return user;
-    } catch {
+    } catch (err) {
+      console.error('Login error:', err);
       return null;
     }
   };

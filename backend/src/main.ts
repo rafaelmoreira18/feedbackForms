@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -22,10 +24,47 @@ async function bootstrap() {
     );
   }
 
-  const corsOrigins = configService.get<string>('CORS_ORIGINS', 'http://localhost:5173,http://localhost:3000');
+  // Cookie parser (required for HttpOnly JWT cookie)
+  app.use(cookieParser());
+
+  // Security headers
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          frameSrc: ["'none'"],
+          upgradeInsecureRequests: nodeEnv === 'production' ? [] : null,
+        },
+      },
+      hsts: nodeEnv === 'production'
+        ? { maxAge: 31_536_000, includeSubDomains: true }
+        : false,
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+
+  const allowedOrigins = new Set(
+    configService
+      .get<string>('CORS_ORIGINS', 'http://localhost:5173,http://localhost:3000')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+  );
 
   app.enableCors({
-    origin: corsOrigins.split(',').map((o) => o.trim()),
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      // Allow requests with no origin (server-to-server, curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.has(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin '${origin}' not allowed`));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -42,8 +81,9 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor());
 
-  // Swagger UI — available only in non-production environments
-  if (nodeEnv !== 'production') {
+  // Swagger UI — only when explicitly opted in via ENABLE_SWAGGER=true
+  const enableSwagger = configService.get<string>('ENABLE_SWAGGER', 'false') === 'true';
+  if (enableSwagger) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('FeedbackForms API')
       .setDescription(

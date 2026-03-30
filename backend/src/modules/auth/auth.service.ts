@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, UnauthorizedException, OnModuleDestroy, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -25,6 +25,7 @@ interface ExternalUser {
 
 @Injectable()
 export class AuthService implements OnModuleDestroy {
+  private readonly logger = new Logger(AuthService.name);
   private readonly pool: Pool;
 
   constructor(
@@ -37,7 +38,9 @@ export class AuthService implements OnModuleDestroy {
       user: this.config.getOrThrow<string>('AUTH_DB_USERNAME'),
       password: this.config.getOrThrow<string>('AUTH_DB_PASSWORD'),
       database: this.config.getOrThrow<string>('AUTH_DB_DATABASE'),
-      ssl: this.config.get<string>('AUTH_DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
+      ssl: this.config.get<string>('AUTH_DB_SSL') === 'true'
+        ? { rejectUnauthorized: this.config.get<string>('AUTH_DB_SSL_REJECT_UNAUTHORIZED', 'true') !== 'false' }
+        : false,
       max: 3,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
@@ -67,15 +70,17 @@ export class AuthService implements OnModuleDestroy {
     return result.rows[0]?.slug ?? null;
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ip = 'unknown') {
     const user = await this.findUserByEmail(dto.email);
 
     if (!user || !user.ativo) {
+      this.logger.warn(`[AUDIT] LOGIN_FAILED email="${dto.email}" reason="user_not_found_or_inactive" ip="${ip}" ts="${new Date().toISOString()}"`);
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
     const passwordValid = await bcrypt.compare(dto.password, user.senhaHash);
     if (!passwordValid) {
+      this.logger.warn(`[AUDIT] LOGIN_FAILED email="${dto.email}" reason="wrong_password" ip="${ip}" ts="${new Date().toISOString()}"`);
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
@@ -92,6 +97,8 @@ export class AuthService implements OnModuleDestroy {
     if (user.tenantId) {
       tenantSlug = await this.findTenantSlug(user.tenantId);
     }
+
+    this.logger.log(`[AUDIT] LOGIN_SUCCESS email="${user.email}" role="${role}" ip="${ip}" ts="${new Date().toISOString()}"`);
 
     return {
       accessToken: this.jwtService.sign(payload),

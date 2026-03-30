@@ -31,7 +31,8 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const loggedUser = await login(email, password);
+      const emailOrUsername = email.includes("@") ? email : `${email}@sistema.local`;
+      const loggedUser = await login(emailOrUsername, password);
       if (loggedUser) {
         const slug = loggedUser.tenantSlug ?? '';
         const dest =
@@ -64,9 +65,9 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input
-              label="Email"
-              type="email"
-              placeholder="seu@email.com"
+              label="Email ou usuário"
+              type="text"
+              placeholder="seu@email.com ou rh.usuario"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
