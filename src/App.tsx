@@ -10,6 +10,7 @@ const queryClient = new QueryClient({
 import Header from "@/components/layout/header";
 import Home from "@/pages/home";
 import Login from "@/pages/login";
+import ChangePassword from "@/pages/change-password";
 import SurveyForm3 from "@/pages/survey";
 import Pesquisa from "@/pages/pesquisa";
 import Dashboard from "@/pages/dashboard";
@@ -20,22 +21,26 @@ import TrainingSurvey from "@/pages/treinamento";
 import RhUsuarios from "@/pages/rh-usuarios";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
+  if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
   return <>{children}</>;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
+  if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
   if (user?.role === 'viewer' || user?.role === 'rh_admin') return <Navigate to={ROUTES.home} replace />;
   return <>{children}</>;
 }
 
-function RhRoute({ children }: { children: React.ReactNode }) {
+function RhRoute({ children, requireGlobal }: { children: React.ReactNode; requireGlobal?: boolean }) {
   const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
+  if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
   if (user?.role !== 'rh_admin') return <Navigate to={ROUTES.login} replace />;
+  if (requireGlobal && user?.tenantId) return <Navigate to={ROUTES.treinamentos(user.tenantSlug ?? '')} replace />;
   return <>{children}</>;
 }
 
@@ -45,6 +50,7 @@ function AppRoutes() {
       {/* Public */}
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/change-password" element={<ChangePassword />} />
 
       {/* Protected — nurse operates these */}
       <Route path="/:tenantSlug/pesquisa" element={<ProtectedRoute><Pesquisa /></ProtectedRoute>} />
@@ -55,8 +61,8 @@ function AppRoutes() {
       <Route path="/:tenantSlug/treinamentos" element={<RhRoute><Treinamentos /></RhRoute>} />
       <Route path="/:tenantSlug/treinamento/:sessionSlug" element={<TrainingSurvey />} />
 
-      {/* RH Users — only rh_admin */}
-      <Route path="/rh/usuarios" element={<RhRoute><RhUsuarios /></RhRoute>} />
+      {/* RH Users — only global rh_admin (no tenantId) */}
+      <Route path="/rh/usuarios" element={<RhRoute requireGlobal><RhUsuarios /></RhRoute>} />
 
       {/* Admin only */}
       <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />

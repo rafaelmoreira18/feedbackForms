@@ -9,6 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<User | null>;
   logout: () => void;
+  clearMustChangePassword: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,6 +71,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const clearMustChangePassword = useCallback(() => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, mustChangePassword: false };
+      localStorage.setItem("user", JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -77,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         login,
         logout,
+        clearMustChangePassword,
       }}
     >
       {children}

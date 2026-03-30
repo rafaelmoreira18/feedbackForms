@@ -212,7 +212,6 @@ function ReacaoForm({ onSubmit, submitting }: ReacaoFormProps) {
   const [pontoAlto, setPontoAlto] = useState("");
   const [jaAplica, setJaAplica] = useState("");
   const [recomenda, setRecomenda] = useState<boolean | null>(null);
-  const [recomendaMotivo, setRecomendaMotivo] = useState("");
   const [comments, setComments] = useState("");
 
   const setAnswer = (qid: string, v: number) =>
@@ -220,12 +219,13 @@ function ReacaoForm({ onSubmit, submitting }: ReacaoFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!pontoAlto.trim() || !jaAplica.trim() || recomenda === null) return;
     const arr: { questionId: string; value: number }[] = REACAO_QUESTIONS.map((_, i) => ({
       questionId: `q${i + 1}`,
       value: answers[`q${i + 1}`] ?? 0,
     }));
     if (nps !== null) arr.push({ questionId: "nps", value: nps });
-    onSubmit(arr, { pontoAlto, jaAplica, recomenda, recomendaMotivo, comments });
+    onSubmit(arr, { pontoAlto, jaAplica, recomenda, recomendaMotivo: "", comments });
   };
 
   return (
@@ -291,11 +291,11 @@ function ReacaoForm({ onSubmit, submitting }: ReacaoFormProps) {
 
       {/* Qualitative */}
       <section className="flex flex-col gap-4">
-        <SectionHeader icon="✍️" title="Parte 2 — Avaliação Qualitativa" />
+        <SectionHeader icon="✍️" title="Parte 2 — Avaliação Qualitativa" subtitle="Obrigatório" />
 
         <div className="flex flex-col gap-1.5">
           <p className="text-sm font-semibold text-gray-400 font-sans">
-            1. Qual foi o ponto alto (mais positivo) do treinamento?
+            1. Qual foi o ponto alto (mais positivo) do treinamento? <span className="text-red-base">*</span>
           </p>
           <Textarea
             placeholder="Descreva o ponto mais positivo..."
@@ -306,7 +306,7 @@ function ReacaoForm({ onSubmit, submitting }: ReacaoFormProps) {
 
         <div className="flex flex-col gap-1.5">
           <p className="text-sm font-semibold text-gray-400 font-sans">
-            2. O que você já consegue aplicar a partir de hoje?
+            2. O que você já consegue aplicar a partir de hoje? <span className="text-red-base">*</span>
           </p>
           <Textarea
             placeholder="Descreva o que pode ser aplicado imediatamente..."
@@ -317,7 +317,7 @@ function ReacaoForm({ onSubmit, submitting }: ReacaoFormProps) {
 
         <div className="flex flex-col gap-3">
           <p className="text-sm font-semibold text-gray-400 font-sans">
-            3. Você recomendaria esse treinamento para colegas?
+            3. Você recomendaria esse treinamento para colegas? <span className="text-red-base">*</span>
           </p>
           <div className="flex gap-3">
             <button
@@ -345,13 +345,6 @@ function ReacaoForm({ onSubmit, submitting }: ReacaoFormProps) {
               ✗ Não
             </button>
           </div>
-          {recomenda !== null && (
-            <Textarea
-              placeholder="Por quê?"
-              value={recomendaMotivo}
-              onChange={(e) => setRecomendaMotivo(e.target.value)}
-            />
-          )}
         </div>
       </section>
 

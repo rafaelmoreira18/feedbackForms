@@ -1,7 +1,8 @@
-import { Controller, Post, Body, Res, Req, HttpCode } from '@nestjs/common';
+import { Controller, Post, Body, Res, Req, HttpCode, UseGuards, BadRequestException } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 1 day
@@ -30,6 +31,24 @@ export class AuthController {
 
     // Return user info but NOT the accessToken in the body
     return { user: result.user };
+  }
+
+  @Post('change-password')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @Body() body: { currentPassword: string; newPassword: string },
+    @Req() req: Request,
+  ) {
+    const user = (req as Request & { user: { id: string } }).user;
+    if (!body.currentPassword || !body.newPassword) {
+      throw new BadRequestException('Campos obrigatórios');
+    }
+    if (body.newPassword.length < 8) {
+      throw new BadRequestException('Nova senha deve ter ao menos 8 caracteres');
+    }
+    await this.authService.changePassword(user.id, body.currentPassword, body.newPassword);
+    return { message: 'Senha alterada com sucesso' };
   }
 
   @Post('logout')

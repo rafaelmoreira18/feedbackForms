@@ -21,6 +21,7 @@ interface ExternalUser {
   role: string;
   tenantId: string | null;
   ativo: boolean;
+  mustChangePassword: boolean;
 }
 
 @Injectable()
@@ -53,7 +54,7 @@ export class AuthService implements OnModuleDestroy {
 
   private async findUserByEmail(email: string): Promise<ExternalUser | null> {
     const result = await this.pool.query<ExternalUser>(
-      `SELECT id, email, nome, "senhaHash", role, "tenantId", ativo
+      `SELECT id, email, nome, "senhaHash", role, "tenantId", ativo, COALESCE("mustChangePassword", false) AS "mustChangePassword"
        FROM usuarios
        WHERE email = $1
        LIMIT 1`,
@@ -109,7 +110,26 @@ export class AuthService implements OnModuleDestroy {
         role,
         tenantId: user.tenantId ?? null,
         tenantSlug,
+        mustChangePassword: user.mustChangePassword,
       },
     };
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+    const result = await this.pool.query<{ senhaHash: string }>(
+      `SELECT "senhaHash" FROM usuarios WHERE id = $1 LIMIT 1`,
+      [userId],
+    );
+    const row = result.rows[0];
+    if (!row) throw new UnauthorizedException('Usuário não encontrado');
+
+    const valid = await bcrypt.compare(currentPassword, row.senhaHash);
+    if (!valid) throw new UnauthorizedException('Senha atual incorreta');
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await this.pool.query(
+      `UPDATE usuarios SET "senhaHash" = $1, "mustChangePassword" = false, "atualizadoEm" = NOW() WHERE id = $2`,
+      [newHash, userId],
+    );
   }
 }

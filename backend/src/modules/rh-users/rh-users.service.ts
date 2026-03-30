@@ -2,11 +2,13 @@ import {
   Injectable,
   ConflictException,
   OnModuleDestroy,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { Pool } from 'pg';
 import { CreateRhUserDto } from './dto/create-rh-user.dto';
+import { TenantService } from '../tenants/tenant.service';
 
 export interface RhUserRow {
   id: string;
@@ -23,7 +25,10 @@ export interface RhUserRow {
 export class RhUsersService implements OnModuleDestroy {
   private readonly pool: Pool;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly tenantService: TenantService,
+  ) {
     this.pool = new Pool({
       host: this.config.getOrThrow<string>('AUTH_DB_HOST'),
       port: this.config.get<number>('AUTH_DB_PORT', 5432),
@@ -45,10 +50,10 @@ export class RhUsersService implements OnModuleDestroy {
   }
 
   async findTenants(): Promise<{ id: string; slug: string; nome: string }[]> {
-    const result = await this.pool.query<{ id: string; slug: string; nome: string }>(
-      `SELECT id, slug, nome FROM tenants WHERE ativo = true ORDER BY nome`,
-    );
-    return result.rows;
+    const tenants = await this.tenantService.findAll();
+    return tenants
+      .map((t) => ({ id: t.id, slug: t.slug, nome: t.name }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
   }
 
   async findAll(): Promise<RhUserRow[]> {
@@ -98,5 +103,19 @@ export class RhUsersService implements OnModuleDestroy {
     }
 
     return { id, email, nome: dto.nome, role: 'rh', tenantId, ativo: true, tenantSlug, tenantNome };
+  }
+
+  async resetPassword(userId: string, newPassword: string): Promise<void> {
+    const existing = await this.pool.query(
+      `SELECT id FROM usuarios WHERE id = $1 AND role = 'rh' LIMIT 1`,
+      [userId],
+    );
+    if (existing.rows.length === 0) throw new NotFoundException('Usuário não encontrado');
+
+    const senhaHash = await bcrypt.hash(newPassword, 10);
+    await this.pool.query(
+      `UPDATE usuarios SET "senhaHash" = $1, "mustChangePassword" = true, "atualizadoEm" = NOW() WHERE id = $2`,
+      [senhaHash, userId],
+    );
   }
 }

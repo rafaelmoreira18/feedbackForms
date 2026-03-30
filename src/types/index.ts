@@ -7,6 +7,7 @@ export interface User {
   role: UserRole;
   tenantId: string | null;
   tenantSlug: string | null;
+  mustChangePassword?: boolean;
 }
 
 // JWT payload contract — must match LinenSistem backend

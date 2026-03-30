@@ -1,6 +1,7 @@
 export const ROUTES = {
   home: '/',
   login: '/login',
+  changePassword: '/change-password',
   dashboard: '/dashboard',
   survey: (tenantSlug: string, formSlug: string) => `/${tenantSlug}/${formSlug}`,
   pesquisa: (tenantSlug: string) => `/${tenantSlug}/pesquisa`,

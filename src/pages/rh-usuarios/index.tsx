@@ -3,11 +3,144 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { rhUsersService, type CreateRhUserInput } from "@/services/rh-users.service";
+import { api } from "@/services/api";
 import { ROUTES } from "@/routes";
 import Text from "@/components/ui/text";
 import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
 import Input from "@/components/ui/input";
+
+// ─── Modal Resetar Senha ──────────────────────────────────────────────────────
+
+interface ResetPasswordModalProps {
+  open: boolean;
+  userId: string;
+  userName: string;
+  onClose: () => void;
+}
+
+function ModalResetarSenha({ open, userId, userName, onClose }: ResetPasswordModalProps) {
+  const [form, setForm] = useState({ newPassword: "", confirmPassword: "" });
+  const [errors, setErrors] = useState<Partial<typeof form>>({});
+  const [serverError, setServerError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const reset = useCallback(() => {
+    setForm({ newPassword: "", confirmPassword: "" });
+    setErrors({});
+    setServerError("");
+    setSuccess(false);
+  }, []);
+
+  function validate(): boolean {
+    const e: Partial<typeof form> = {};
+    if (form.newPassword.length < 8) e.newPassword = "Mínimo 8 caracteres";
+    if (form.newPassword !== form.confirmPassword) e.confirmPassword = "As senhas não coincidem";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!validate()) return;
+    setSubmitting(true);
+    setServerError("");
+    try {
+      await api.post(`rh/usuarios/${userId}/reset-password`, { newPassword: form.newPassword });
+      setSuccess(true);
+    } catch {
+      setServerError("Erro ao redefinir senha. Tente novamente.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleClose() {
+    reset();
+    onClose();
+  }
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+          <Text as="h2" variant="heading-sm" className="text-gray-400">
+            Redefinir Senha
+          </Text>
+          <button
+            onClick={handleClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-300 hover:text-gray-400 hover:bg-gray-100 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="px-6 py-5">
+          {success ? (
+            <div className="flex flex-col items-center gap-4 py-4 text-center">
+              <span className="text-4xl">✅</span>
+              <Text variant="body-md" className="text-gray-400">
+                Senha redefinida com sucesso.
+              </Text>
+              <Text variant="body-sm" className="text-gray-300">
+                <strong>{userName}</strong> deverá alterar a senha no próximo acesso.
+              </Text>
+              <Button className="w-full mt-2" onClick={handleClose}>
+                Fechar
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <Text variant="body-sm" className="text-gray-300">
+                Defina uma senha temporária para <strong className="text-gray-400">{userName}</strong>.
+                O usuário será obrigado a alterá-la no próximo acesso.
+              </Text>
+
+              <Input
+                label="Nova senha"
+                type="password"
+                placeholder="Mínimo 8 caracteres"
+                value={form.newPassword}
+                onChange={(e) => setForm((f) => ({ ...f, newPassword: e.target.value }))}
+                error={errors.newPassword}
+              />
+
+              <Input
+                label="Confirmar nova senha"
+                type="password"
+                placeholder="Repita a nova senha"
+                value={form.confirmPassword}
+                onChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))}
+                error={errors.confirmPassword}
+              />
+
+              {serverError && (
+                <Text variant="body-sm" className="text-red-base bg-red-50 px-3 py-2 rounded-lg">
+                  {serverError}
+                </Text>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <Button type="button" variant="outline" className="flex-1" onClick={handleClose}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="flex-1" disabled={submitting}>
+                  {submitting ? "Salvando..." : "Redefinir Senha"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Modal Criar Usuário RH ───────────────────────────────────────────────────
 
@@ -164,6 +297,7 @@ export default function RhUsuarios() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<{ id: string; nome: string } | null>(null);
 
   const { data: usuarios = [], isLoading } = useQuery({
     queryKey: ["rh-usuarios"],
@@ -266,6 +400,13 @@ export default function RhUsuarios() {
                       </span>
                     </div>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setResetTarget({ id: u.id, nome: u.nome })}
+                  >
+                    Redefinir senha
+                  </Button>
                 </div>
               </Card>
             ))}
@@ -277,6 +418,13 @@ export default function RhUsuarios() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onCreated={reload}
+      />
+
+      <ModalResetarSenha
+        open={resetTarget !== null}
+        userId={resetTarget?.id ?? ""}
+        userName={resetTarget?.nome ?? ""}
+        onClose={() => setResetTarget(null)}
       />
     </div>
   );

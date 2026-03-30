@@ -531,6 +531,7 @@ export default function Treinamentos() {
   const { tenantSlug: slugFromUrl = "" } = useParams<{ tenantSlug: string }>();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const isGlobalAdmin = user?.role === "holding_admin";
 
   // Global rh_admin: no slug in URL — show tenant selector
   const isGlobal = !slugFromUrl;
@@ -601,11 +602,13 @@ export default function Treinamentos() {
           <Button size="sm" onClick={() => setShowCreate(true)} disabled={!tenantSlug}>
             + Nova Pesquisa
           </Button>
-          <Link to={ROUTES.rhUsuarios}>
-            <Button variant="outline" size="sm">
-              Usuários RH
-            </Button>
-          </Link>
+          {!user?.tenantId && (
+            <Link to={ROUTES.rhUsuarios}>
+              <Button variant="outline" size="sm">
+                Usuários RH
+              </Button>
+            </Link>
+          )}
           <Button variant="secondary" size="sm" onClick={logout}>
             Sair
           </Button>
@@ -662,6 +665,7 @@ export default function Treinamentos() {
               isSelected
               copied={copied}
               toggleActivePending={toggleActive.isPending}
+              canDelete={isGlobalAdmin}
               onSelect={() => setSelectedSession(null)}
               onCopy={copyLink}
               onToggleActive={() => toggleActive.mutate(selectedSession)}
@@ -712,6 +716,7 @@ export default function Treinamentos() {
                 isSelected={false}
                 copied={copied}
                 toggleActivePending={toggleActive.isPending}
+                canDelete={isGlobalAdmin}
                 onSelect={() => handleSessionClick(session)}
                 onCopy={copyLink}
                 onToggleActive={() => toggleActive.mutate(session)}
@@ -762,6 +767,7 @@ interface SessionCardProps {
   isSelected: boolean;
   copied: string | null;
   toggleActivePending: boolean;
+  canDelete: boolean;
   onSelect: () => void;
   onCopy: (slug: string) => void;
   onToggleActive: () => void;
@@ -776,6 +782,7 @@ function SessionCard({
   isSelected,
   copied,
   toggleActivePending,
+  canDelete,
   onSelect,
   onCopy,
   onToggleActive,
@@ -840,9 +847,11 @@ function SessionCard({
           <Button size="sm" variant="outline" onClick={onEdit}>
             Editar
           </Button>
-          <Button size="sm" variant="secondary" onClick={onDelete}>
-            Excluir
-          </Button>
+          {canDelete && (
+            <Button size="sm" variant="secondary" onClick={onDelete}>
+              Excluir
+            </Button>
+          )}
         </div>
       </div>
     </div>
