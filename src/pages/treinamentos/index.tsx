@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
@@ -525,6 +525,291 @@ function ResponsesPanel({
   );
 }
 
+// ─── Session grouping helpers ─────────────────────────────────────────────────
+
+interface SessionGroup {
+  reacao: TrainingSession;
+  eficacia: TrainingSession | null;
+}
+
+/** Adds `days` to an ISO date string without timezone issues */
+function addDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const result = new Date(y, m - 1, d + days);
+  return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, "0")}-${String(result.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Returns the visual alert status for a reação session based on whether its
+ * eficácia has been created and how close the 30-day target is.
+ */
+function getEficaciaAlertStatus(
+  reacaoDate: string,
+  eficacia: TrainingSession | null,
+): "none" | "warning" | "overdue" {
+  if (eficacia) return "none";
+  const [y, m, d] = reacaoDate.split("-").map(Number);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(y, m - 1, d + 30);
+  const warning = new Date(y, m - 1, d + 23); // 30 - 7
+  if (today >= target) return "overdue";
+  if (today >= warning) return "warning";
+  return "none";
+}
+
+/**
+ * Splits a flat session list into:
+ * - `groups`: every reação session paired with its linked eficácia (or null)
+ * - `standalone`: eficácia sessions without linkedSessionId (legacy, shown individually)
+ */
+function groupSessions(sessions: TrainingSession[]): {
+  groups: SessionGroup[];
+  standalone: TrainingSession[];
+} {
+  const eficaciaByLinked = new Map<string, TrainingSession>();
+  sessions.forEach((s) => {
+    if (s.trainingType === "eficacia" && s.linkedSessionId) {
+      eficaciaByLinked.set(s.linkedSessionId, s);
+    }
+  });
+
+  const groups: SessionGroup[] = sessions
+    .filter((s) => s.trainingType === "reacao")
+    .map((reacao) => ({ reacao, eficacia: eficaciaByLinked.get(reacao.id) ?? null }));
+
+  const standalone = sessions.filter(
+    (s) => s.trainingType === "eficacia" && !s.linkedSessionId,
+  );
+
+  return { groups, standalone };
+}
+
+// ─── Paired session card ──────────────────────────────────────────────────────
+
+interface PairedSessionCardProps {
+  group: SessionGroup;
+  tenantSlug: string;
+  selectedSession: TrainingSession | null;
+  canCreate: boolean;
+  canDelete: boolean;
+  copied: string | null;
+  toggleActivePending: boolean;
+  createEficaciaPending: boolean;
+  onSelect: (session: TrainingSession) => void;
+  onCopy: (slug: string) => void;
+  onToggleActive: (session: TrainingSession) => void;
+  onEdit: (session: TrainingSession) => void;
+  onDelete: (session: TrainingSession) => void;
+  onNavigate: (session: TrainingSession) => void;
+  onCreateEficacia: (reacaoSlug: string) => void;
+}
+
+function PairedSessionCard({
+  group,
+  tenantSlug,
+  selectedSession,
+  canCreate,
+  canDelete,
+  copied,
+  toggleActivePending,
+  createEficaciaPending,
+  onSelect,
+  onCopy,
+  onToggleActive,
+  onEdit,
+  onDelete,
+  onNavigate,
+  onCreateEficacia,
+}: PairedSessionCardProps) {
+  const { reacao, eficacia } = group;
+  const alertStatus = getEficaciaAlertStatus(reacao.trainingDate, eficacia);
+  const isAnySelected =
+    selectedSession?.id === reacao.id || selectedSession?.id === eficacia?.id;
+
+  const outerBorder =
+    alertStatus === "overdue"
+      ? "border-red-500 bg-red-50/30"
+      : alertStatus === "warning"
+        ? "border-orange-400 bg-orange-50/30"
+        : isAnySelected
+          ? "border-teal-base shadow-lg bg-teal-base/5"
+          : "border-transparent hover:border-teal-base/30 bg-white shadow-sm";
+
+  const reacaoUrl = `${window.location.origin}/${tenantSlug}/treinamento/${reacao.slug}`;
+  const eficaciaUrl = eficacia
+    ? `${window.location.origin}/${tenantSlug}/treinamento/${eficacia.slug}`
+    : null;
+
+  return (
+    <div className={`rounded-2xl border-2 transition-all duration-150 ${outerBorder}`}>
+      {/* Card header */}
+      <div className="px-4 pt-4 pb-2 flex items-start justify-between gap-2">
+        <div>
+          <Text variant="heading-sm" className="text-gray-400">
+            {reacao.title}
+          </Text>
+          <Text variant="body-sm" className="text-gray-300">
+            {reacao.instructor}
+          </Text>
+        </div>
+      </div>
+
+      {/* Alert banner */}
+      {alertStatus !== "none" && (
+        <div
+          className={`mx-4 mb-3 px-3 py-2 rounded-lg text-sm font-medium ${
+            alertStatus === "overdue"
+              ? "bg-red-100 text-red-700 border border-red-200"
+              : "bg-orange-100 text-orange-700 border border-orange-200"
+          }`}
+        >
+          {alertStatus === "overdue"
+            ? "⚠️ Prazo para criar pesquisa de eficácia vencido"
+            : "⏰ Criar pesquisa de eficácia em breve"}
+        </div>
+      )}
+
+      {/* Sub-cards */}
+      <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Reação sub-card */}
+        <div
+          className={`rounded-xl border p-3 cursor-pointer transition-all ${
+            selectedSession?.id === reacao.id
+              ? "border-teal-base bg-teal-base/5"
+              : "border-gray-100 hover:border-teal-base/30 bg-gray-50"
+          }`}
+          onClick={() => onSelect(reacao)}
+        >
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+              Reação
+            </span>
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                reacao.active ? "bg-green-base/10 text-green-base" : "bg-gray-200 text-gray-300"
+              }`}
+            >
+              {reacao.active ? "Ativo" : "Inativo"}
+            </span>
+          </div>
+          <Text variant="body-sm" className="text-gray-300 mb-1">
+            {reacao.trainingDate}
+          </Text>
+          <p className="text-xs text-gray-300 font-mono break-all mb-3">{reacaoUrl}</p>
+          <div className="flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <Button size="sm" variant="outline" onClick={() => onNavigate(reacao)}>
+              Visualizar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onCopy(reacao.slug)}>
+              {copied === reacao.slug ? "Copiado!" : "Copiar Link"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onToggleActive(reacao)}
+              disabled={toggleActivePending}
+            >
+              {reacao.active ? "Desativar" : "Ativar"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onEdit(reacao)}>
+              Editar
+            </Button>
+            {canDelete && (
+              <Button size="sm" variant="secondary" onClick={() => onDelete(reacao)}>
+                Excluir
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Eficácia sub-card */}
+        {eficacia ? (
+          <div
+            className={`rounded-xl border p-3 cursor-pointer transition-all ${
+              selectedSession?.id === eficacia.id
+                ? "border-teal-base bg-teal-base/5"
+                : "border-gray-100 hover:border-teal-base/30 bg-gray-50"
+            }`}
+            onClick={() => onSelect(eficacia)}
+          >
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200">
+                Eficácia
+              </span>
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                  eficacia.active ? "bg-green-base/10 text-green-base" : "bg-gray-200 text-gray-300"
+                }`}
+              >
+                {eficacia.active ? "Ativo" : "Inativo"}
+              </span>
+            </div>
+            <Text variant="body-sm" className="text-gray-300 mb-1">
+              {eficacia.trainingDate}
+            </Text>
+            <p className="text-xs text-gray-300 font-mono break-all mb-3">{eficaciaUrl}</p>
+            <div className="flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <Button size="sm" variant="outline" onClick={() => onNavigate(eficacia)}>
+                Visualizar
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => onCopy(eficacia.slug)}>
+                {copied === eficacia.slug ? "Copiado!" : "Copiar Link"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onToggleActive(eficacia)}
+                disabled={toggleActivePending}
+              >
+                {eficacia.active ? "Desativar" : "Ativar"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => onEdit(eficacia)}>
+                Editar
+              </Button>
+              {canDelete && (
+                <Button size="sm" variant="secondary" onClick={() => onDelete(eficacia)}>
+                  Excluir
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Placeholder sub-card when eficácia doesn't exist yet */
+          <div
+            className={`rounded-xl border p-3 flex flex-col items-center justify-center gap-2 text-center ${
+              alertStatus === "overdue"
+                ? "border-red-200 bg-red-50/50"
+                : alertStatus === "warning"
+                  ? "border-orange-200 bg-orange-50/50"
+                  : "border-dashed border-gray-200 bg-gray-50/50"
+            }`}
+          >
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200">
+              Eficácia
+            </span>
+            <Text variant="body-sm" className="text-gray-300">
+              Formulário de eficácia não criado
+            </Text>
+            <Text variant="caption" className="text-gray-300">
+              Data alvo: {addDays(reacao.trainingDate, 30)}
+            </Text>
+            {canCreate && (
+              <Button
+                size="sm"
+                onClick={() => onCreateEficacia(reacao.slug)}
+                disabled={createEficaciaPending}
+              >
+                {createEficaciaPending ? "Criando..." : "+ Criar Formulário de Eficácia"}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function Treinamentos() {
@@ -543,6 +828,7 @@ export default function Treinamentos() {
   const [deleteTarget, setDeleteTarget] = useState<TrainingSession | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<TrainingSession | null>(null);
+  const canCreate = user?.role === "rh_admin" || user?.role === "holding_admin";
 
   const { data: allTenants = [] } = useQuery({
     queryKey: ["tenants"],
@@ -570,6 +856,24 @@ export default function Treinamentos() {
       trainingService.updateSession(tenantSlug, session.slug, { active: !session.active }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["training-sessions", tenantSlug] }),
   });
+
+  const createEficacia = useMutation({
+    mutationFn: (reacaoSlug: string) => trainingService.createEficacia(tenantSlug, reacaoSlug),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["training-sessions", tenantSlug] }),
+  });
+
+  const { groups, standalone } = useMemo(() => groupSessions(sessions), [sessions]);
+
+  // When a session inside a group is selected, find the full group to display it
+  const selectedGroup = useMemo(() => {
+    if (!selectedSession) return null;
+    return (
+      groups.find(
+        (g) =>
+          g.reacao.id === selectedSession.id || g.eficacia?.id === selectedSession.id,
+      ) ?? null
+    );
+  }, [selectedSession, groups]);
 
   const copyLink = (slug: string) => {
     const url = `${window.location.origin}/${tenantSlug}/treinamento/${slug}`;
@@ -656,27 +960,52 @@ export default function Treinamentos() {
             </div>
           </Card>
         ) : selectedSession ? (
-          /* ── Selected session: show only that card + responses panel ── */
+          /* ── Selected session: show the paired card (or standalone) + responses ── */
           <div className="flex flex-col gap-6">
-            {/* The selected session card (highlighted) */}
-            <SessionCard
-              session={selectedSession}
-              tenantSlug={tenantSlug}
-              isSelected
-              copied={copied}
-              toggleActivePending={toggleActive.isPending}
-              canDelete={isGlobalAdmin}
-              onSelect={() => setSelectedSession(null)}
-              onCopy={copyLink}
-              onToggleActive={() => toggleActive.mutate(selectedSession)}
-              onEdit={() => setEditTarget(selectedSession)}
-              onDelete={() => setDeleteTarget(selectedSession)}
-              onNavigate={() => navigate(ROUTES.treinamento(tenantSlug, selectedSession.slug))}
-            />
+            {selectedGroup ? (
+              <PairedSessionCard
+                group={selectedGroup}
+                tenantSlug={tenantSlug}
+                selectedSession={selectedSession}
+                canCreate={canCreate}
+                canDelete={isGlobalAdmin}
+                copied={copied}
+                toggleActivePending={toggleActive.isPending}
+                createEficaciaPending={createEficacia.isPending}
+                onSelect={(s) => setSelectedSession((prev) => (prev?.id === s.id ? null : s))}
+                onCopy={copyLink}
+                onToggleActive={(s) => toggleActive.mutate(s)}
+                onEdit={(s) => setEditTarget(s)}
+                onDelete={(s) => setDeleteTarget(s)}
+                onNavigate={(s) => navigate(ROUTES.treinamento(tenantSlug, s.slug))}
+                onCreateEficacia={(slug) => createEficacia.mutate(slug)}
+              />
+            ) : (
+              <SessionCard
+                session={selectedSession}
+                tenantSlug={tenantSlug}
+                isSelected
+                copied={copied}
+                toggleActivePending={toggleActive.isPending}
+                canDelete={isGlobalAdmin}
+                onSelect={() => setSelectedSession(null)}
+                onCopy={copyLink}
+                onToggleActive={() => toggleActive.mutate(selectedSession)}
+                onEdit={() => setEditTarget(selectedSession)}
+                onDelete={() => setDeleteTarget(selectedSession)}
+                onNavigate={() => navigate(ROUTES.treinamento(tenantSlug, selectedSession.slug))}
+              />
+            )}
 
             {/* Metrics for selected session */}
             {sessionMetrics && (
-              <div className={`grid gap-4 ${selectedSession.trainingType === "reacao" ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 lg:grid-cols-3"}`}>
+              <div
+                className={`grid gap-4 ${
+                  selectedSession.trainingType === "reacao"
+                    ? "grid-cols-2 lg:grid-cols-4"
+                    : "grid-cols-2 lg:grid-cols-3"
+                }`}
+              >
                 <MetricCard title="Total de Respostas" value={sessionMetrics.totalResponses} />
                 <MetricCard
                   title="Média Satisfação"
@@ -708,7 +1037,29 @@ export default function Treinamentos() {
         ) : (
           /* ── All sessions list ── */
           <div className="flex flex-col gap-3">
-            {sessions.map((session) => (
+            {groups.map((group) => (
+              <PairedSessionCard
+                key={group.reacao.id}
+                group={group}
+                tenantSlug={tenantSlug}
+                selectedSession={selectedSession}
+                canCreate={canCreate}
+                canDelete={isGlobalAdmin}
+                copied={copied}
+                toggleActivePending={toggleActive.isPending}
+                createEficaciaPending={createEficacia.isPending}
+                onSelect={handleSessionClick}
+                onCopy={copyLink}
+                onToggleActive={(s) => toggleActive.mutate(s)}
+                onEdit={(s) => setEditTarget(s)}
+                onDelete={(s) => setDeleteTarget(s)}
+                onNavigate={(s) => navigate(ROUTES.treinamento(tenantSlug, s.slug))}
+                onCreateEficacia={(slug) => createEficacia.mutate(slug)}
+              />
+            ))}
+
+            {/* Legacy standalone eficácia sessions */}
+            {standalone.map((session) => (
               <SessionCard
                 key={session.id}
                 session={session}
@@ -725,6 +1076,7 @@ export default function Treinamentos() {
                 onNavigate={() => navigate(ROUTES.treinamento(tenantSlug, session.slug))}
               />
             ))}
+
             <Text variant="caption" className="text-gray-300 text-center mt-2">
               Clique em uma pesquisa para ver as respostas
             </Text>

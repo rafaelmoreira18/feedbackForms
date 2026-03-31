@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TrainingSessionEntity } from './training-session.entity';
@@ -92,5 +92,54 @@ export class TrainingSessionsService {
     if (!session) throw new NotFoundException('Treinamento não encontrado');
     await this.repo.remove(session);
     return { deleted: 1 };
+  }
+
+  /**
+   * Creates a linked eficácia session derived from the given reação session.
+   * - Copies title, instructor, tenantId from reação
+   * - Sets trainingDate = reação.trainingDate + 30 days
+   * - Sets linkedSessionId = reação.id
+   * - Throws ConflictException if an eficácia already exists for this reação
+   */
+  async createEficacia(tenantSlug: string, reacaoSlug: string): Promise<TrainingSessionEntity> {
+    const tenantId = await this.resolveTenantId(tenantSlug);
+
+    const reacao = await this.repo.findOne({ where: { tenantId, slug: reacaoSlug } });
+    if (!reacao) throw new NotFoundException('Sessão de reação não encontrada');
+    if (reacao.trainingType !== 'reacao') {
+      throw new BadRequestException('A sessão informada não é do tipo reação');
+    }
+
+    const alreadyLinked = await this.repo.findOne({ where: { tenantId, linkedSessionId: reacao.id } });
+    if (alreadyLinked) {
+      throw new ConflictException('Já existe uma avaliação de eficácia vinculada a este treinamento');
+    }
+
+    // Compute eficácia date: reação date + 30 days (UTC-safe arithmetic)
+    const [ry, rm, rd] = reacao.trainingDate.split('-').map(Number);
+    const eficaciaDateObj = new Date(Date.UTC(ry, rm - 1, rd + 30));
+    const eficaciaDate = eficaciaDateObj.toISOString().slice(0, 10);
+
+    // Build unique slug: title-eficacia-YYYYMMDD
+    const base = toSlug(reacao.title);
+    const dateSuffix = eficaciaDate.replace(/-/g, '');
+    let candidate = `${base}-eficacia-${dateSuffix}`;
+    const conflict = await this.repo.findOne({ where: { tenantId, slug: candidate } });
+    if (conflict) {
+      candidate = `${candidate}-${Date.now().toString(36)}`;
+    }
+
+    const session = this.repo.create({
+      tenantId,
+      slug: candidate,
+      title: reacao.title,
+      instructor: reacao.instructor,
+      trainingDate: eficaciaDate,
+      trainingType: 'eficacia',
+      linkedSessionId: reacao.id,
+      active: true,
+    });
+
+    return this.repo.save(session);
   }
 }

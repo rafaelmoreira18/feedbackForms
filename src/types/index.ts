@@ -130,6 +130,8 @@ export interface TrainingSession {
   instructor: string;
   active: boolean;
   createdAt: string;
+  /** Set on eficácia sessions created via create-eficacia endpoint; null for reação and legacy standalone sessions */
+  linkedSessionId: string | null;
 }
 
 export interface CreateTrainingSessionDto {

@@ -50,6 +50,14 @@ export class TrainingSessionEntity {
   @Column({ default: true })
   active: boolean;
 
+  /**
+   * For eficácia sessions: references the reação session they were created from.
+   * Null for reação sessions and legacy standalone eficácia sessions.
+   */
+  @Index()
+  @Column({ type: 'uuid', nullable: true, default: null })
+  linkedSessionId: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

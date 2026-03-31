@@ -76,6 +76,13 @@ export const trainingService = {
     await api.delete(`tenants/${tenantSlug}/training-sessions/${sessionSlug}`)
   },
 
+  createEficacia: async (tenantSlug: string, reacaoSlug: string): Promise<TrainingSession> => {
+    const res = await api.post<TrainingSession>(
+      `tenants/${tenantSlug}/training-sessions/${reacaoSlug}/create-eficacia`,
+    )
+    return res.data
+  },
+
   // ── Responses ─────────────────────────────────────────────────────────────
 
   submitResponse: async (

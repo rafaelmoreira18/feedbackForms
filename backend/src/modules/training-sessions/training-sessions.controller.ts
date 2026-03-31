@@ -103,4 +103,18 @@ export class TrainingSessionsController {
     await this.assertTenantAccess(tenantSlug, req);
     return this.service.remove(tenantSlug, slug);
   }
+
+  @ApiOperation({ summary: 'Create a linked eficácia session from a reação session' })
+  @ApiBearerAuth('access-token')
+  @Post(':slug/create-eficacia')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('rh_admin', 'hospital_admin', 'holding_admin')
+  async createEficacia(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('slug') slug: string,
+    @Req() req: Request,
+  ) {
+    await this.assertTenantAccess(tenantSlug, req);
+    return this.service.createEficacia(tenantSlug, slug);
+  }
 }
