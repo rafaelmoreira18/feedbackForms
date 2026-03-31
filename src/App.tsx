@@ -31,7 +31,8 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
   if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
-  if (user?.role === 'viewer' || user?.role === 'rh_admin') return <Navigate to={ROUTES.home} replace />;
+  // global rh_admin (tenantId === null) can access admin routes; tenant-scoped rh_admin cannot
+  if (user?.role === 'viewer' || (user?.role === 'rh_admin' && !!user?.tenantId)) return <Navigate to={ROUTES.home} replace />;
   return <>{children}</>;
 }
 

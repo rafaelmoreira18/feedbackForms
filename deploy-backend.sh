@@ -13,6 +13,7 @@ cd backend
 npm ci
 
 echo "=== Building ==="
+rm -f tsconfig.tsbuildinfo
 npm run build
 
 echo "=== Creating .env ==="

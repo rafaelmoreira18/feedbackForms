@@ -25,12 +25,15 @@ export default function Dashboard() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const isHoldingAdmin = user?.role === 'holding_admin';
-  const canDelete = user?.role === 'holding_admin' || user?.role === 'hospital_admin';
+  const isGlobalRhAdmin = user?.role === 'rh_admin' && !user?.tenantId;
+  // both holding_admin and global rh_admin can browse all tenants
+  const isGlobal = isHoldingAdmin || isGlobalRhAdmin;
+  const canDelete = user?.role === 'holding_admin' || user?.role === 'hospital_admin' || isGlobalRhAdmin;
 
-  // holding_admin can switch tenants; hospital_admin is fixed to their own
+  // global roles can switch tenants; hospital_admin is fixed to their own
   const [selectedSlug, setSelectedSlug] = useState<string>(user?.tenantSlug ?? "");
 
-  const tenantSlug = isHoldingAdmin ? selectedSlug : (user?.tenantSlug ?? "");
+  const tenantSlug = isGlobal ? selectedSlug : (user?.tenantSlug ?? "");
 
   const startDate = searchParams.get("startDate") || "";
   const endDate = searchParams.get("endDate") || "";
@@ -59,7 +62,7 @@ export default function Dashboard() {
   const { data: allTenants = [] } = useQuery({
     queryKey: ["tenants"],
     queryFn: tenantService.getAll,
-    enabled: isHoldingAdmin,
+    enabled: isGlobal,
   });
 
   const { data: allForms = [] } = useQuery({
@@ -135,8 +138,8 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-col gap-8">
 
-          {/* Tenant selector — only for holding_admin */}
-          {isHoldingAdmin && (
+          {/* Tenant selector — for holding_admin and global rh_admin */}
+          {isGlobal && (
             <Card shadow="sm">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
                 <div className="flex-1">
@@ -164,8 +167,8 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Empty state for holding_admin with no tenant selected */}
-          {isHoldingAdmin && !selectedSlug ? (
+          {/* Empty state for global roles with no tenant selected */}
+          {isGlobal && !selectedSlug ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
               <Text variant="heading-sm" className="text-gray-300">Selecione uma unidade para visualizar as pesquisas</Text>
             </div>
