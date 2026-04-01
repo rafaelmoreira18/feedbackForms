@@ -673,7 +673,7 @@ function PairedSessionCard({
                 title={`Eficácia não criada — prazo vencido há ${Math.abs(daysLeft)} dia(s)`}
                 className="ml-auto flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200"
               >
-                <svg className="w-3 h-3 shrink-0 fill-current" viewBox="0 0 16 16">
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" style={{ fill: "#dc2626" }}>
                   <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4.5zm0 6.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z"/>
                 </svg>
                 Criar eficácia
@@ -684,7 +684,7 @@ function PairedSessionCard({
                 title={`Faltam ${daysLeft} dia(s) para criar a avaliação de eficácia`}
                 className="ml-auto flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-50 text-orange-500 border border-orange-200"
               >
-                <svg className="w-3 h-3 shrink-0 fill-current" viewBox="0 0 16 16">
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" style={{ fill: "#f97316" }}>
                   <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4.5zm0 6.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z"/>
                 </svg>
                 {daysLeft}d restantes
