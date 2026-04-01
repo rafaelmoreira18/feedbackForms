@@ -9,7 +9,8 @@ import { LoginDto } from './dto/login.dto';
 const ROLE_MAP: Record<string, string> = {
   super_admin: 'holding_admin',
   tenant_admin: 'hospital_admin',
-  operator: 'viewer',
+  operator_forms: 'operator_forms',
+  operator: 'viewer',       // legado — operator sem sufixo cai em viewer (sem acesso a formulários protegidos)
   rh: 'rh_admin',
 };
 
@@ -52,13 +53,13 @@ export class AuthService implements OnModuleDestroy {
     await this.pool.end();
   }
 
-  private async findUserByEmail(email: string): Promise<ExternalUser | null> {
+  private async findUserByLogin(login: string): Promise<ExternalUser | null> {
     const result = await this.pool.query<ExternalUser>(
       `SELECT id, email, nome, "senhaHash", role, "tenantId", ativo, COALESCE("mustChangePassword", false) AS "mustChangePassword"
        FROM usuarios
-       WHERE email = $1
+       WHERE email = $1 OR username = $1
        LIMIT 1`,
-      [email],
+      [login],
     );
     return result.rows[0] ?? null;
   }
@@ -72,16 +73,16 @@ export class AuthService implements OnModuleDestroy {
   }
 
   async login(dto: LoginDto, ip = 'unknown') {
-    const user = await this.findUserByEmail(dto.email);
+    const user = await this.findUserByLogin(dto.login);
 
     if (!user || !user.ativo) {
-      this.logger.warn(`[AUDIT] LOGIN_FAILED email="${dto.email}" reason="user_not_found_or_inactive" ip="${ip}" ts="${new Date().toISOString()}"`);
+      this.logger.warn(`[AUDIT] LOGIN_FAILED login="${dto.login}" reason="user_not_found_or_inactive" ip="${ip}" ts="${new Date().toISOString()}"`);
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
     const passwordValid = await bcrypt.compare(dto.password, user.senhaHash);
     if (!passwordValid) {
-      this.logger.warn(`[AUDIT] LOGIN_FAILED email="${dto.email}" reason="wrong_password" ip="${ip}" ts="${new Date().toISOString()}"`);
+      this.logger.warn(`[AUDIT] LOGIN_FAILED login="${dto.login}" reason="wrong_password" ip="${ip}" ts="${new Date().toISOString()}"`);
       throw new UnauthorizedException('Credenciais inválidas');
     }
 

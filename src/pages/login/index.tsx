@@ -20,7 +20,7 @@ export default function Login() {
     if (user.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
     const slug = user.tenantSlug ?? '';
     const dest =
-      user.role === 'viewer' ? ROUTES.pesquisa(slug) :
+      (user.role === 'viewer' || user.role === 'operator_forms') ? ROUTES.pesquisa(slug) :
       user.role === 'rh_admin' ? (slug ? ROUTES.treinamentos(slug) : ROUTES.treinamentosGlobal) :
       ROUTES.dashboard;
     return <Navigate to={dest} replace />;
@@ -32,8 +32,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const emailOrUsername = email.includes("@") ? email : `${email}@sistema.local`;
-      const loggedUser = await login(emailOrUsername, password);
+      const loggedUser = await login(email, password);
       if (loggedUser) {
         if (loggedUser.mustChangePassword) {
           navigate(ROUTES.changePassword);
@@ -41,7 +40,7 @@ export default function Login() {
         }
         const slug = loggedUser.tenantSlug ?? '';
         const dest =
-          loggedUser.role === 'viewer' ? ROUTES.pesquisa(slug) :
+          (loggedUser.role === 'viewer' || loggedUser.role === 'operator_forms') ? ROUTES.pesquisa(slug) :
           loggedUser.role === 'rh_admin' ? (slug ? ROUTES.treinamentos(slug) : ROUTES.treinamentosGlobal) :
           ROUTES.dashboard;
         navigate(dest);

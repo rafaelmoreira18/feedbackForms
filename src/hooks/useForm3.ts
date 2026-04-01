@@ -47,6 +47,7 @@ export function useForm3() {
   const [submitted, setSubmitted] = useState(false);
   const [cpfError, setCpfError] = useState("");
   const [dateError, setDateError] = useState("");
+  const [unansweredKeys, setUnansweredKeys] = useState<Set<string>>(new Set());
   const [comments, setComments] = useState("");
 
   const [patientInfo, setPatientInfo] = useState<PatientInfo>({
@@ -89,6 +90,9 @@ export function useForm3() {
       next.set(questionKey, value >= 3 ? { questionId: questionKey, value } : { ...existing, questionId: questionKey, value });
       return next;
     });
+    if (value > 0) {
+      setUnansweredKeys((prev) => { const next = new Set(prev); next.delete(questionKey); return next; });
+    }
   }
 
   function setAnswerReasons(questionKey: string, reasons: string[]) {
@@ -114,6 +118,22 @@ export function useForm3() {
     if (patientInfo.admissionDate && patientInfo.dischargeDate && patientInfo.dischargeDate < patientInfo.admissionDate) {
       setDateError("A data de alta não pode ser anterior à data de admissão"); valid = false;
     } else setDateError("");
+    if (template) {
+      const missing = new Set<string>();
+      template.blocks.forEach((block) => {
+        block.questions.forEach((q) => {
+          if (q.scale === "rating4" && (answers.get(q.questionKey)?.value ?? 0) === 0) {
+            missing.add(q.questionKey);
+          }
+        });
+      });
+      if (missing.size > 0) {
+        setUnansweredKeys(missing);
+        toast.error("Por favor, responda todas as perguntas antes de enviar.");
+        valid = false;
+      }
+    }
+
     if (!valid || !template) return;
 
     const answersArray = template.blocks.flatMap((block) =>
@@ -146,6 +166,7 @@ export function useForm3() {
     submitted,
     cpfError,
     dateError,
+    unansweredKeys,
     patientInfo,
     setPatientInfo,
     answers,

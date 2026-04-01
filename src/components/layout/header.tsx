@@ -1,11 +1,11 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { ClipboardList, LayoutDashboard } from "lucide-react";
+import { ClipboardList, LayoutDashboard, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { ROUTES } from "@/routes";
 import logoMediall from "@/assets/Logo_mediall.png";
 
 export default function Header() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -45,6 +45,14 @@ export default function Header() {
                 <span className="text-sm font-semibold font-sans hidden sm:inline">Dashboard</span>
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => { logout(); navigate(ROUTES.login); }}
+              title="Sair"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-blue-base hover:bg-blue-base/10 transition-colors duration-150 border-l border-gray-100 ml-2 pl-4"
+            >
+              <LogOut size={20} />
+            </button>
           </div>
         )}
       </div>

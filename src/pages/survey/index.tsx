@@ -30,6 +30,7 @@ export default function SurveyForm3() {
     setComments,
     setCpfError,
     setDateError,
+    unansweredKeys,
     handleSubmit,
   } = useForm3();
 
@@ -124,6 +125,7 @@ export default function SurveyForm3() {
                       note={answers.get(question.questionKey)?.note ?? ""}
                       onReasonsChange={(r) => setAnswerReasons(question.questionKey, r)}
                       onNoteChange={(n) => setAnswerNote(question.questionKey, n)}
+                      error={unansweredKeys.has(question.questionKey)}
                     />
                   ) : (
                     <NpsInput

@@ -1,4 +1,4 @@
-export type UserRole = 'holding_admin' | 'hospital_admin' | 'viewer' | 'rh_admin';
+export type UserRole = 'holding_admin' | 'hospital_admin' | 'viewer' | 'operator_forms' | 'rh_admin';
 
 export interface User {
   id: string;

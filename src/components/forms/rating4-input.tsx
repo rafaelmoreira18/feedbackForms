@@ -19,16 +19,20 @@ interface Rating4InputProps {
   note: string;
   onReasonsChange: (reasons: string[]) => void;
   onNoteChange: (note: string) => void;
+  required?: boolean;
+  error?: boolean;
 }
 
 export default function Rating4Input({
-  label, value, onChange, subReasons, selectedReasons, note, onReasonsChange, onNoteChange,
+  label, value, onChange, subReasons, selectedReasons, note, onReasonsChange, onNoteChange, error,
 }: Rating4InputProps) {
   return (
     <>
       <style>{ANIM}</style>
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-semibold text-gray-400 font-sans">{label}</p>
+      <div className={`flex flex-col gap-2 rounded-xl transition-colors ${error ? "bg-red-50 p-3 -mx-3" : ""}`}>
+        <p className={`text-sm font-semibold font-sans ${error ? "text-red-600" : "text-gray-400"}`}>
+          {label}{error && <span className="ml-1 text-red-500">*</span>}
+        </p>
         <div className="grid grid-cols-2 sm:flex gap-2">
           {[1, 2, 3, 4].map((r) => {
             const isActive = value === r;
