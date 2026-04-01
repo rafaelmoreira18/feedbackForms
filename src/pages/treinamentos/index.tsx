@@ -540,22 +540,25 @@ function addDays(dateStr: string, days: number): string {
 }
 
 /**
- * Returns the visual alert status for a reação session based on whether its
- * eficácia has been created and how close the 30-day target is.
+ * Returns alert info for a reação session.
+ * - overdue:  today >= trainingDate + 30 days (eficácia not created)
+ * - warning:  today >= trainingDate + 23 days (7 days left)
+ * - none:     no alert needed
+ * Also returns daysLeft (positive = days until target, negative = days overdue).
  */
-function getEficaciaAlertStatus(
+function getEficaciaAlertInfo(
   reacaoDate: string,
   eficacia: TrainingSession | null,
-): "none" | "warning" | "overdue" {
-  if (eficacia) return "none";
+): { status: "none" | "warning" | "overdue"; daysLeft: number } {
+  if (eficacia) return { status: "none", daysLeft: 0 };
   const [y, m, d] = reacaoDate.split("-").map(Number);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const target = new Date(y, m - 1, d + 30);
-  const warning = new Date(y, m - 1, d + 23); // 30 - 7
-  if (today >= target) return "overdue";
-  if (today >= warning) return "warning";
-  return "none";
+  const daysLeft = Math.round((target.getTime() - today.getTime()) / 86_400_000);
+  if (daysLeft <= 0) return { status: "overdue", daysLeft };
+  if (daysLeft <= 7) return { status: "warning", daysLeft };
+  return { status: "none", daysLeft };
 }
 
 /**
@@ -607,7 +610,7 @@ interface PairedSessionCardProps {
 
 function PairedSessionCard({
   group,
-  tenantSlug,
+  tenantSlug: _tenantSlug,
   selectedSession,
   canCreate,
   canDelete,
@@ -623,56 +626,30 @@ function PairedSessionCard({
   onCreateEficacia,
 }: PairedSessionCardProps) {
   const { reacao, eficacia } = group;
-  const alertStatus = getEficaciaAlertStatus(reacao.trainingDate, eficacia);
+  const { status: alertStatus, daysLeft } = getEficaciaAlertInfo(reacao.trainingDate, eficacia);
   const isAnySelected =
     selectedSession?.id === reacao.id || selectedSession?.id === eficacia?.id;
 
-  const outerBorder =
-    alertStatus === "overdue"
-      ? "border-red-500 bg-red-50/30"
-      : alertStatus === "warning"
-        ? "border-orange-400 bg-orange-50/30"
-        : isAnySelected
-          ? "border-teal-base shadow-lg bg-teal-base/5"
-          : "border-transparent hover:border-teal-base/30 bg-white shadow-sm";
-
-  const reacaoUrl = `${window.location.origin}/${tenantSlug}/treinamento/${reacao.slug}`;
-  const eficaciaUrl = eficacia
-    ? `${window.location.origin}/${tenantSlug}/treinamento/${eficacia.slug}`
-    : null;
+  // Outer card: only highlight when a sub-session is selected; no alert coloring at card level
+  const outerBorder = isAnySelected
+    ? "border-teal-base shadow-lg bg-teal-base/5"
+    : "border-transparent hover:border-teal-base/30 bg-white shadow-sm";
 
   return (
     <div className={`rounded-2xl border-2 transition-all duration-150 ${outerBorder}`}>
       {/* Card header */}
-      <div className="px-4 pt-4 pb-2 flex items-start justify-between gap-2">
-        <div>
-          <Text variant="heading-sm" className="text-gray-400">
-            {reacao.title}
-          </Text>
-          <Text variant="body-sm" className="text-gray-300">
-            {reacao.instructor}
-          </Text>
-        </div>
+      <div className="px-4 pt-4 pb-2">
+        <Text variant="heading-sm" className="text-gray-400">
+          {reacao.title}
+        </Text>
+        <Text variant="body-sm" className="text-gray-300">
+          {reacao.instructor}
+        </Text>
       </div>
-
-      {/* Alert banner */}
-      {alertStatus !== "none" && (
-        <div
-          className={`mx-4 mb-3 px-3 py-2 rounded-lg text-sm font-medium ${
-            alertStatus === "overdue"
-              ? "bg-red-100 text-red-700 border border-red-200"
-              : "bg-orange-100 text-orange-700 border border-orange-200"
-          }`}
-        >
-          {alertStatus === "overdue"
-            ? "⚠️ Prazo para criar pesquisa de eficácia vencido"
-            : "⏰ Criar pesquisa de eficácia em breve"}
-        </div>
-      )}
 
       {/* Sub-cards */}
       <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Reação sub-card */}
+        {/* ── Reação sub-card ── */}
         <div
           className={`rounded-xl border p-3 cursor-pointer transition-all ${
             selectedSession?.id === reacao.id
@@ -681,6 +658,7 @@ function PairedSessionCard({
           }`}
           onClick={() => onSelect(reacao)}
         >
+          {/* Header row: badges + alert icon */}
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
               Reação
@@ -692,11 +670,36 @@ function PairedSessionCard({
             >
               {reacao.active ? "Ativo" : "Inativo"}
             </span>
+
+            {/* Discrete alert badge on the reação card */}
+            {alertStatus === "overdue" && (
+              <span
+                title={`Eficácia não criada — prazo vencido há ${Math.abs(daysLeft)} dia(s)`}
+                className="ml-auto flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200"
+              >
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4.5zm0 6.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z"/>
+                </svg>
+                Criar eficácia
+              </span>
+            )}
+            {alertStatus === "warning" && (
+              <span
+                title={`Faltam ${daysLeft} dia(s) para criar a avaliação de eficácia`}
+                className="ml-auto flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-50 text-orange-500 border border-orange-200"
+              >
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3.5a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4.5zm0 6.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z"/>
+                </svg>
+                {daysLeft}d restantes
+              </span>
+            )}
           </div>
-          <Text variant="body-sm" className="text-gray-300 mb-1">
+
+          <Text variant="body-sm" className="text-gray-300 mb-3">
             {reacao.trainingDate}
           </Text>
-          <p className="text-xs text-gray-300 font-mono break-all mb-3">{reacaoUrl}</p>
+
           <div className="flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
             <Button size="sm" variant="outline" onClick={() => onNavigate(reacao)}>
               Visualizar
@@ -723,7 +726,7 @@ function PairedSessionCard({
           </div>
         </div>
 
-        {/* Eficácia sub-card */}
+        {/* ── Eficácia sub-card ── */}
         {eficacia ? (
           <div
             className={`rounded-xl border p-3 cursor-pointer transition-all ${
@@ -745,10 +748,9 @@ function PairedSessionCard({
                 {eficacia.active ? "Ativo" : "Inativo"}
               </span>
             </div>
-            <Text variant="body-sm" className="text-gray-300 mb-1">
+            <Text variant="body-sm" className="text-gray-300 mb-3">
               {eficacia.trainingDate}
             </Text>
-            <p className="text-xs text-gray-300 font-mono break-all mb-3">{eficaciaUrl}</p>
             <div className="flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
               <Button size="sm" variant="outline" onClick={() => onNavigate(eficacia)}>
                 Visualizar
@@ -775,21 +777,13 @@ function PairedSessionCard({
             </div>
           </div>
         ) : (
-          /* Placeholder sub-card when eficácia doesn't exist yet */
-          <div
-            className={`rounded-xl border p-3 flex flex-col items-center justify-center gap-2 text-center ${
-              alertStatus === "overdue"
-                ? "border-red-200 bg-red-50/50"
-                : alertStatus === "warning"
-                  ? "border-orange-200 bg-orange-50/50"
-                  : "border-dashed border-gray-200 bg-gray-50/50"
-            }`}
-          >
+          /* ── Placeholder: eficácia not yet created ── */
+          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-3 flex flex-col items-center justify-center gap-2 text-center">
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200">
               Eficácia
             </span>
             <Text variant="body-sm" className="text-gray-300">
-              Formulário de eficácia não criado
+              Não criado
             </Text>
             <Text variant="caption" className="text-gray-300">
               Data alvo: {addDays(reacao.trainingDate, 30)}
@@ -800,7 +794,7 @@ function PairedSessionCard({
                 onClick={() => onCreateEficacia(reacao.slug)}
                 disabled={createEficaciaPending}
               >
-                {createEficaciaPending ? "Criando..." : "+ Criar Formulário de Eficácia"}
+                {createEficaciaPending ? "Criando..." : "+ Criar Eficácia"}
               </Button>
             )}
           </div>
@@ -1130,7 +1124,7 @@ interface SessionCardProps {
 
 function SessionCard({
   session,
-  tenantSlug,
+  tenantSlug: _tenantSlug,
   isSelected,
   copied,
   toggleActivePending,
@@ -1142,8 +1136,6 @@ function SessionCard({
   onDelete,
   onNavigate,
 }: SessionCardProps) {
-  const surveyUrl = `${window.location.origin}/${tenantSlug}/treinamento/${session.slug}`;
-
   return (
     <div
       onClick={onSelect}
@@ -1174,7 +1166,6 @@ function SessionCard({
             {TRAINING_TYPE_LABELS[session.trainingType]} · {session.instructor} ·{" "}
             {session.trainingDate}
           </Text>
-          <p className="text-xs text-gray-300 font-mono break-all mt-0.5">{surveyUrl}</p>
         </div>
 
         {/* Actions — stop propagation so clicks don't toggle selection */}
