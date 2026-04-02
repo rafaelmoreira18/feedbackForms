@@ -49,7 +49,7 @@ export default function ChangePassword() {
       // Redirect to the appropriate page based on role
       const slug = user?.tenantSlug ?? "";
       const dest =
-        user?.role === "viewer"
+        user?.role === "viewer" || user?.role === "operator_forms"
           ? ROUTES.pesquisa(slug)
           : user?.role === "rh_admin"
           ? slug
