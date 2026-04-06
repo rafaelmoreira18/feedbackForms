@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { ROUTES } from "@/routes";
 import { form3Service } from "@/services/form3-service";
@@ -13,20 +13,15 @@ import Card from "@/components/ui/card";
 import DateInput from "@/components/ui/date-input";
 import MetricCard from "@/components/ui/metric-card";
 import Form3Table from "@/components/dashboard/form3-table";
-import { ModalConfirm } from "@/components/ui/modal/modal-confirm";
-
 export default function Dashboard() {
   const { user, logout, activeTenantSlug } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [form3DeptFilter, setForm3DeptFilter] = useState<string>("");
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const isHoldingAdmin = user?.role === 'holding_admin';
   const isGlobalRhAdmin = user?.role === 'rh_admin' && !user?.tenantId;
   const isGlobal = isHoldingAdmin || isGlobalRhAdmin;
-  const canDelete = user?.role === 'holding_admin' || user?.role === 'hospital_admin' || isGlobalRhAdmin;
 
   // global roles use activeTenantSlug from context (persisted); fixed roles use their own
   const tenantSlug = isGlobal ? activeTenantSlug : (user?.tenantSlug ?? "");
@@ -78,15 +73,6 @@ export default function Dashboard() {
   const clearFilters = () => {
     setSearchParams({}, { replace: true });
     setForm3DeptFilter("");
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteTargetId || !tenantSlug) return;
-    await form3Service.deleteOne(tenantSlug, deleteTargetId);
-    setDeleteTargetId(null);
-    queryClient.invalidateQueries({ queryKey: ["forms3-all", tenantSlug] });
-    queryClient.invalidateQueries({ queryKey: ["forms3-paginated", tenantSlug] });
-    queryClient.invalidateQueries({ queryKey: ["forms3-metrics", tenantSlug] });
   };
 
   const deptOptions = [
@@ -187,22 +173,12 @@ export default function Dashboard() {
               <Form3Table
                 forms={filteredForms}
                 onRowClick={(id) => navigate(ROUTES.response(tenantSlug, id))}
-                onDelete={canDelete ? (id) => setDeleteTargetId(id) : undefined}
               />
             </>
           )}
 
         </div>
       </div>
-      <ModalConfirm
-        open={!!deleteTargetId}
-        onClose={() => setDeleteTargetId(null)}
-        onConfirm={handleDeleteConfirm}
-        title="Excluir pesquisa"
-        description="Esta ação não pode ser desfeita. Deseja continuar?"
-        confirmLabel="Excluir"
-        destructive
-      />
     </div>
   );
 }

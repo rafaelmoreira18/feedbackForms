@@ -32,7 +32,8 @@ export default function Header() {
         <img
           src={logoMediall}
           alt="Mediall"
-          className="h-17 object-contain shrink-0"
+          className="h-17 object-contain shrink-0 cursor-pointer"
+          onClick={() => navigate("/")}
         />
 
         {isAuthenticated && user && (

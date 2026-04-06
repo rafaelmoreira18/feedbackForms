@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, Matches, IsOptional, IsUrl } from 'class-validator';
+import { IsString, IsNotEmpty, Matches, IsOptional, IsUrl, IsBoolean } from 'class-validator';
 
 export class CreateTenantDto {
   @IsString()
@@ -15,4 +15,8 @@ export class CreateTenantDto {
   @IsOptional()
   @IsUrl()
   logoUrl?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  hasFeedbackForms?: boolean;
 }

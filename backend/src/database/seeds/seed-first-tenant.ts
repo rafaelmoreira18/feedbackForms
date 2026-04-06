@@ -253,10 +253,15 @@ async function seed() {
   const tenantRepo = ds.getRepository(TenantEntity);
   let tenant = await tenantRepo.findOne({ where: { slug: FIRST_TENANT.slug } });
   if (!tenant) {
-    tenant = await tenantRepo.save(tenantRepo.create(FIRST_TENANT));
+    tenant = await tenantRepo.save(tenantRepo.create({ ...FIRST_TENANT, hasFeedbackForms: true }));
     console.log(`Tenant created: ${tenant.name} (${tenant.slug})`);
   } else {
-    console.log(`Tenant already exists: ${tenant.name}`);
+    if (!tenant.hasFeedbackForms) {
+      await tenantRepo.update(tenant.id, { hasFeedbackForms: true });
+      console.log(`Tenant updated hasFeedbackForms=true: ${tenant.name}`);
+    } else {
+      console.log(`Tenant already exists: ${tenant.name}`);
+    }
   }
 
   // ── 2. Create default admin user ─────────────────────────────────────────────

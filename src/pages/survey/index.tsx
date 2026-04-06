@@ -18,6 +18,7 @@ export default function SurveyForm3() {
     loading,
     notFound,
     submitted,
+    submitting,
     cpfError,
     dateError,
     patientInfo,
@@ -145,8 +146,13 @@ export default function SurveyForm3() {
                 value={comments} onChange={(e) => setComments(e.target.value)} />
             </section>
 
-            <Button type="submit" size="lg" className="w-full text-base font-bold tracking-wide">
-              Enviar Pesquisa →
+            <Button type="submit" size="lg" className="w-full text-base font-bold tracking-wide" disabled={submitting}>
+              {submitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Enviando...
+                </span>
+              ) : "Enviar Pesquisa →"}
             </Button>
           </form>
         </div>

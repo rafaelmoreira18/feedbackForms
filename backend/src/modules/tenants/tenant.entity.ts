@@ -24,6 +24,10 @@ export class TenantEntity {
   @Column({ default: true })
   active: boolean;
 
+  /** true = este tenant usa o sistema de pesquisas de satisfação */
+  @Column({ default: false })
+  hasFeedbackForms: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

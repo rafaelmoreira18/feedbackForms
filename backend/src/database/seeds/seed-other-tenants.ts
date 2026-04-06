@@ -267,10 +267,15 @@ async function seed() {
     // 1. Create tenant
     let tenant = await tenantRepo.findOne({ where: { slug: tenantDef.slug } });
     if (!tenant) {
-      tenant = await tenantRepo.save(tenantRepo.create({ slug: tenantDef.slug, name: tenantDef.name }));
+      tenant = await tenantRepo.save(tenantRepo.create({ slug: tenantDef.slug, name: tenantDef.name, hasFeedbackForms: true }));
       console.log(`  Tenant created: ${tenant.name}`);
     } else {
-      console.log(`  Tenant already exists: ${tenant.name}`);
+      if (!tenant.hasFeedbackForms) {
+        await tenantRepo.update(tenant.id, { hasFeedbackForms: true });
+        console.log(`  Tenant updated hasFeedbackForms=true: ${tenant.name}`);
+      } else {
+        console.log(`  Tenant already exists: ${tenant.name}`);
+      }
     }
 
     // 2. Create admin user

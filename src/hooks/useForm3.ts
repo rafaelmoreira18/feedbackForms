@@ -4,7 +4,6 @@ import toast from "react-hot-toast";
 import { form3Service } from "@/services/form3-service";
 import { tenantService } from "@/services/tenant-service";
 import type { Form3Answer, FormTemplate, Tenant } from "@/types";
-import { ROUTES } from "@/routes";
 
 export interface PatientInfo {
   patientName: string;
@@ -45,6 +44,7 @@ export function useForm3() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [cpfError, setCpfError] = useState("");
   const [dateError, setDateError] = useState("");
   const [unansweredKeys, setUnansweredKeys] = useState<Set<string>>(new Set());
@@ -113,6 +113,7 @@ export function useForm3() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (submitting) return;
     let valid = true;
     if (!isValidCpf(patientInfo.patientCpf)) { setCpfError("CPF inválido"); valid = false; } else setCpfError("");
     if (patientInfo.admissionDate && patientInfo.dischargeDate && patientInfo.dischargeDate < patientInfo.admissionDate) {
@@ -140,6 +141,7 @@ export function useForm3() {
       block.questions.map((q) => answers.get(q.questionKey) ?? { questionId: q.questionKey, value: q.scale === "nps" ? 0 : 1 })
     );
 
+    setSubmitting(true);
     try {
       await form3Service.create(tenantSlug, {
         formType: formSlug,
@@ -151,9 +153,9 @@ export function useForm3() {
         comments,
       });
       setSubmitted(true);
-      setTimeout(() => navigate(ROUTES.survey(tenantSlug, formSlug)), 3000);
     } catch (err) {
       toast.error(`Erro ao enviar pesquisa: ${(err as Error).message}`);
+      setSubmitting(false);
     }
   };
 
@@ -164,6 +166,7 @@ export function useForm3() {
     loading,
     notFound,
     submitted,
+    submitting,
     cpfError,
     dateError,
     unansweredKeys,

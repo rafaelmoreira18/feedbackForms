@@ -28,7 +28,7 @@ export class TenantService {
   }
 
   async findAll(): Promise<TenantEntity[]> {
-    return this.tenantRepo.find({ where: { active: true } });
+    return this.tenantRepo.find({ where: { active: true, hasFeedbackForms: true } });
   }
 
   async findBySlug(slug: string): Promise<TenantEntity> {
