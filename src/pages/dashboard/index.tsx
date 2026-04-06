@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { ROUTES } from "@/routes";
 import { form3Service } from "@/services/form3-service";
-import { tenantService } from "@/services/tenant-service";
 import { generateDashboardReport } from "@/services/report-service";
 import type { Form3Filters } from "@/types";
 import Text from "@/components/ui/text";
@@ -17,7 +16,7 @@ import Form3Table from "@/components/dashboard/form3-table";
 import { ModalConfirm } from "@/components/ui/modal/modal-confirm";
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, activeTenantSlug } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -26,14 +25,11 @@ export default function Dashboard() {
 
   const isHoldingAdmin = user?.role === 'holding_admin';
   const isGlobalRhAdmin = user?.role === 'rh_admin' && !user?.tenantId;
-  // both holding_admin and global rh_admin can browse all tenants
   const isGlobal = isHoldingAdmin || isGlobalRhAdmin;
   const canDelete = user?.role === 'holding_admin' || user?.role === 'hospital_admin' || isGlobalRhAdmin;
 
-  // global roles can switch tenants; hospital_admin is fixed to their own
-  const [selectedSlug, setSelectedSlug] = useState<string>(user?.tenantSlug ?? "");
-
-  const tenantSlug = isGlobal ? selectedSlug : (user?.tenantSlug ?? "");
+  // global roles use activeTenantSlug from context (persisted); fixed roles use their own
+  const tenantSlug = isGlobal ? activeTenantSlug : (user?.tenantSlug ?? "");
 
   const startDate = searchParams.get("startDate") || "";
   const endDate = searchParams.get("endDate") || "";
@@ -57,13 +53,6 @@ export default function Dashboard() {
     sortSatisfaction,
     formType: form3DeptFilter || undefined,
   };
-
-  // Load all tenants for holding_admin selector
-  const { data: allTenants = [] } = useQuery({
-    queryKey: ["tenants"],
-    queryFn: tenantService.getAll,
-    enabled: isGlobal,
-  });
 
   const { data: allForms = [] } = useQuery({
     queryKey: ["forms3-all", tenantSlug],
@@ -105,11 +94,6 @@ export default function Dashboard() {
     ...Array.from(new Set(allForms.map((f) => f.formType))).map((d) => ({ value: d, label: d })),
   ];
 
-  const tenantOptions = [
-    { value: "", label: "Selecione uma unidade..." },
-    ...allTenants.map((t) => ({ value: t.slug, label: t.name })),
-  ];
-
   return (
     <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
@@ -138,48 +122,10 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-col gap-8">
 
-          {/* Tenant selector — for holding_admin and global rh_admin */}
-          {isGlobal && (
-            <Card shadow="sm">
-              <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-                <div className="flex-1">
-                  <Select
-                    label="Unidade"
-                    options={tenantOptions}
-                    value={selectedSlug}
-                    onChange={(e) => {
-                      setSelectedSlug(e.target.value);
-                      setForm3DeptFilter("");
-                      setSearchParams({}, { replace: true });
-                    }}
-                  />
-                </div>
-                {selectedSlug && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(ROUTES.pesquisa(selectedSlug))}
-                    >
-                      Acessar Pesquisas
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(ROUTES.analytics(selectedSlug))}
-                    >
-                      Ver Analytics
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </Card>
-          )}
-
           {/* Empty state for global roles with no tenant selected */}
-          {isGlobal && !selectedSlug ? (
+          {isGlobal && !tenantSlug ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
-              <Text variant="heading-sm" className="text-gray-300">Selecione uma unidade para visualizar as pesquisas</Text>
+              <Text variant="heading-sm" className="text-gray-300">Selecione uma unidade no menu superior para visualizar as pesquisas</Text>
             </div>
           ) : (
             <>
@@ -248,7 +194,7 @@ export default function Dashboard() {
 
         </div>
       </div>
-    <ModalConfirm
+      <ModalConfirm
         open={!!deleteTargetId}
         onClose={() => setDeleteTargetId(null)}
         onConfirm={handleDeleteConfirm}

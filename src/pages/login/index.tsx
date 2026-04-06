@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/auth-context";
 import { ROUTES } from "@/routes";
+
 import Text from "@/components/ui/text";
 import Input from "@/components/ui/input";
 import Button from "@/components/ui/button";
@@ -12,7 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login, isAuthenticated, user } = useAuth();
+  const { login, isAuthenticated, user, activeTenantSlug } = useAuth();
   const navigate = useNavigate();
 
   // Already logged in → redirect by role
@@ -22,9 +23,19 @@ export default function Login() {
     const dest =
       (user.role === 'viewer' || user.role === 'operator_forms') ? ROUTES.pesquisa(slug) :
       user.role === 'rh_admin' ? (slug ? ROUTES.treinamentos(slug) : ROUTES.treinamentosGlobal) :
+      user.role === 'holding_admin' ? (activeTenantSlug ? ROUTES.pesquisa(activeTenantSlug) : ROUTES.dashboard) :
       ROUTES.dashboard;
     return <Navigate to={dest} replace />;
   }
+
+  const getDestination = (loggedUser: typeof user, activeSlug: string) => {
+    if (!loggedUser) return ROUTES.login;
+    const slug = loggedUser.tenantSlug ?? '';
+    if (loggedUser.role === 'viewer' || loggedUser.role === 'operator_forms') return ROUTES.pesquisa(slug);
+    if (loggedUser.role === 'rh_admin') return slug ? ROUTES.treinamentos(slug) : ROUTES.treinamentosGlobal;
+    if (loggedUser.role === 'holding_admin') return activeSlug ? ROUTES.pesquisa(activeSlug) : ROUTES.dashboard;
+    return ROUTES.dashboard;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +49,7 @@ export default function Login() {
           navigate(ROUTES.changePassword);
           return;
         }
-        const slug = loggedUser.tenantSlug ?? '';
-        const dest =
-          (loggedUser.role === 'viewer' || loggedUser.role === 'operator_forms') ? ROUTES.pesquisa(slug) :
-          loggedUser.role === 'rh_admin' ? (slug ? ROUTES.treinamentos(slug) : ROUTES.treinamentosGlobal) :
-          ROUTES.dashboard;
+        const dest = getDestination(loggedUser, loggedUser.tenantSlug ?? activeTenantSlug);
         navigate(dest);
       } else {
         setError("Email ou senha incorretos");

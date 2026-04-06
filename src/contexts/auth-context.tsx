@@ -7,6 +7,8 @@ const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutos
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  activeTenantSlug: string;
+  setActiveTenantSlug: (slug: string) => void;
   login: (email: string, password: string) => Promise<User | null>;
   logout: () => void;
   clearMustChangePassword: () => void;
@@ -25,15 +27,33 @@ function getStoredUser(): User | null {
   }
 }
 
+function getStoredTenantSlug(user: User | null): string {
+  if (!user) return "";
+  // non-global roles always use their own tenantSlug
+  if (user.tenantSlug) return user.tenantSlug;
+  // holding_admin: restore last selected slug from localStorage
+  return localStorage.getItem("activeTenantSlug") ?? "";
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(getStoredUser);
+  const [activeTenantSlug, setActiveTenantSlugState] = useState<string>(() =>
+    getStoredTenantSlug(getStoredUser())
+  );
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const setActiveTenantSlug = useCallback((slug: string) => {
+    setActiveTenantSlugState(slug);
+    if (slug) localStorage.setItem("activeTenantSlug", slug);
+    else localStorage.removeItem("activeTenantSlug");
+  }, []);
 
   const logout = useCallback(async () => {
     setUser(null);
+    setActiveTenantSlugState("");
     localStorage.removeItem("user");
+    localStorage.removeItem("activeTenantSlug");
     if (timerRef.current) clearTimeout(timerRef.current);
-    // Ask backend to clear the HttpOnly auth cookie
     try { await api.post("auth/logout"); } catch { /* ignore */ }
   }, []);
 
@@ -63,7 +83,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { user } = res.data;
       setUser(user);
       localStorage.setItem("user", JSON.stringify(user));
-      // Token is set by backend as an HttpOnly cookie — never stored in JS
+      // For non-global roles, set their fixed tenantSlug as active
+      const slug = user.tenantSlug ?? "";
+      setActiveTenantSlugState(slug);
+      if (slug) localStorage.setItem("activeTenantSlug", slug);
       return user;
     } catch (err) {
       console.error('Login error:', err);
@@ -85,6 +108,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         isAuthenticated: !!user,
+        activeTenantSlug,
+        setActiveTenantSlug,
         login,
         logout,
         clearMustChangePassword,
