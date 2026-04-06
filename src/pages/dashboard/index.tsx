@@ -155,13 +155,22 @@ export default function Dashboard() {
                   />
                 </div>
                 {selectedSlug && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(ROUTES.analytics(selectedSlug))}
-                  >
-                    Ver Analytics desta unidade
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(ROUTES.pesquisa(selectedSlug))}
+                    >
+                      Acessar Pesquisas
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(ROUTES.analytics(selectedSlug))}
+                    >
+                      Ver Analytics
+                    </Button>
+                  </div>
                 )}
               </div>
             </Card>
