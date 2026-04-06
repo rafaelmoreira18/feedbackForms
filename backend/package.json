@@ -15,7 +15,8 @@
     "migration:run": "npm run build && npm run typeorm -- migration:run",
     "migration:revert": "npm run build && npm run typeorm -- migration:revert",
     "seed:first-tenant": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-first-tenant.ts",
-    "seed:other-tenants": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-other-tenants.ts"
+    "seed:other-tenants": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-other-tenants.ts",
+    "seed:military-tenants": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-military-tenants.ts"
   },
   "jest": {
     "moduleFileExtensions": [
