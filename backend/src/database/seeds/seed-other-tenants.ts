@@ -203,14 +203,14 @@ const CENTRO_CIRURGICO = {
 
 const OTHER_TENANTS = [
   {
-    slug: 'machadinho',
-    name: 'Machadinho',
-    adminEmail: 'admin@machadinho.com',
+    slug: 'hmmdo',
+    name: "Hospital Municipal de Machadinho D'Oeste",
+    adminEmail: 'admin@hmmdo.com',
     templates: [AMBULATORIO, PRONTO_SOCORRO, INTERNACAO, CENTRO_CIRURGICO],
   },
   {
     slug: 'uei',
-    name: 'UEI',
+    name: 'UEI — Unidade de Emergência Integrada',
     adminEmail: 'admin@uei.com',
     templates: [EXAMES, INTERNACAO, UTI],
   },
@@ -221,9 +221,9 @@ const OTHER_TENANTS = [
     templates: [EXAMES],
   },
   {
-    slug: 'porto-grande',
-    name: 'Porto Grande',
-    adminEmail: 'admin@porto-grande.com',
+    slug: 'hrpg',
+    name: 'Hospital Regional de Porto Grande',
+    adminEmail: 'admin@hrpg.com',
     templates: [AMBULATORIO, PRONTO_SOCORRO, INTERNACAO, CENTRO_CIRURGICO],
   },
 ];

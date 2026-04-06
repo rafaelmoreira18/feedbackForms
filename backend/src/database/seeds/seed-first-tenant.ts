@@ -19,7 +19,7 @@ import {
 dotenv.config();
 
 const FIRST_TENANT = {
-  slug: 'hgm',
+  slug: 'hrgm',
   name: 'Hospital Regional de Guajará-Mirim',
 };
 

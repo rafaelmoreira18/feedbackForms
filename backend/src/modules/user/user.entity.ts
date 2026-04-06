@@ -25,7 +25,7 @@ export class UserEntity {
   role: UserRole;
 
   @Index()
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   tenantId: string | null;
 }
 
