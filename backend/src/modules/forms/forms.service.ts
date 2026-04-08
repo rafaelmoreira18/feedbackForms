@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Form3ResponseEntity, Form3Response } from './forms.entity';
@@ -11,14 +11,19 @@ function maskCpf(cpf: string): string {
   return cpf.replace(/^(\d{3})\d{3}\d{3}(\d{2})$/, '$1.***.***-$2');
 }
 
-function parseDate(value: string, field: string): Date {
-  // Append T00:00:00 so the string is parsed as local time, not UTC.
-  // Without this, "2026-04-08" is UTC midnight which shifts to the previous
-  // calendar day in timezones behind UTC (e.g. UTC-3 → 2026-04-07 21:00:00).
-  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
-  const d = new Date(normalized);
-  if (isNaN(d.getTime())) throw new BadRequestException(`${field} is not a valid date`);
-  return d;
+// Returns plain SQL strings so pg never touches a JS Date and no timezone
+// conversion can corrupt the value. The column is timestamp WITHOUT time zone
+// so Postgres compares these as literal calendar values.
+function startOfDay(value: string, field: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value))
+    throw new BadRequestException(`${field} is not a valid date (expected YYYY-MM-DD)`);
+  return `${value} 00:00:00`;
+}
+
+function endOfDay(value: string, field: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value))
+    throw new BadRequestException(`${field} is not a valid date (expected YYYY-MM-DD)`);
+  return `${value} 23:59:59.999`;
 }
 
 @Injectable()
@@ -54,12 +59,10 @@ export class Form3Service {
     qb.where('form.tenantId = :tenantId', { tenantId });
 
     if (filters?.startDate) {
-      qb.andWhere('form.createdAt >= :startDate', { startDate: parseDate(filters.startDate, 'startDate') });
+      qb.andWhere('form.createdAt >= :startDate', { startDate: startOfDay(filters.startDate, 'startDate') });
     }
     if (filters?.endDate) {
-      qb.andWhere('form.createdAt <= :endDate', {
-        endDate: new Date(parseDate(filters.endDate, 'endDate').setHours(23, 59, 59, 999)),
-      });
+      qb.andWhere('form.createdAt <= :endDate', { endDate: endOfDay(filters.endDate, 'endDate') });
     }
     if (filters?.formType) {
       qb.andWhere('form.formType = :formType', { formType: filters.formType });
@@ -122,12 +125,10 @@ export class Form3Service {
       const qb = this.repo.createQueryBuilder('form');
       qb.where('form.tenantId = :tenantId', { tenantId });
       if (filters?.startDate) {
-        qb.andWhere('form.createdAt >= :startDate', { startDate: parseDate(filters.startDate, 'startDate') });
+        qb.andWhere('form.createdAt >= :startDate', { startDate: startOfDay(filters.startDate, 'startDate') });
       }
       if (filters?.endDate) {
-        qb.andWhere('form.createdAt <= :endDate', {
-          endDate: new Date(parseDate(filters.endDate, 'endDate').setHours(23, 59, 59, 999)),
-        });
+        qb.andWhere('form.createdAt <= :endDate', { endDate: endOfDay(filters.endDate, 'endDate') });
       }
       if (filters?.formType) {
         qb.andWhere('form.formType = :formType', { formType: filters.formType });
