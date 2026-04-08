@@ -31,6 +31,16 @@ export class TenantService {
     return this.tenantRepo.find({ where: { active: true, hasFeedbackForms: true } });
   }
 
+  /** Returns tenants that appear in /treinamentos: hasFeedbackForms=true + sede Mediall. */
+  async findAllForTraining(): Promise<TenantEntity[]> {
+    return this.tenantRepo
+      .createQueryBuilder('t')
+      .where('t.active = true')
+      .andWhere('(t."hasFeedbackForms" = true OR t.slug = :sede)', { sede: 'mediall-goiania' })
+      .orderBy('t.name', 'ASC')
+      .getMany();
+  }
+
   async findBySlug(slug: string): Promise<TenantEntity> {
     const tenant = await this.tenantRepo.findOne({ where: { slug, active: true } });
     if (!tenant) throw new NotFoundException(`Tenant '${slug}' not found`);

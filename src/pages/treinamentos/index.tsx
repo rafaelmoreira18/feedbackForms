@@ -821,8 +821,8 @@ export default function Treinamentos() {
   const canCreate = user?.role === "rh_admin" || user?.role === "holding_admin";
 
   const { data: allTenants = [] } = useQuery({
-    queryKey: ["tenants"],
-    queryFn: tenantService.getAll,
+    queryKey: ["tenants-all-active"],
+    queryFn: tenantService.getAllActive,
     enabled: isGlobal,
   });
 

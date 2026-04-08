@@ -7,6 +7,12 @@ export const tenantService = {
     return res.data
   },
 
+  /** Returns all active tenants including sede/matriz (no hasFeedbackForms filter) — for /treinamentos */
+  getAllActive: async (): Promise<Tenant[]> => {
+    const res = await api.get<Tenant[]>('tenants/all-active')
+    return res.data
+  },
+
   getBySlug: async (slug: string): Promise<Tenant> => {
     const res = await api.get<Tenant>(`tenants/${slug}`)
     return res.data

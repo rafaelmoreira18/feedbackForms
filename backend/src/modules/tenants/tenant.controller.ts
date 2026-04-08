@@ -16,18 +16,26 @@ import { Roles } from '../../common/decorators/roles.decorator';
 export class TenantController {
   constructor(private readonly tenantService: TenantService) {}
 
-  /** Public: frontend needs tenant info to display forms */
-  @Get(':slug')
-  getBySlug(@Param('slug') slug: string) {
-    return this.tenantService.findBySlug(slug);
-  }
-
   /** Protected: any authenticated admin can list tenants */
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('holding_admin', 'hospital_admin', 'rh_admin')
   findAll() {
     return this.tenantService.findAll();
+  }
+
+  /** Protected: list all active tenants (including sede/matriz) — for training sessions selector */
+  @Get('all-active')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('holding_admin', 'rh_admin')
+  findAllActive() {
+    return this.tenantService.findAllForTraining();
+  }
+
+  /** Public: frontend needs tenant info to display forms */
+  @Get(':slug')
+  getBySlug(@Param('slug') slug: string) {
+    return this.tenantService.findBySlug(slug);
   }
 
   /** Protected: only holding_admin can create new tenants */
