@@ -24,13 +24,12 @@ export default function Header() {
   const handleTenantChange = (slug: string) => {
     setActiveTenantSlug(slug);
     if (!slug) return;
-    // Stay on the same route, just swap the tenant slug
     const current = location.pathname;
-    // If on /dashboard (no tenant slug in path), stay there
-    if (current === ROUTES.dashboard || current === '/') {
+    // Routes without a tenant slug in the path — stay put
+    if (current.startsWith(ROUTES.dashboard) || current === '/') {
       return;
     }
-    // If current path has a tenant slug prefix (/:slug/...), replace it
+    // Replace the tenant slug segment if present
     const prevSlug = activeTenantSlug;
     if (prevSlug && current.startsWith(`/${prevSlug}/`)) {
       navigate(current.replace(`/${prevSlug}/`, `/${slug}/`));
