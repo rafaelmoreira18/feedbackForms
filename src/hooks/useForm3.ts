@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { form3Service } from "@/services/form3-service";
@@ -45,6 +45,7 @@ export function useForm3() {
   const [notFound, setNotFound] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [cpfError, setCpfError] = useState("");
   const [dateError, setDateError] = useState("");
   const [unansweredKeys, setUnansweredKeys] = useState<Set<string>>(new Set());
@@ -113,7 +114,8 @@ export function useForm3() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (submitting) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     let valid = true;
     if (!isValidCpf(patientInfo.patientCpf)) { setCpfError("CPF inválido"); valid = false; } else setCpfError("");
     if (patientInfo.admissionDate && patientInfo.dischargeDate && patientInfo.dischargeDate < patientInfo.admissionDate) {
@@ -155,6 +157,7 @@ export function useForm3() {
       setSubmitted(true);
     } catch (err) {
       toast.error(`Erro ao enviar pesquisa: ${(err as Error).message}`);
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };

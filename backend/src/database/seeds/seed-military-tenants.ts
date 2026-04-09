@@ -28,7 +28,7 @@ async function seed() {
     database: process.env.DB_DATABASE || 'feedbackforms',
     entities: [TenantEntity],
     synchronize: false,
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : false,
   });
   await ds.initialize();
   console.log(`Connected to ${process.env.DB_DATABASE || 'feedbackforms'}`);

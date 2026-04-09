@@ -37,7 +37,7 @@ export class RhUsersService implements OnModuleDestroy {
       database: this.config.getOrThrow<string>('AUTH_DB_DATABASE'),
       ssl:
         this.config.get<string>('AUTH_DB_SSL') === 'true'
-          ? { rejectUnauthorized: false }
+          ? { rejectUnauthorized: this.config.get<string>('AUTH_DB_SSL_REJECT_UNAUTHORIZED', 'true') !== 'false' }
           : false,
       max: 3,
       idleTimeoutMillis: 30_000,
