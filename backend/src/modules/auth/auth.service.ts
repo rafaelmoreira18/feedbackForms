@@ -23,6 +23,7 @@ interface ExternalUser {
   tenantId: string | null;
   ativo: boolean;
   mustChangePassword: boolean;
+  sistemas: string[];
 }
 
 @Injectable()
@@ -55,7 +56,7 @@ export class AuthService implements OnModuleDestroy {
 
   private async findUserByLogin(login: string): Promise<ExternalUser | null> {
     const result = await this.pool.query<ExternalUser>(
-      `SELECT id, email, nome, "senhaHash", role, "tenantId", ativo, COALESCE("mustChangePassword", false) AS "mustChangePassword"
+      `SELECT id, email, nome, "senhaHash", role, "tenantId", ativo, COALESCE("mustChangePassword", false) AS "mustChangePassword", COALESCE(sistemas, ARRAY[]::text[]) AS sistemas
        FROM usuarios
        WHERE email = $1 OR username = $1
        LIMIT 1`,
@@ -93,6 +94,7 @@ export class AuthService implements OnModuleDestroy {
       email: user.email,
       role,
       tenantId: user.tenantId ?? null,
+      sistemas: user.sistemas ?? [],
     };
 
     let tenantSlug: string | null = null;
