@@ -1,0 +1,103 @@
+===============================================================
+  CUTOVER DE PRODUÇÃO — Apontamento para os novos bancos
+  Sistema: feedbackForms / Pesquisa Satisfação Paciente
+  Data: 2026-04-13
+===============================================================
+
+CONTEXTO
+--------
+Antes: backend apontava para Multi_UnidadesDB (banco legado compartilhado)
+Depois: backend aponta para 2 bancos novos no mesmo RDS:
+  - Pesquisa_Satisfacao_Paciente_DB  (formulários, respostas, treinamentos)
+  - Autenticacao_DB                  (tenants + usuários)
+
+Os dados já foram migrados e validados. Os bancos estão prontos.
+
+===============================================================
+PASSO 1 — Pull do código novo
+===============================================================
+
+  cd /caminho/do/projeto
+  git pull origin main
+
+===============================================================
+PASSO 2 — Editar o .env de produção do backend
+===============================================================
+
+  nano backend/.env
+  # ou: vi backend/.env
+
+Substituir TODO o bloco de variáveis de banco pelo seguinte:
+
+  # ── Banco principal (formulários, respostas, treinamentos) ──
+  DB_HOST=dbpgpesquisamkt.ce6ipyxrb0gc.sa-east-1.rds.amazonaws.com
+  DB_PORT=5432
+  DB_USERNAME=postgres
+  DB_PASSWORD=MediallMkt2026
+  DB_DATABASE=Pesquisa_Satisfacao_Paciente_DB
+  DB_SYNCHRONIZE=false
+  DB_SSL=true
+  DB_SSL_REJECT_UNAUTHORIZED=false
+
+  # ── Banco de autenticação (tenants + usuários) ──
+  AUTH_DB_HOST=dbpgpesquisamkt.ce6ipyxrb0gc.sa-east-1.rds.amazonaws.com
+  AUTH_DB_PORT=5432
+  AUTH_DB_USERNAME=postgres
+  AUTH_DB_PASSWORD=MediallMkt2026
+  AUTH_DB_DATABASE=Autenticacao_DB
+  AUTH_DB_SSL=true
+  AUTH_DB_SSL_REJECT_UNAUTHORIZED=false
+
+IMPORTANTE: manter as demais variáveis (PORT, JWT_SECRET, CORS_ORIGINS etc.)
+exatamente como estão. Só substituir as linhas de DB_*.
+
+===============================================================
+PASSO 3 — Build do backend
+===============================================================
+
+  cd backend
+  npm install
+  npm run build
+  cd ..
+
+===============================================================
+PASSO 4 — Restart via PM2
+===============================================================
+
+  pm2 restart all
+  pm2 logs --lines 50     # verificar se subiu sem erro
+
+Esperar aparecer a linha:
+  [Nest] ... Application is running on: http://localhost:3001
+
+===============================================================
+PASSO 5 — Validação rápida
+===============================================================
+
+  # Testar login (substituir pelo domínio real)
+  curl -s -X POST https://SEU_DOMINIO/api/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"login":"rafael.moreira","password":"SUA_SENHA"}' | head -c 200
+
+  Esperado: resposta com token/cookie, sem erro 500.
+
+===============================================================
+PASSO 6 — Frontend no Vercel (se necessário)
+===============================================================
+
+  Se a variável VITE_API_URL estiver errada no Vercel:
+  - Acessar vercel.com → projeto → Settings → Environment Variables
+  - Garantir que VITE_API_URL aponta para o backend de produção
+  - Fazer redeploy se mudar alguma variável
+
+===============================================================
+ROLLBACK (se algo der errado)
+===============================================================
+
+  No backend/.env, trocar de volta:
+    DB_DATABASE=Multi_UnidadesDB
+    AUTH_DB_DATABASE=Multi_UnidadesDB  (ou remover AUTH_DB_* se não existia antes)
+
+  Depois: pm2 restart all
+
+===============================================================
