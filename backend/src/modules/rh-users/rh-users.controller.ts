@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   UseGuards,
@@ -15,6 +16,7 @@ import { CreateRhUserDto } from './dto/create-rh-user.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { SISTEMAS_DISPONIVEIS } from '../../common/constants/sistemas';
 
 type AuthedRequest = Request & { user: { id: string; role: string; tenantId: string | null } };
 
@@ -49,6 +51,18 @@ export class RhUsersController {
       if (err instanceof ConflictException) throw err;
       throw err;
     }
+  }
+
+  @Patch(':id/sistemas')
+  async updateSistemas(
+    @Param('id') id: string,
+    @Body() body: { sistemas: string[] },
+    @Req() req: AuthedRequest,
+  ) {
+    assertGlobal(req);
+    const sistemas = (body.sistemas ?? []).filter((s) => SISTEMAS_DISPONIVEIS.includes(s as any));
+    await this.rhUsersService.updateSistemas(id, sistemas);
+    return { sistemas };
   }
 
   @Post(':id/reset-password')

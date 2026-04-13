@@ -5,6 +5,7 @@ import {
   IsIn,
   IsOptional,
   IsArray,
+  IsBoolean,
   ValidateNested,
   Min,
   Max,
@@ -12,9 +13,11 @@ import {
   MinLength,
   Matches,
   Validate,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { IsCpfConstraint } from '../../../common/validators/cpf.validator';
+import { CPF_JUSTIFICATIVAS } from '../../../common/constants/cpf-justificativas';
 
 class AnswerItemDto {
   @IsString()
@@ -50,10 +53,25 @@ export class CreateForm3Dto {
   @MinLength(2)
   patientName: string;
 
+  /**
+   * 11 numeric digits. Optional — omit (or send null) when CPF is not available.
+   * When omitted, cpfJustificativa is required.
+   */
+  @IsOptional()
+  @ValidateIf((o: CreateForm3Dto) => o.patientCpf != null)
   @IsString()
   @Matches(/^\d{11}$/, { message: 'CPF deve conter 11 dígitos numéricos' })
   @Validate(IsCpfConstraint)
-  patientCpf: string;
+  patientCpf?: string | null;
+
+  /**
+   * Required when patientCpf is not provided AND recusouResponder is false.
+   * Must be one of the predefined justification options.
+   */
+  @ValidateIf((o: CreateForm3Dto) => o.patientCpf == null && !o.recusouResponder)
+  @IsNotEmpty({ message: 'Justificativa é obrigatória quando o CPF não é informado' })
+  @IsIn(CPF_JUSTIFICATIVAS, { message: 'Justificativa inválida' })
+  cpfJustificativa?: string | null;
 
   @IsNumber()
   @Min(0)
@@ -84,4 +102,8 @@ export class CreateForm3Dto {
   @IsString()
   @MaxLength(1000)
   comments?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  recusouResponder?: boolean;
 }

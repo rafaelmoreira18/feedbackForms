@@ -1,6 +1,7 @@
 import type { Form3Response } from "@/types";
 
 export function getScaleAverage(form: Form3Response): number {
+  if (form.recusouResponder) return 0;
   const scaleAnswers = form.answers.filter((a) => a.questionId !== "nps");
   if (scaleAnswers.length === 0) return 0;
   return scaleAnswers.reduce((sum, a) => sum + a.value, 0) / scaleAnswers.length;
@@ -18,6 +19,7 @@ export function getNpsScore(form: Form3Response): number | undefined {
 export function getAverageByFormType(forms: Form3Response[]) {
   const deptMap = new Map<string, number[]>();
   forms.forEach((f) => {
+    if (f.recusouResponder) return;
     const scaleAnswers = f.answers.filter((a) => a.questionId !== "nps" && a.value > 0);
     if (scaleAnswers.length === 0) return;
     const avg = scaleAnswers.reduce((s, a) => s + a.value, 0) / scaleAnswers.length;
@@ -46,7 +48,7 @@ export function getAverageByQuestion(
   formType: string,
   questionTextMap?: Map<string, Map<string, string>>,
 ): QuestionAvg[] {
-  const deptForms = forms.filter((f) => f.formType === formType);
+  const deptForms = forms.filter((f) => f.formType === formType && !f.recusouResponder);
   if (deptForms.length === 0) return [];
 
   const qTexts = questionTextMap?.get(formType);
@@ -93,7 +95,7 @@ export function getQuestionDetail(
   questionId: string,
   questionTextMap?: Map<string, Map<string, string>>,
 ): QuestionDetail | null {
-  const deptForms = forms.filter((f) => f.formType === formType);
+  const deptForms = forms.filter((f) => f.formType === formType && !f.recusouResponder);
   if (deptForms.length === 0) return null;
 
   const LABELS = ["", "Ruim", "Regular", "Bom", "Excelente"];
@@ -150,6 +152,7 @@ export function getQuestionDetail(
 export function getNpsBreakdown(forms: Form3Response[]) {
   const deptMap = new Map<string, { sim: number; nao: number }>();
   forms.forEach((f) => {
+    if (f.recusouResponder) return;
     const nps = f.answers.find((a) => a.questionId === "nps")?.value;
     if (nps === undefined) return;
     if (!deptMap.has(f.formType)) deptMap.set(f.formType, { sim: 0, nao: 0 });
@@ -180,6 +183,7 @@ export function getMonthlyTrend(forms: Form3Response[]) {
 export function getNpsCrossForm(forms: Form3Response[]) {
   const deptMap = new Map<string, { sim: number; total: number }>();
   forms.forEach((f) => {
+    if (f.recusouResponder) return;
     const nps = f.answers.find((a) => a.questionId === "nps")?.value;
     if (nps === undefined) return;
     if (!deptMap.has(f.formType)) deptMap.set(f.formType, { sim: 0, total: 0 });
@@ -198,12 +202,14 @@ export function getNpsCrossForm(forms: Form3Response[]) {
 }
 
 export function getSummaryMetrics(forms: Form3Response[]) {
+  const answered = forms.filter((f) => !f.recusouResponder);
+
   const avgSatisfaction =
-    forms.length > 0
-      ? forms.reduce((sum, f) => sum + getScaleAverage(f), 0) / forms.length
+    answered.length > 0
+      ? answered.reduce((sum, f) => sum + getScaleAverage(f), 0) / answered.length
       : 0;
 
-  const npsAnswers = forms
+  const npsAnswers = answered
     .map((f) => f.answers.find((a) => a.questionId === "nps")?.value)
     .filter((v): v is number => v !== undefined);
 
@@ -213,7 +219,7 @@ export function getSummaryMetrics(forms: Form3Response[]) {
       : 0;
 
   return {
-    total: forms.length,
+    total: answered.length,
     avgSatisfaction: Number(avgSatisfaction.toFixed(1)),
     pctRecomendaria,
   };

@@ -9,6 +9,7 @@ interface JwtPayload {
   email: string;
   role: string;
   tenantId: string | null;
+  sistemas: string[];
 }
 
 function extractFromCookieOrBearer(req: Request): string | null {
@@ -36,6 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: payload.email,
       role: payload.role,
       tenantId: payload.tenantId,
+      sistemas: payload.sistemas ?? [],
     };
   }
 }

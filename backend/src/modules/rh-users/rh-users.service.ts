@@ -1,14 +1,14 @@
 import {
   Injectable,
   ConflictException,
-  OnModuleDestroy,
   NotFoundException,
+  Inject,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { Pool } from 'pg';
 import { CreateRhUserDto } from './dto/create-rh-user.dto';
 import { TenantService } from '../tenants/tenant.service';
+import { AUTH_DB_POOL } from '../auth-db/auth-db.module';
 
 export interface RhUserRow {
   id: string;
@@ -19,35 +19,15 @@ export interface RhUserRow {
   ativo: boolean;
   tenantSlug: string | null;
   tenantNome: string | null;
+  sistemas: string[];
 }
 
 @Injectable()
-export class RhUsersService implements OnModuleDestroy {
-  private readonly pool: Pool;
-
+export class RhUsersService {
   constructor(
-    private readonly config: ConfigService,
+    @Inject(AUTH_DB_POOL) private readonly pool: Pool,
     private readonly tenantService: TenantService,
-  ) {
-    this.pool = new Pool({
-      host: this.config.getOrThrow<string>('AUTH_DB_HOST'),
-      port: this.config.get<number>('AUTH_DB_PORT', 5432),
-      user: this.config.getOrThrow<string>('AUTH_DB_USERNAME'),
-      password: this.config.getOrThrow<string>('AUTH_DB_PASSWORD'),
-      database: this.config.getOrThrow<string>('AUTH_DB_DATABASE'),
-      ssl:
-        this.config.get<string>('AUTH_DB_SSL') === 'true'
-          ? { rejectUnauthorized: this.config.get<string>('AUTH_DB_SSL_REJECT_UNAUTHORIZED', 'true') !== 'false' }
-          : false,
-      max: 3,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 5_000,
-    });
-  }
-
-  async onModuleDestroy() {
-    await this.pool.end();
-  }
+  ) {}
 
   async findTenants(): Promise<{ id: string; slug: string; nome: string }[]> {
     const tenants = await this.tenantService.findAll();
@@ -59,6 +39,7 @@ export class RhUsersService implements OnModuleDestroy {
   async findAll(): Promise<RhUserRow[]> {
     const result = await this.pool.query<RhUserRow>(`
       SELECT u.id, u.email, u.nome, u.role, u."tenantId", u.ativo,
+             COALESCE(u.sistemas, ARRAY[]::text[]) AS sistemas,
              t.slug AS "tenantSlug", t.nome AS "tenantNome"
       FROM usuarios u
       LEFT JOIN tenants t ON t.id = u."tenantId"
@@ -102,7 +83,15 @@ export class RhUsersService implements OnModuleDestroy {
       tenantNome = t.rows[0]?.nome ?? null;
     }
 
-    return { id, email, nome: dto.nome, role: 'rh', tenantId, ativo: true, tenantSlug, tenantNome };
+    return { id, email, nome: dto.nome, role: 'rh', tenantId, ativo: true, tenantSlug, tenantNome, sistemas: [] };
+  }
+
+  async updateSistemas(userId: string, sistemas: string[]): Promise<void> {
+    const result = await this.pool.query(
+      `UPDATE usuarios SET sistemas = $1, "atualizadoEm" = NOW() WHERE id = $2`,
+      [sistemas, userId],
+    );
+    if (result.rowCount === 0) throw new NotFoundException('Usuário não encontrado');
   }
 
   async resetPassword(userId: string, newPassword: string): Promise<void> {

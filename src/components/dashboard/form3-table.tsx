@@ -7,6 +7,9 @@ import Text from "@/components/ui/text";
 interface Form3TableProps {
   forms: Form3Response[];
   onRowClick: (id: string) => void;
+  total?: number;
+  currentPage?: number;
+  pageSize?: number;
 }
 
 function satisfactionColor(avg: number) {
@@ -15,13 +18,24 @@ function satisfactionColor(avg: number) {
   return "bg-red-base";
 }
 
-export default function Form3Table({ forms, onRowClick }: Form3TableProps) {
+export default function Form3Table({ forms, onRowClick, total, currentPage, pageSize }: Form3TableProps) {
+  const showingFrom = total && pageSize && currentPage ? (currentPage - 1) * pageSize + 1 : 1;
+  const showingTo = total && pageSize && currentPage ? Math.min(currentPage * pageSize, total) : forms.length;
+  const subtitle = total && total > forms.length
+    ? `Exibindo ${showingFrom}–${showingTo} de ${total}`
+    : undefined;
+
   return (
     <Card shadow="md">
       <div className="flex flex-col gap-4">
-        <Text variant="heading-sm" className="text-gray-400">
-          Respostas ({forms.length})
-        </Text>
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <Text variant="heading-sm" className="text-gray-400">
+            Respostas ({total ?? forms.length})
+          </Text>
+          {subtitle && (
+            <Text variant="body-sm" className="text-gray-300">{subtitle}</Text>
+          )}
+        </div>
 
         {forms.length === 0 ? (
           <div className="text-center py-12">
@@ -64,7 +78,7 @@ export default function Form3Table({ forms, onRowClick }: Form3TableProps) {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    {["Nome do Paciente", "CPF", "Setor", "Média Satisfação", "NPS", "Data"].map((h, i) => (
+                    {["Nome do Paciente", "CPF", "Setor", "Média Satisfação", "Recomendaria", "Data"].map((h, i) => (
                       <th key={i} className="text-left py-3 px-4">
                         <Text variant="body-sm-bold" className="text-gray-400">{h}</Text>
                       </th>
@@ -74,7 +88,8 @@ export default function Form3Table({ forms, onRowClick }: Form3TableProps) {
                 <tbody>
                   {forms.map((form) => {
                     const avg = getScaleAverage(form);
-                    const nps = form.answers.find((a) => a.questionId === "nps")?.value;
+                    const npsVal = form.answers.find((a) => a.questionId === "nps")?.value;
+                    const nps = npsVal !== undefined ? (npsVal === 1 ? "Sim" : "Não") : undefined;
                     return (
                       <tr
                         key={form.id}
@@ -85,16 +100,22 @@ export default function Form3Table({ forms, onRowClick }: Form3TableProps) {
                           <Text variant="body-md">{form.patientName}</Text>
                         </td>
                         <td className="py-3 px-4">
-                          <Text variant="body-md">{form.patientCpf}</Text>
+                          <Text variant="body-md" className={!form.patientCpf ? "text-gray-300 italic" : ""}>
+                            {form.patientCpf ?? "Não informado"}
+                          </Text>
                         </td>
                         <td className="py-3 px-4">
                           <Text variant="body-sm" className="text-gray-300">{form.formType}</Text>
                         </td>
                         <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${satisfactionColor(avg)}`} />
-                            <Text variant="body-md">{(Math.round(avg * 10) / 10).toFixed(1)}/4</Text>
-                          </div>
+                          {form.recusouResponder ? (
+                            <Text variant="body-sm" className="text-gray-300 italic">Não respondido</Text>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${satisfactionColor(avg)}`} />
+                              <Text variant="body-md">{(Math.round(avg * 10) / 10).toFixed(1)}/4</Text>
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-4">
                           <Text variant="body-md">{nps !== undefined ? nps : "—"}</Text>

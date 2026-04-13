@@ -1,9 +1,10 @@
-import { Injectable, UnauthorizedException, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Inject, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { Pool } from 'pg';
 import { LoginDto } from './dto/login.dto';
+import { AUTH_DB_POOL } from '../auth-db/auth-db.module';
 
 /** Maps Multi_UnidadesDB roles to feedbackforms roles */
 const ROLE_MAP: Record<string, string> = {
@@ -27,32 +28,14 @@ interface ExternalUser {
 }
 
 @Injectable()
-export class AuthService implements OnModuleDestroy {
+export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private readonly pool: Pool;
 
   constructor(
+    @Inject(AUTH_DB_POOL) private readonly pool: Pool,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
-  ) {
-    this.pool = new Pool({
-      host: this.config.getOrThrow<string>('AUTH_DB_HOST'),
-      port: this.config.get<number>('AUTH_DB_PORT', 5432),
-      user: this.config.getOrThrow<string>('AUTH_DB_USERNAME'),
-      password: this.config.getOrThrow<string>('AUTH_DB_PASSWORD'),
-      database: this.config.getOrThrow<string>('AUTH_DB_DATABASE'),
-      ssl: this.config.get<string>('AUTH_DB_SSL') === 'true'
-        ? { rejectUnauthorized: this.config.get<string>('AUTH_DB_SSL_REJECT_UNAUTHORIZED', 'true') !== 'false' }
-        : false,
-      max: 3,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 5_000,
-    });
-  }
-
-  async onModuleDestroy() {
-    await this.pool.end();
-  }
+  ) {}
 
   private async findUserByLogin(login: string): Promise<ExternalUser | null> {
     const result = await this.pool.query<ExternalUser>(

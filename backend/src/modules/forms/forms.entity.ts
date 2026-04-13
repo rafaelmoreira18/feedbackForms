@@ -40,8 +40,23 @@ export class Form3ResponseEntity {
   @Column()
   patientName: string;
 
-  @Column({ length: 11 })
-  patientCpf: string;
+  /** 11 numeric digits. NULL when patient could not provide CPF at submission time. */
+  @Column({ type: 'varchar', length: 11, nullable: true, default: null })
+  patientCpf: string | null;
+
+  /**
+   * Reason for not providing CPF. Required when patientCpf is NULL.
+   * Set once at submission — never updated.
+   */
+  @Column({ type: 'varchar', length: 60, nullable: true, default: null })
+  cpfJustificativa: string | null;
+
+  /**
+   * Timestamp set by a holding_admin when adding the CPF retroactively.
+   * NULL means the CPF was either provided at submission or not yet added.
+   */
+  @Column({ type: 'timestamp without time zone', nullable: true, default: null })
+  cpfAddedAt: Date | null;
 
   @Column()
   patientAge: number;
@@ -63,6 +78,9 @@ export class Form3ResponseEntity {
 
   @Column({ default: '' })
   comments: string;
+
+  @Column({ type: 'boolean', default: false })
+  recusouResponder: boolean;
 
   @Index()
   @CreateDateColumn()

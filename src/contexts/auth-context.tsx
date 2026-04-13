@@ -83,7 +83,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { user } = res.data;
       setUser(user);
       localStorage.setItem("user", JSON.stringify(user));
-      // For non-global roles, set their fixed tenantSlug as active
+      // Sempre limpa o slug anterior para evitar que um tenant de sessão anterior
+      // persista quando um usuário diferente (ou com tenant diferente) fizer login.
+      localStorage.removeItem("activeTenantSlug");
       const slug = user.tenantSlug ?? "";
       setActiveTenantSlugState(slug);
       if (slug) localStorage.setItem("activeTenantSlug", slug);
