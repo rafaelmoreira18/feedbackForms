@@ -5,6 +5,7 @@ import { TrainingResponseEntity } from './training-response.entity';
 import { TrainingSessionEntity } from './training-session.entity';
 import { TenantService } from '../tenants/tenant.service';
 import { CreateTrainingResponseDto } from './dto/create-training-response.dto';
+import { AuditLogService, AuditContext } from '../audit-log/audit-log.service';
 
 export interface TrainingMetrics {
   totalResponses: number;
@@ -23,15 +24,11 @@ export class TrainingResponsesService {
     @InjectRepository(TrainingSessionEntity)
     private readonly sessionRepo: Repository<TrainingSessionEntity>,
     private readonly tenantService: TenantService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
-  private async resolveTenantId(slug: string): Promise<string> {
-    const tenant = await this.tenantService.findBySlug(slug);
-    return tenant.id;
-  }
-
-  async create(tenantSlug: string, dto: CreateTrainingResponseDto): Promise<TrainingResponseEntity> {
-    const tenantId = await this.resolveTenantId(tenantSlug);
+  async create(tenantSlug: string, dto: CreateTrainingResponseDto, ctx?: AuditContext): Promise<TrainingResponseEntity> {
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
 
     const session = await this.sessionRepo.findOne({
       where: { tenantId, slug: dto.sessionSlug },
@@ -55,7 +52,17 @@ export class TrainingResponsesService {
       comments: dto.comments ?? '',
     });
 
-    return this.repo.save(response);
+    const saved = await this.repo.save(response);
+
+    await this.auditLog.record(
+      ctx ?? { tenantId },
+      'TRAINING_RESPONSE_CREATED',
+      'training_response',
+      saved.id,
+      { sessionId: session.id, sessionSlug: dto.sessionSlug },
+    );
+
+    return saved;
   }
 
   async findAll(
@@ -63,7 +70,7 @@ export class TrainingResponsesService {
     sessionSlug?: string,
     filters?: { startDate?: string; endDate?: string },
   ): Promise<{ data: TrainingResponseEntity[]; total: number }> {
-    const tenantId = await this.resolveTenantId(tenantSlug);
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
 
     const qb = this.repo
       .createQueryBuilder('tr')
@@ -90,7 +97,7 @@ export class TrainingResponsesService {
   }
 
   async findById(tenantSlug: string, id: string): Promise<TrainingResponseEntity> {
-    const tenantId = await this.resolveTenantId(tenantSlug);
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
     const response = await this.repo.findOne({
       where: { id, tenantId },
       relations: ['session'],
@@ -99,11 +106,19 @@ export class TrainingResponsesService {
     return response;
   }
 
-  async softDelete(tenantSlug: string, id: string): Promise<{ deleted: number }> {
-    const tenantId = await this.resolveTenantId(tenantSlug);
+  async softDelete(tenantSlug: string, id: string, ctx?: AuditContext): Promise<{ deleted: number }> {
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
     const response = await this.repo.findOne({ where: { id, tenantId } });
     if (!response) throw new NotFoundException('Resposta não encontrada');
     await this.repo.softDelete(id);
+
+    await this.auditLog.record(
+      ctx ?? { tenantId },
+      'TRAINING_RESPONSE_DELETED',
+      'training_response',
+      id,
+    );
+
     return { deleted: 1 };
   }
 
@@ -112,7 +127,7 @@ export class TrainingResponsesService {
     sessionSlug?: string,
     filters?: { startDate?: string; endDate?: string },
   ): Promise<TrainingMetrics> {
-    const tenantId = await this.resolveTenantId(tenantSlug);
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);

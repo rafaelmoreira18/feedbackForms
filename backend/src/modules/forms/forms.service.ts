@@ -5,8 +5,10 @@ import { Form3ResponseEntity, Form3Response } from './forms.entity';
 import { FormTemplateEntity } from '../form-templates/form-template.entity';
 import { CreateForm3Dto } from './dto/create-form.dto';
 import { FilterForm3Dto } from './dto/filter-form.dto';
+import { UpdateCpfDto } from './dto/update-cpf.dto';
+import { AuditLogService, AuditContext } from '../audit-log/audit-log.service';
 
-function maskCpf(cpf: string): string {
+function maskCpf(cpf: string | null): string | null {
   if (!cpf) return cpf;
   return cpf.replace(/^(\d{3})\d{3}\d{3}(\d{2})$/, '$1.***.***-$2');
 }
@@ -33,9 +35,10 @@ export class Form3Service {
     private readonly repo: Repository<Form3ResponseEntity>,
     @InjectRepository(FormTemplateEntity)
     private readonly templateRepo: Repository<FormTemplateEntity>,
+    private readonly auditLog: AuditLogService,
   ) {}
 
-  async create(tenantId: string, dto: CreateForm3Dto): Promise<Form3Response> {
+  async create(tenantId: string, dto: CreateForm3Dto, ctx?: AuditContext): Promise<Form3Response> {
     const template = await this.templateRepo.findOne({
       where: { tenantId, slug: dto.formType, active: true },
     });
@@ -44,8 +47,34 @@ export class Form3Service {
         `Formulário '${dto.formType}' não encontrado ou inativo para este tenant`,
       );
     }
-    const form = this.repo.create({ ...dto, tenantId, comments: dto.comments ?? '' });
-    return this.repo.save(form);
+    const cpf = dto.patientCpf ?? null;
+    const justificativa = cpf ? null : (dto.cpfJustificativa ?? null);
+
+    if (!cpf && !justificativa && !dto.recusouResponder) {
+      throw new BadRequestException(
+        'Justificativa é obrigatória quando o CPF não é informado',
+      );
+    }
+
+    const form = this.repo.create({
+      ...dto,
+      tenantId,
+      patientCpf: cpf,
+      cpfJustificativa: justificativa,
+      comments: dto.comments ?? '',
+      recusouResponder: dto.recusouResponder ?? false,
+    });
+    const saved = await this.repo.save(form);
+
+    await this.auditLog.record(
+      ctx ?? { tenantId },
+      'FORM_CREATED',
+      'form3_response',
+      saved.id,
+      { formType: dto.formType, hasCpf: !!cpf, recusouResponder: dto.recusouResponder ?? false },
+    );
+
+    return saved;
   }
 
   async findAll(
@@ -96,22 +125,61 @@ export class Form3Service {
   }
 
   /** Soft-delete a single response. Only deletes if it belongs to the tenant. */
-  async softDeleteOne(tenantId: string, id: string): Promise<{ deleted: number }> {
+  async softDeleteOne(tenantId: string, id: string, ctx?: AuditContext): Promise<{ deleted: number }> {
     const form = await this.repo.findOne({ where: { id, tenantId } });
     if (!form) throw new NotFoundException('Formulário não encontrado');
     await this.repo.softDelete(id);
+
+    await this.auditLog.record(
+      ctx ?? { tenantId },
+      'FORM_DELETED',
+      'form3_response',
+      id,
+    );
+
     return { deleted: 1 };
   }
 
   /** Hard-delete all responses for a tenant (bulk wipe — requires holding_admin or hospital_admin). */
-  async deleteAll(tenantId: string): Promise<{ deleted: number }> {
+  async deleteAll(tenantId: string, ctx?: AuditContext): Promise<{ deleted: number }> {
     const result = await this.repo
       .createQueryBuilder()
       .delete()
       .from(Form3ResponseEntity)
       .where('tenantId = :tenantId', { tenantId })
       .execute();
+
+    await this.auditLog.record(
+      ctx ?? { tenantId },
+      'FORM_BULK_DELETED',
+      'form3_response',
+      null,
+      { affected: result.affected ?? 0 },
+    );
+
     return { deleted: result.affected ?? 0 };
+  }
+
+  /** Retroactively add CPF to a response submitted without one (holding_admin only). */
+  async updateCpf(tenantId: string, id: string, dto: UpdateCpfDto, ctx?: AuditContext): Promise<Form3Response> {
+    const form = await this.repo.findOne({ where: { id, tenantId } });
+    if (!form) throw new NotFoundException('Formulário não encontrado');
+    if (form.patientCpf !== null) {
+      throw new BadRequestException('Este formulário já possui CPF cadastrado');
+    }
+
+    form.patientCpf = dto.patientCpf;
+    form.cpfAddedAt = new Date();
+    const saved = await this.repo.save(form);
+
+    await this.auditLog.record(
+      ctx ?? { tenantId },
+      'FORM_CPF_UPDATED',
+      'form3_response',
+      id,
+    );
+
+    return { ...saved, patientCpf: maskCpf(saved.patientCpf) };
   }
 
   async getMetrics(tenantId: string, filters?: FilterForm3Dto) {
@@ -124,6 +192,7 @@ export class Form3Service {
     const buildBase = () => {
       const qb = this.repo.createQueryBuilder('form');
       qb.where('form.tenantId = :tenantId', { tenantId });
+      qb.andWhere('form."recusouResponder" = false');
       if (filters?.startDate) {
         qb.andWhere('form.createdAt >= :startDate', { startDate: startOfDay(filters.startDate, 'startDate') });
       }
