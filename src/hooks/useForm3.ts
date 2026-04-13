@@ -169,7 +169,7 @@ export function useForm3() {
         formType: formSlug,
         ...patientInfo,
         patientCpf: cpfOmitido ? null : patientInfo.patientCpf.replace(/\D/g, ""),
-        cpfJustificativa: cpfOmitido ? (cpfJustificativa as CpfJustificativa) : undefined,
+        ...(cpfOmitido && cpfJustificativa ? { cpfJustificativa: cpfJustificativa as CpfJustificativa } : {}),
         patientAge: parseInt(patientInfo.patientAge),
         evaluatedDepartment: template.name,
         answers: answersArray,

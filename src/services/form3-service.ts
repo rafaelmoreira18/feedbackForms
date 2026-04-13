@@ -45,7 +45,7 @@ export const form3Service = {
 
   create: async (
     tenantSlug: string,
-    formData: Omit<Form3Response, 'id' | 'createdAt' | 'cpfAddedAt'> & { cpfJustificativa?: CpfJustificativa },
+    formData: Omit<Form3Response, 'id' | 'createdAt' | 'cpfAddedAt' | 'cpfJustificativa'> & { cpfJustificativa?: CpfJustificativa | null },
   ): Promise<Form3Response> => {
     const res = await api.post<Form3Response>(`tenants/${tenantSlug}/forms3`, formData)
     return res.data
