@@ -185,9 +185,12 @@ export default function Analytics3() {
               "Você recomendaria este serviço a um amigo ou familiar?" — % de Sim por setor
             </Text>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={npsCrossForm} margin={{ left: 10, right: 20 }}>
+              <BarChart
+                data={npsCrossForm}
+                margin={{ left: 10, right: 20 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="formType" tick={{ fontSize: 10 }} />
+                <XAxis dataKey="formType" tick={{ fontSize: 11 }} />
                 <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                 <Tooltip
                   contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }}
@@ -200,7 +203,7 @@ export default function Analytics3() {
                   strokeDasharray="4 4"
                   label={{ value: `Média geral: ${summary.pctRecomendaria}%`, position: "insideTopRight", fontSize: 11 }}
                 />
-                <Bar dataKey="pctSim" fill={COLORS.teal} name="% Recomendariam" />
+                <Bar dataKey="pctSim" fill={COLORS.teal} name="% Recomendariam" maxBarSize={80} />
               </BarChart>
             </ResponsiveContainer>
           </Card>
@@ -208,13 +211,13 @@ export default function Analytics3() {
           {/* Average by department */}
           <Card shadow="md" padding="lg">
             <Text variant="heading-sm" className="text-gray-400 mb-4">Avaliação Média por Setor (Escala 1–4)</Text>
-            <ResponsiveContainer width="100%" height={340}>
+            <ResponsiveContainer width="100%" height={Math.max(120 + byFormType.length * 52, 220)}>
               <BarChart data={byFormType} layout="vertical" margin={{ left: 20, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" domain={[0, 4]} />
                 <YAxis dataKey="formType" type="category" width={200} tick={{ fontSize: 12 }} />
                 <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }} wrapperStyle={{ opacity: 1, zIndex: 50 }} />
-                <Bar dataKey="value" fill={COLORS.primary} name="Avaliação (1–4)" />
+                <Bar dataKey="value" fill={COLORS.primary} name="Avaliação (1–4)" maxBarSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </Card>
@@ -315,14 +318,17 @@ export default function Analytics3() {
             <Card shadow="md" padding="lg">
               <Text variant="heading-sm" className="text-gray-400 mb-4">Recomendação por Setor — Sim / Não</Text>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={npsBreakdown} margin={{ left: 10, right: 20 }}>
+                <BarChart
+                  data={npsBreakdown}
+                  margin={{ left: 10, right: 20 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="formType" tick={{ fontSize: 10 }} />
+                  <XAxis dataKey="formType" tick={{ fontSize: 11 }} />
                   <YAxis allowDecimals={false} />
                   <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", color: "#f9fafb" }} wrapperStyle={{ opacity: 1, zIndex: 50 }} />
                   <Legend />
-                  <Bar dataKey="Sim" fill={COLORS.success} />
-                  <Bar dataKey="Não" fill={COLORS.danger} />
+                  <Bar dataKey="Sim" fill={COLORS.success} maxBarSize={60} />
+                  <Bar dataKey="Não" fill={COLORS.danger} maxBarSize={60} />
                 </BarChart>
               </ResponsiveContainer>
             </Card>

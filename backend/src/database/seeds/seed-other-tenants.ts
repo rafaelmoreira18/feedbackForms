@@ -236,7 +236,7 @@ async function seed() {
   const dbUser = process.env.DB_USERNAME || 'postgres';
   const dbPass = process.env.DB_PASSWORD || '';
   const dbName = process.env.DB_DATABASE || 'feedbackforms';
-  const ssl = process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false;
+  const ssl = process.env.DB_SSL === 'true' ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : false;
 
   const ds = new DataSource({
     type: 'postgres',

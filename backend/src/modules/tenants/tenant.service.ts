@@ -48,8 +48,13 @@ export class TenantService {
   }
 
   async findById(id: string): Promise<TenantEntity> {
-    const tenant = await this.tenantRepo.findOne({ where: { id } });
+    const tenant = await this.tenantRepo.findOne({ where: { id, active: true } });
     if (!tenant) throw new NotFoundException('Tenant not found');
     return tenant;
+  }
+
+  async resolveId(slug: string): Promise<string> {
+    const tenant = await this.findBySlug(slug);
+    return tenant.id;
   }
 }

@@ -13,11 +13,16 @@ import Card from "@/components/ui/card";
 import DateInput from "@/components/ui/date-input";
 import MetricCard from "@/components/ui/metric-card";
 import Form3Table from "@/components/dashboard/form3-table";
+import Pagination from "@/components/ui/pagination";
+
+const PAGE_SIZE = 50;
+
 export default function Dashboard() {
   const { user, logout, activeTenantSlug } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [form3DeptFilter, setForm3DeptFilter] = useState<string>("");
+  const [isExporting, setIsExporting] = useState(false);
 
   const isHoldingAdmin = user?.role === 'holding_admin';
   const isGlobalRhAdmin = user?.role === 'rh_admin' && !user?.tenantId;
@@ -29,6 +34,7 @@ export default function Dashboard() {
   const startDate = searchParams.get("startDate") || "";
   const endDate = searchParams.get("endDate") || "";
   const sortSatisfaction = (searchParams.get("sortSatisfaction") as "asc" | "desc") || undefined;
+  const currentPage = Number(searchParams.get("page") || "1");
 
   const setFilters = useCallback(
     (patch: Partial<{ startDate: string; endDate: string; sortSatisfaction: string }>) => {
@@ -37,6 +43,17 @@ export default function Dashboard() {
         if (v) next.set(k, v);
         else next.delete(k);
       });
+      // Reset to page 1 whenever filters change
+      next.set("page", "1");
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const setPage = useCallback(
+    (page: number) => {
+      const next = new URLSearchParams(searchParams);
+      next.set("page", String(page));
       setSearchParams(next, { replace: true });
     },
     [searchParams, setSearchParams],
@@ -47,6 +64,7 @@ export default function Dashboard() {
     endDate,
     sortSatisfaction,
     formType: form3DeptFilter || undefined,
+    page: currentPage,
   };
 
   const { data: allForms = [] } = useQuery({
@@ -68,11 +86,29 @@ export default function Dashboard() {
   });
 
   const filteredForms = filteredPage?.data ?? [];
+  const totalFiltered = filteredPage?.total ?? 0;
+  const totalPages = Math.ceil(totalFiltered / PAGE_SIZE);
   const hasActiveFilters = !!(startDate || endDate || sortSatisfaction || form3DeptFilter);
 
   const clearFilters = () => {
-    setSearchParams({}, { replace: true });
+    setSearchParams({ page: "1" }, { replace: true });
     setForm3DeptFilter("");
+  };
+
+  const handleExportPdf = async () => {
+    if (!metrics) return;
+    setIsExporting(true);
+    try {
+      const allFiltered = await form3Service.getAllForReport(tenantSlug, {
+        startDate,
+        endDate,
+        sortSatisfaction,
+        formType: form3DeptFilter || undefined,
+      });
+      generateDashboardReport(allFiltered, metrics, filteredFilters, allForms.length);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const deptOptions = [
@@ -92,14 +128,10 @@ export default function Dashboard() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              if (metrics && filteredForms.length > 0) {
-                generateDashboardReport(filteredForms, metrics, filteredFilters, allForms.length);
-              }
-            }}
-            disabled={!metrics || filteredForms.length === 0}
+            onClick={handleExportPdf}
+            disabled={isExporting || !metrics || totalFiltered === 0}
           >
-            Exportar PDF
+            {isExporting ? "Gerando PDF..." : "Exportar PDF"}
           </Button>
           <Button variant="secondary" size="sm" onClick={logout}>Sair</Button>
         </div>
@@ -172,8 +204,20 @@ export default function Dashboard() {
               {/* Responses Table */}
               <Form3Table
                 forms={filteredForms}
+                total={totalFiltered}
+                currentPage={currentPage}
+                pageSize={PAGE_SIZE}
                 onRowClick={(id) => navigate(ROUTES.response(tenantSlug, id))}
               />
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                />
+              )}
             </>
           )}
 

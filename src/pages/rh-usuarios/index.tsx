@@ -1,14 +1,22 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
-import { rhUsersService, type CreateRhUserInput } from "@/services/rh-users.service";
+import { rhUsersService, type CreateRhUserInput, type RhUser } from "@/services/rh-users.service";
 import { api } from "@/services/api";
 import { ROUTES } from "@/routes";
+import { SISTEMAS_KEYS } from "@/types";
 import Text from "@/components/ui/text";
 import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
 import Input from "@/components/ui/input";
+
+// ─── Sistemas disponíveis ─────────────────────────────────────────────────────
+
+const SISTEMAS_DISPONIVEIS: { key: string; label: string }[] = [
+  { key: SISTEMAS_KEYS[0], label: "Pesquisa de Satisfação" },
+  { key: SISTEMAS_KEYS[1], label: "LinenSistem" },
+];
 
 // ─── Modal Resetar Senha ──────────────────────────────────────────────────────
 
@@ -290,6 +298,79 @@ function ModalCriarUsuarioRh({ open, onClose, onCreated }: ModalProps) {
   );
 }
 
+// ─── Inline Sistemas Editor ───────────────────────────────────────────────────
+
+interface SistemasEditorProps {
+  user: RhUser;
+  onUpdated: () => void;
+}
+
+function SistemasEditor({ user, onUpdated }: SistemasEditorProps) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<string[]>(user.sistemas ?? []);
+
+  const mutation = useMutation({
+    mutationFn: (sistemas: string[]) => rhUsersService.updateSistemas(user.id, sistemas),
+    onSuccess: () => {
+      onUpdated();
+      setOpen(false);
+    },
+  });
+
+  function toggle(key: string) {
+    setSelected((prev) =>
+      prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key]
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => { setSelected(user.sistemas ?? []); setOpen(true); }}
+        className="text-xs text-teal-base hover:underline"
+      >
+        Sistemas ({(user.sistemas ?? []).length})
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      <div className="flex flex-wrap gap-3">
+        {SISTEMAS_DISPONIVEIS.map(({ key, label }) => (
+          <label key={key} className="flex items-center gap-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={selected.includes(key)}
+              onChange={() => toggle(key)}
+              className="accent-teal-base"
+            />
+            <span className="text-xs text-gray-400">{label}</span>
+          </label>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={() => mutation.mutate(selected)}
+          disabled={mutation.isPending}
+          className="text-xs font-semibold text-teal-base hover:underline disabled:opacity-50"
+        >
+          {mutation.isPending ? "Salvando..." : "Salvar"}
+        </button>
+        <button
+          onClick={() => setOpen(false)}
+          className="text-xs text-gray-300 hover:underline"
+        >
+          Cancelar
+        </button>
+        {mutation.isError && (
+          <span className="text-xs text-red-500">Erro ao salvar</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Página Principal ─────────────────────────────────────────────────────────
 
 export default function RhUsuarios() {
@@ -408,6 +489,7 @@ export default function RhUsuarios() {
                     Redefinir senha
                   </Button>
                 </div>
+                <SistemasEditor user={u} onUpdated={reload} />
               </Card>
             ))}
           </div>

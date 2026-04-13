@@ -7,19 +7,21 @@ export const api = axios.create({
 
 api.interceptors.response.use(
   (res) => {
-    if (res.data && typeof res.data === 'object') {
-      // Unwrap NestJS envelope: { data, statusCode, timestamp } → data
-      if ('data' in res.data && 'statusCode' in res.data) {
-        res.data = res.data.data
-      // Unwrap Next.js envelope: { data } → data  (sem statusCode)
-      } else if ('data' in res.data && !('error' in res.data) && Object.keys(res.data).length <= 2) {
-        res.data = res.data.data
-      }
+    // Unwrap NestJS envelope: { data, statusCode, timestamp } → data
+    // Identificado de forma estrita: requer exatamente statusCode + timestamp presentes
+    if (
+      res.data &&
+      typeof res.data === 'object' &&
+      'data' in res.data &&
+      'statusCode' in res.data &&
+      'timestamp' in res.data
+    ) {
+      res.data = res.data.data
     }
     return res
   },
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !window.location.pathname.startsWith('/login')) {
       localStorage.removeItem('user')
       window.location.href = '/login'
     }

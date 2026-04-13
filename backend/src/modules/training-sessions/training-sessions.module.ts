@@ -7,11 +7,13 @@ import { TrainingResponsesController } from './training-responses.controller';
 import { TrainingSessionsService } from './training-sessions.service';
 import { TrainingResponsesService } from './training-responses.service';
 import { TenantModule } from '../tenants/tenant.module';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([TrainingSessionEntity, TrainingResponseEntity]),
     TenantModule,
+    AuditLogModule,
   ],
   controllers: [TrainingSessionsController, TrainingResponsesController],
   providers: [TrainingSessionsService, TrainingResponsesService],

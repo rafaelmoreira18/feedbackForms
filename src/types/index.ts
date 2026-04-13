@@ -59,6 +59,25 @@ export interface FormTemplate {
   blocks: FormTemplateBlock[];
 }
 
+// ─── Sistemas ─────────────────────────────────────────────────────────────────
+
+export const SISTEMAS_KEYS = ['feedbackforms', 'linensistem'] as const;
+
+export type SistemaKey = (typeof SISTEMAS_KEYS)[number];
+
+// ─── CPF Justificativas ────────────────────────────────────────────────────────
+
+export const CPF_JUSTIFICATIVAS = [
+  'Paciente não possui CPF',
+  'Paciente não soube informar',
+  'Responsável não soube informar',
+  'Paciente estrangeiro',
+  'Recusa em informar',
+  'Documento não estava disponível',
+] as const;
+
+export type CpfJustificativa = (typeof CPF_JUSTIFICATIVAS)[number];
+
 // ─── Form 3: Dynamic Department Feedback ──────────────────────────────────────
 
 export type Form3Type =
@@ -82,7 +101,12 @@ export interface Form3Response {
   /** Matches FormTemplate.slug — dynamic, no hardcoded enum */
   formType: string;
   patientName: string;
-  patientCpf: string;
+  /** Masked CPF (e.g. "123.***.***-45") or null when not provided at submission. */
+  patientCpf: string | null;
+  /** Reason for not providing CPF. Populated when patientCpf is null. */
+  cpfJustificativa: CpfJustificativa | null;
+  /** Set when a holding_admin adds the CPF retroactively. */
+  cpfAddedAt: string | null;
   patientAge: number;
   patientGender: 'Masculino' | 'Feminino' | 'Outro';
   admissionDate: string;
@@ -90,6 +114,7 @@ export interface Form3Response {
   evaluatedDepartment: string;
   answers: Form3Answer[];
   comments: string;
+  recusouResponder: boolean;
   createdAt: string;
 }
 
@@ -99,6 +124,7 @@ export interface Form3Filters {
   sortSatisfaction?: 'asc' | 'desc';
   formType?: string;
   evaluatedDepartment?: string;
+  page?: number;
 }
 
 export interface Form3Metrics {

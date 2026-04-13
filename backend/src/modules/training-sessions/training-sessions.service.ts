@@ -5,6 +5,7 @@ import { TrainingSessionEntity } from './training-session.entity';
 import { TenantService } from '../tenants/tenant.service';
 import { CreateTrainingSessionDto } from './dto/create-training-session.dto';
 import { UpdateTrainingSessionDto } from './dto/update-training-session.dto';
+import { AuditLogService, AuditContext } from '../audit-log/audit-log.service';
 
 function toSlug(text: string): string {
   return text
@@ -22,15 +23,11 @@ export class TrainingSessionsService {
     @InjectRepository(TrainingSessionEntity)
     private readonly repo: Repository<TrainingSessionEntity>,
     private readonly tenantService: TenantService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
-  private async resolveTenantId(slug: string): Promise<string> {
-    const tenant = await this.tenantService.findBySlug(slug);
-    return tenant.id;
-  }
-
-  async create(tenantSlug: string, dto: CreateTrainingSessionDto): Promise<TrainingSessionEntity> {
-    const tenantId = await this.resolveTenantId(tenantSlug);
+  async create(tenantSlug: string, dto: CreateTrainingSessionDto, ctx?: AuditContext): Promise<TrainingSessionEntity> {
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
 
     // Build a unique slug: title-based + date suffix
     const base = toSlug(dto.title);
@@ -42,11 +39,21 @@ export class TrainingSessionsService {
     }
 
     const session = this.repo.create({ ...dto, tenantId, slug: candidate });
-    return this.repo.save(session);
+    const saved = await this.repo.save(session);
+
+    await this.auditLog.record(
+      ctx ?? { tenantId },
+      'TRAINING_SESSION_CREATED',
+      'training_session',
+      saved.id,
+      { title: dto.title, trainingDate: dto.trainingDate, trainingType: dto.trainingType },
+    );
+
+    return saved;
   }
 
   async findAll(tenantSlug: string): Promise<TrainingSessionEntity[]> {
-    const tenantId = await this.resolveTenantId(tenantSlug);
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
     return this.repo.find({
       where: { tenantId },
       order: { createdAt: 'DESC' },
@@ -54,7 +61,7 @@ export class TrainingSessionsService {
   }
 
   async findBySlug(tenantSlug: string, sessionSlug: string): Promise<TrainingSessionEntity> {
-    const tenantId = await this.resolveTenantId(tenantSlug);
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
     const session = await this.repo.findOne({ where: { tenantId, slug: sessionSlug } });
     if (!session) throw new NotFoundException('Treinamento não encontrado');
     return session;
@@ -64,8 +71,9 @@ export class TrainingSessionsService {
     tenantSlug: string,
     sessionSlug: string,
     dto: UpdateTrainingSessionDto,
+    ctx?: AuditContext,
   ): Promise<TrainingSessionEntity> {
-    const tenantId = await this.resolveTenantId(tenantSlug);
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
     const session = await this.repo.findOne({ where: { tenantId, slug: sessionSlug } });
     if (!session) throw new NotFoundException('Treinamento não encontrado');
 
@@ -83,14 +91,33 @@ export class TrainingSessionsService {
       Object.assign(session, dto);
     }
 
-    return this.repo.save(session);
+    const saved = await this.repo.save(session);
+
+    await this.auditLog.record(
+      ctx ?? { tenantId },
+      'TRAINING_SESSION_UPDATED',
+      'training_session',
+      session.id,
+      { changes: dto },
+    );
+
+    return saved;
   }
 
-  async remove(tenantSlug: string, sessionSlug: string): Promise<{ deleted: number }> {
-    const tenantId = await this.resolveTenantId(tenantSlug);
+  async remove(tenantSlug: string, sessionSlug: string, ctx?: AuditContext): Promise<{ deleted: number }> {
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
     const session = await this.repo.findOne({ where: { tenantId, slug: sessionSlug } });
     if (!session) throw new NotFoundException('Treinamento não encontrado');
     await this.repo.remove(session);
+
+    await this.auditLog.record(
+      ctx ?? { tenantId },
+      'TRAINING_SESSION_DELETED',
+      'training_session',
+      session.id,
+      { title: session.title },
+    );
+
     return { deleted: 1 };
   }
 
@@ -101,8 +128,8 @@ export class TrainingSessionsService {
    * - Sets linkedSessionId = reação.id
    * - Throws ConflictException if an eficácia already exists for this reação
    */
-  async createEficacia(tenantSlug: string, reacaoSlug: string): Promise<TrainingSessionEntity> {
-    const tenantId = await this.resolveTenantId(tenantSlug);
+  async createEficacia(tenantSlug: string, reacaoSlug: string, ctx?: AuditContext): Promise<TrainingSessionEntity> {
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
 
     const reacao = await this.repo.findOne({ where: { tenantId, slug: reacaoSlug } });
     if (!reacao) throw new NotFoundException('Sessão de reação não encontrada');
@@ -140,6 +167,16 @@ export class TrainingSessionsService {
       active: true,
     });
 
-    return this.repo.save(session);
+    const saved = await this.repo.save(session);
+
+    await this.auditLog.record(
+      ctx ?? { tenantId },
+      'TRAINING_SESSION_CREATED',
+      'training_session',
+      saved.id,
+      { trainingType: 'eficacia', linkedTo: reacao.id },
+    );
+
+    return saved;
   }
 }

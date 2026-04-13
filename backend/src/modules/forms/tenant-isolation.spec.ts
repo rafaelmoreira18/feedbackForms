@@ -14,6 +14,9 @@ import { NotFoundException } from '@nestjs/common';
 import { Form3Service } from './forms.service';
 import { Form3ResponseEntity } from './forms.entity';
 import { FormTemplateEntity } from '../form-templates/form-template.entity';
+import { AuditLogService } from '../audit-log/audit-log.service';
+
+const mockAuditLog = { record: jest.fn().mockResolvedValue(undefined) };
 
 const TENANT_A = 'aaaaaaaa-0000-0000-0000-000000000001';
 const TENANT_B = 'bbbbbbbb-0000-0000-0000-000000000002';
@@ -25,6 +28,8 @@ function makeMockForm(tenantId: string, id = 'form-id-1'): Form3ResponseEntity {
     formType: 'uti',
     patientName: 'Test',
     patientCpf: '52998224725',
+    cpfJustificativa: null,
+    cpfAddedAt: null,
     patientAge: 30,
     patientGender: 'Masculino',
     admissionDate: '2026-01-01',
@@ -32,6 +37,7 @@ function makeMockForm(tenantId: string, id = 'form-id-1'): Form3ResponseEntity {
     evaluatedDepartment: 'UTI',
     answers: [{ questionId: 'q1', value: 4 }],
     comments: '',
+    recusouResponder: false,
     createdAt: new Date(),
     deletedAt: null,
     tenant: null as any,
@@ -81,6 +87,7 @@ const templateRepoMock = {
         Form3Service,
         { provide: getRepositoryToken(Form3ResponseEntity), useValue: repoMock },
         { provide: getRepositoryToken(FormTemplateEntity), useValue: templateRepoMock },
+        { provide: AuditLogService, useValue: mockAuditLog },
       ],
     }).compile();
 

@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
 import { APP_GUARD } from '@nestjs/core';
+import { AuthDbModule } from './modules/auth-db/auth-db.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantModule } from './modules/tenants/tenant.module';
 import { FormTemplateModule } from './modules/form-templates/form-template.module';
@@ -19,6 +20,8 @@ import {
 } from './modules/form-templates/form-template.entity';
 import { TrainingSessionEntity } from './modules/training-sessions/training-session.entity';
 import { TrainingResponseEntity } from './modules/training-sessions/training-response.entity';
+import { AuditLogEntity } from './modules/audit-log/audit-log.entity';
+import { AuditLogModule } from './modules/audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -56,6 +59,7 @@ import { TrainingResponseEntity } from './modules/training-sessions/training-res
           FormQuestionEntity,
           TrainingSessionEntity,
           TrainingResponseEntity,
+          AuditLogEntity,
         ],
         synchronize: config.get<string>('DB_SYNCHRONIZE', 'false') === 'true',
         ssl:
@@ -71,12 +75,14 @@ import { TrainingResponseEntity } from './modules/training-sessions/training-res
     // Global: 60 requests per minute per IP
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
 
+    AuthDbModule,
     AuthModule,
     TenantModule,
     FormTemplateModule,
     Form3Module,
     TrainingSessionsModule,
     RhUsersModule,
+    AuditLogModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: CustomThrottlerGuard },

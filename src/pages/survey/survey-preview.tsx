@@ -1,14 +1,18 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { ROUTES } from "@/routes";
 import { form3Service, getScaleAverage, getNpsScore } from "@/services/form3-service";
 import { tenantService } from "@/services/tenant-service";
 import { formatDate } from "@/utils/format";
 import { RATING4_LABELS, RATING4_EMOJI_URLS, RATING4_BADGE_STYLES } from "@/config/rating4-config";
+import { useAuth } from "@/contexts/auth-context";
+import { formatCpf } from "@/hooks/useForm3";
 import Text from "@/components/ui/text";
 import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
+import Input from "@/components/ui/input";
 
 const INACTIVE_STYLE = "bg-white border-gray-200 text-gray-300 opacity-40";
 
@@ -99,11 +103,105 @@ function SubReasonReadonly({
   );
 }
 
+// ─── CPF Panel ────────────────────────────────────────────────────────────────
+
+function CpfPanel({
+  formId,
+  tenantSlug,
+  cpfJustificativa,
+  cpfAddedAt,
+  isHoldingAdmin,
+}: {
+  formId: string;
+  tenantSlug: string;
+  cpfJustificativa: string | null;
+  cpfAddedAt: string | null;
+  isHoldingAdmin: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [cpfInput, setCpfInput] = useState("");
+  const [cpfError, setCpfError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    const digits = cpfInput.replace(/\D/g, "");
+    if (digits.length !== 11) {
+      setCpfError("CPF deve conter 11 dígitos");
+      return;
+    }
+    setSaving(true);
+    try {
+      await form3Service.updateCpf(tenantSlug, formId, digits);
+      toast.success("CPF adicionado com sucesso");
+      await queryClient.invalidateQueries({ queryKey: ["form3", tenantSlug, formId] });
+    } catch (err) {
+      toast.error(`Erro ao salvar CPF: ${(err as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <span className="text-amber-600 text-lg">⚠</span>
+        <Text variant="body-md-bold" className="text-amber-800">CPF não informado</Text>
+      </div>
+
+      {cpfJustificativa && (
+        <div className="flex flex-col gap-0.5">
+          <Text variant="body-sm" className="text-amber-700 font-semibold">Motivo informado no preenchimento:</Text>
+          <Text variant="body-md" className="text-amber-900">{cpfJustificativa}</Text>
+        </div>
+      )}
+
+      {cpfAddedAt ? (
+        <div className="rounded-xl bg-green-50 border-2 border-green-300 px-4 py-3 flex flex-col gap-0.5">
+          <Text variant="body-sm" className="text-green-700 font-semibold">CPF adicionado posteriormente</Text>
+          <Text variant="body-sm" className="text-green-600">
+            Motivo original: {cpfJustificativa ?? "—"} · Adicionado em {formatDate(cpfAddedAt)}
+          </Text>
+        </div>
+      ) : isHoldingAdmin ? (
+        <div className="flex flex-col gap-2 pt-1">
+          <Text variant="body-sm" className="text-amber-700 font-semibold">Adicionar CPF (somente admin global)</Text>
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <Input
+                label=""
+                type="text"
+                inputMode="numeric"
+                placeholder="000.000.000-00"
+                value={cpfInput}
+                error={cpfError}
+                onChange={(e) => {
+                  setCpfInput(formatCpf(e.target.value));
+                  if (cpfError) setCpfError("");
+                }}
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saving || cpfInput.replace(/\D/g, "").length !== 11}
+              className="shrink-0"
+            >
+              {saving ? "Salvando..." : "Salvar CPF"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Form3Preview() {
   const { tenantSlug = "", id } = useParams<{ tenantSlug: string; id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isHoldingAdmin = user?.role === "holding_admin";
 
   const { data: form, isLoading: formLoading } = useQuery({
     queryKey: ["form3", tenantSlug, id],
@@ -169,16 +267,20 @@ export default function Form3Preview() {
               <InfoItem label="Nome" value={form.patientName} />
               <InfoItem
                 label="CPF"
-                value={form.patientCpf
-                  ? form.patientCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")
-                  : "—"}
+                value={
+                  form.cpfAddedAt && form.patientCpf
+                    ? `${form.patientCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")} (adicionado posteriormente)`
+                    : form.patientCpf
+                    ? form.patientCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")
+                    : "CPF não informado"
+                }
               />
               <InfoItem label="Idade" value={`${form.patientAge} anos`} />
               <InfoItem label="Gênero" value={form.patientGender} />
               <InfoItem label="Data de Admissão" value={formatDate(form.admissionDate)} />
               <InfoItem label="Data de Alta / Atendimento" value={formatDate(form.dischargeDate)} />
               <InfoItem label="Data da Resposta" value={formatDate(form.createdAt)} />
-              <InfoItem label="Média de Satisfação" value={`${avgScale.toFixed(1)}/4`} />
+              <InfoItem label="Média de Satisfação" value={form.recusouResponder ? "Não respondido" : `${avgScale.toFixed(1)}/4`} />
               {nps !== undefined && (
                 <InfoItem
                   label="Recomendaria"
@@ -186,6 +288,25 @@ export default function Form3Preview() {
                 />
               )}
             </div>
+
+            {!form.patientCpf && (
+              <CpfPanel
+                formId={form.id}
+                tenantSlug={tenantSlug}
+                cpfJustificativa={form.cpfJustificativa}
+                cpfAddedAt={form.cpfAddedAt}
+                isHoldingAdmin={isHoldingAdmin}
+              />
+            )}
+
+            {form.cpfAddedAt && form.patientCpf && (
+              <div className="rounded-xl bg-blue-50 border-2 border-blue-200 px-4 py-3 flex flex-col gap-0.5">
+                <Text variant="body-sm" className="text-blue-700 font-semibold">CPF adicionado posteriormente</Text>
+                <Text variant="body-sm" className="text-blue-600">
+                  Motivo original: {form.cpfJustificativa ?? "—"} · Adicionado em {formatDate(form.cpfAddedAt)}
+                </Text>
+              </div>
+            )}
           </div>
         </Card>
 

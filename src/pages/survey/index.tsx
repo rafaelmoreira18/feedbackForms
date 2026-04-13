@@ -9,6 +9,7 @@ import Rating4Input from "@/components/forms/rating4-input";
 import NpsInput from "@/components/forms/nps-input";
 import SectionHeader from "@/components/forms/section-header";
 import { ROUTES } from "@/routes";
+import { CPF_JUSTIFICATIVAS } from "@/types";
 
 export default function SurveyForm3() {
   const {
@@ -31,7 +32,13 @@ export default function SurveyForm3() {
     setComments,
     setCpfError,
     setDateError,
+    cpfOmitido,
+    setCpfOmitido,
+    cpfJustificativa,
+    setCpfJustificativa,
     unansweredKeys,
+    recusouResponder,
+    setRecusouResponder,
     handleSubmit,
   } = useForm3();
 
@@ -80,9 +87,74 @@ export default function SurveyForm3() {
               <SectionHeader icon="👤" title="Informações do Paciente" />
               <Input label="Nome Completo" type="text" value={patientInfo.patientName}
                 onChange={(e) => setPatientInfo({ ...patientInfo, patientName: e.target.value })} required />
-              <Input label="CPF" type="text" inputMode="numeric" placeholder="000.000.000-00"
-                value={patientInfo.patientCpf} error={cpfError}
-                onChange={(e) => { setPatientInfo({ ...patientInfo, patientCpf: formatCpf(e.target.value) }); if (cpfError) setCpfError(""); }} required />
+              {/* CPF field with "não informar" toggle */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Input
+                      label="CPF"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="000.000.000-00"
+                      value={cpfOmitido ? "" : patientInfo.patientCpf}
+                      error={cpfError}
+                      onChange={(e) => {
+                        if (cpfOmitido) {
+                          setCpfOmitido(false);
+                          setCpfJustificativa("");
+                        }
+                        setPatientInfo({ ...patientInfo, patientCpf: formatCpf(e.target.value) });
+                        if (cpfError) setCpfError("");
+                      }}
+                      required={!cpfOmitido}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !cpfOmitido;
+                      setCpfOmitido(next);
+                      if (!next) setCpfJustificativa("");
+                      if (cpfError) setCpfError("");
+                    }}
+                    className={`shrink-0 h-12.5 px-4 rounded-xl border-2 text-xs font-semibold font-sans transition-all duration-200 active:scale-95 ${
+                      cpfOmitido
+                        ? "bg-teal-base border-teal-base text-white cursor-default"
+                        : "bg-white border-gray-200 text-gray-400 hover:border-teal-base hover:text-teal-dark hover:bg-teal-light/20"
+                    }`}
+                  >
+                    Não informar
+                  </button>
+                </div>
+
+                {cpfOmitido && (
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-amber-600 font-sans">
+                      Motivo *
+                    </span>
+                    <div className="flex flex-col gap-1.5">
+                      {CPF_JUSTIFICATIVAS.map((opcao) => (
+                        <button
+                          key={opcao}
+                          type="button"
+                          onClick={() => { setCpfJustificativa(opcao); if (cpfError) setCpfError(""); }}
+                          className={`w-full text-left px-4 py-3 rounded-xl border-2 text-sm font-sans transition-all duration-150 ${
+                            cpfJustificativa === opcao
+                              ? "bg-amber-50 border-amber-500 text-amber-800 font-semibold"
+                              : "bg-white border-gray-200 text-gray-300 hover:border-amber-300 hover:text-amber-700"
+                          }`}
+                        >
+                          {cpfJustificativa === opcao && <span className="mr-2">✓</span>}
+                          {opcao}
+                        </button>
+                      ))}
+                    </div>
+                    {cpfError && (
+                      <p className="text-xs text-red-500 font-sans mt-0.5">{cpfError}</p>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <Input label="Idade" type="number" min="0" max="150" value={patientInfo.patientAge}
                   onChange={(e) => setPatientInfo({ ...patientInfo, patientAge: e.target.value })} required />
@@ -109,9 +181,20 @@ export default function SurveyForm3() {
                   minDate={patientInfo.admissionDate || undefined} error={dateError}
                   onChange={(v) => { setPatientInfo({ ...patientInfo, dischargeDate: v }); if (dateError) setDateError(""); }} />
               </div>
+              <button
+                type="button"
+                onClick={() => setRecusouResponder((prev) => !prev)}
+                className={`w-full px-4 py-3 rounded-xl border-2 text-sm font-semibold font-sans transition-all duration-200 active:scale-95 ${
+                  recusouResponder
+                    ? "bg-teal-base border-teal-base text-white"
+                    : "bg-white border-gray-200 text-gray-400 hover:border-teal-base hover:text-teal-dark hover:bg-teal-light/20"
+                }`}
+              >
+                {recusouResponder ? "✓ Paciente se recusou a responder" : "Paciente se recusou a responder"}
+              </button>
             </section>
 
-            {template.blocks.map((block) => (
+            {!recusouResponder && template.blocks.map((block) => (
               <section key={block.id} className="flex flex-col gap-4">
                 <SectionHeader icon="📋" title={block.title} />
                 {block.questions.map((question) =>
@@ -140,11 +223,13 @@ export default function SurveyForm3() {
               </section>
             ))}
 
-            <section className="flex flex-col gap-3">
-              <SectionHeader icon="📝" title="Comentários Adicionais" subtitle="Opcional" />
-              <Textarea placeholder="Deixe aqui seus comentários, sugestões ou críticas..."
-                value={comments} onChange={(e) => setComments(e.target.value)} />
-            </section>
+            {!recusouResponder && (
+              <section className="flex flex-col gap-3">
+                <SectionHeader icon="📝" title="Comentários Adicionais" subtitle="Opcional" />
+                <Textarea placeholder="Deixe aqui seus comentários, sugestões ou críticas..."
+                  value={comments} onChange={(e) => setComments(e.target.value)} />
+              </section>
+            )}
 
             <Button type="submit" size="lg" className="w-full text-base font-bold tracking-wide" disabled={submitting}>
               {submitting ? (

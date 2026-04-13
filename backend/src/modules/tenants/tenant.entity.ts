@@ -28,6 +28,13 @@ export class TenantEntity {
   @Column({ default: false })
   hasFeedbackForms: boolean;
 
+  /**
+   * Tipo de organização do tenant.
+   * Valores: "hospital" | "UEI" | "clinica" | "laboratorio"
+   */
+  @Column({ type: 'varchar', default: 'hospital' })
+  tipo: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

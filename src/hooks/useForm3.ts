@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { form3Service } from "@/services/form3-service";
 import { tenantService } from "@/services/tenant-service";
-import type { Form3Answer, FormTemplate, Tenant } from "@/types";
+import type { Form3Answer, FormTemplate, Tenant, CpfJustificativa } from "@/types";
 
 export interface PatientInfo {
   patientName: string;
@@ -45,8 +45,12 @@ export function useForm3() {
   const [notFound, setNotFound] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [cpfError, setCpfError] = useState("");
   const [dateError, setDateError] = useState("");
+  const [cpfOmitido, setCpfOmitido] = useState(false);
+  const [cpfJustificativa, setCpfJustificativa] = useState<CpfJustificativa | "">("");
+  const [recusouResponder, setRecusouResponder] = useState(false);
   const [unansweredKeys, setUnansweredKeys] = useState<Set<string>>(new Set());
   const [comments, setComments] = useState("");
 
@@ -113,13 +117,26 @@ export function useForm3() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (submitting) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     let valid = true;
-    if (!isValidCpf(patientInfo.patientCpf)) { setCpfError("CPF inválido"); valid = false; } else setCpfError("");
+
+    if (cpfOmitido) {
+      if (!cpfJustificativa) {
+        setCpfError("Selecione o motivo para não informar o CPF");
+        valid = false;
+      } else {
+        setCpfError("");
+      }
+    } else {
+      if (!isValidCpf(patientInfo.patientCpf)) { setCpfError("CPF inválido"); valid = false; } else setCpfError("");
+    }
+
     if (patientInfo.admissionDate && patientInfo.dischargeDate && patientInfo.dischargeDate < patientInfo.admissionDate) {
       setDateError("A data de alta não pode ser anterior à data de admissão"); valid = false;
     } else setDateError("");
-    if (template) {
+
+    if (!recusouResponder && template) {
       const missing = new Set<string>();
       template.blocks.forEach((block) => {
         block.questions.forEach((q) => {
@@ -135,26 +152,34 @@ export function useForm3() {
       }
     }
 
-    if (!valid || !template) return;
+    if (!valid || !template) {
+      submittingRef.current = false;
+      return;
+    }
 
-    const answersArray = template.blocks.flatMap((block) =>
-      block.questions.map((q) => answers.get(q.questionKey) ?? { questionId: q.questionKey, value: q.scale === "nps" ? 0 : 1 })
-    );
+    const answersArray = recusouResponder
+      ? []
+      : template.blocks.flatMap((block) =>
+          block.questions.map((q) => answers.get(q.questionKey) ?? { questionId: q.questionKey, value: q.scale === "nps" ? 0 : 1 })
+        );
 
     setSubmitting(true);
     try {
       await form3Service.create(tenantSlug, {
         formType: formSlug,
         ...patientInfo,
-        patientCpf: patientInfo.patientCpf.replace(/\D/g, ""),
+        patientCpf: cpfOmitido ? null : patientInfo.patientCpf.replace(/\D/g, ""),
+        cpfJustificativa: cpfOmitido ? (cpfJustificativa as CpfJustificativa) : undefined,
         patientAge: parseInt(patientInfo.patientAge),
         evaluatedDepartment: template.name,
         answers: answersArray,
-        comments,
+        comments: recusouResponder ? "" : comments,
+        recusouResponder,
       });
       setSubmitted(true);
     } catch (err) {
       toast.error(`Erro ao enviar pesquisa: ${(err as Error).message}`);
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -180,6 +205,12 @@ export function useForm3() {
     setComments,
     setCpfError,
     setDateError,
+    cpfOmitido,
+    setCpfOmitido,
+    cpfJustificativa,
+    setCpfJustificativa,
+    recusouResponder,
+    setRecusouResponder,
     handleSubmit,
     navigate,
   };

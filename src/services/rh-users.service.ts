@@ -9,6 +9,7 @@ export interface RhUser {
   ativo: boolean
   tenantSlug: string | null
   tenantNome: string | null
+  sistemas: string[]
 }
 
 export interface CreateRhUserInput {
@@ -38,5 +39,9 @@ export const rhUsersService = {
   listTenants: async (): Promise<RhTenant[]> => {
     const res = await api.get<RhTenant[]>('rh/usuarios/tenants')
     return res.data
+  },
+
+  updateSistemas: async (userId: string, sistemas: string[]): Promise<void> => {
+    await api.patch(`rh/usuarios/${userId}/sistemas`, { sistemas })
   },
 }
