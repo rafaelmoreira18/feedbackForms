@@ -533,7 +533,7 @@ export default function TrainingSurvey() {
     <>
       <style>{ANIM}</style>
       <div className="min-h-screen py-6 px-3 sm:px-4">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-6 px-2">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-400 font-sans">{typeLabel}</h1>

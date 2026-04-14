@@ -39,6 +39,8 @@
     --color-teal-light: #b3eaf1;
     --color-teal-base: #00b4c8;
     --color-teal-dark: #007f8e;
+    /* Orange (for Insatisfeito state in Reação scale) */
+    --color-orange-400: #fb923c;
     /* Mediall brand red */
     --color-brand-red: #e63329;
     /* Neutral dark */
