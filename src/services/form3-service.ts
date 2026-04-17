@@ -3,7 +3,7 @@ import { api } from './api'
 
 export { getScaleAverage, getNpsScore } from './analytics3-service'
 
-function buildQueryString(filters?: Form3Filters & { limit?: number }): string {
+function buildQueryString(filters?: Form3Filters & { limit?: number; includeCpf?: boolean }): string {
   if (!filters) return ''
   const params = new URLSearchParams()
   if (filters.startDate) params.set('startDate', filters.startDate)
@@ -12,6 +12,7 @@ function buildQueryString(filters?: Form3Filters & { limit?: number }): string {
   if (filters.formType) params.set('formType', filters.formType)
   if (filters.page) params.set('page', String(filters.page))
   if (filters.limit) params.set('limit', String(filters.limit))
+  if (filters.includeCpf) params.set('includeCpf', 'true')
   const qs = params.toString()
   return qs ? `?${qs}` : ''
 }
@@ -56,7 +57,7 @@ export const form3Service = {
     return res.data
   },
 
-  getAllForReport: async (tenantSlug: string, filters?: Form3Filters): Promise<Form3Response[]> => {
+  getAllForReport: async (tenantSlug: string, filters?: Form3Filters & { includeCpf?: boolean }): Promise<Form3Response[]> => {
     const PAGE_SIZE = 200
     const firstQs = buildQueryString({ ...filters, page: 1, limit: PAGE_SIZE })
     const firstRes = await api.get<Form3Response[] | PaginatedResponse<Form3Response>>(

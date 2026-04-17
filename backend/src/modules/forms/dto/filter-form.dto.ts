@@ -1,5 +1,5 @@
-import { IsOptional, IsDateString, IsString, IsIn, IsInt, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsDateString, IsString, IsIn, IsInt, IsBoolean, Min, Max } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 export class FilterForm3Dto {
   @IsOptional()
@@ -30,4 +30,9 @@ export class FilterForm3Dto {
   @Min(1)
   @Max(200)
   limit?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  includeCpf?: boolean;
 }

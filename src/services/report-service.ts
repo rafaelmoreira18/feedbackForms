@@ -111,7 +111,7 @@ function drawResponsesTable(
     const row = [
       String(form.patientName ?? "").substring(0, 22),
       String(form.formType ?? "").substring(0, 16),
-      String(form.patientCpf ?? ""),
+      form.patientCpf ?? "Não informado",
       formatRating(Math.round(avg * 10) / 10),
       formatDate(form.createdAt),
     ];

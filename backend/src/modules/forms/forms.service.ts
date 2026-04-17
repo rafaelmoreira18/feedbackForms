@@ -114,8 +114,11 @@ export class Form3Service {
     qb.skip((page - 1) * limit).take(limit);
 
     const [data, total] = await qb.getManyAndCount();
-    const masked = data.map((r) => ({ ...r, patientCpf: maskCpf(r.patientCpf) }));
-    return { data: masked, total, page, limit };
+    const mapped = data.map((r) => ({
+      ...r,
+      patientCpf: filters?.includeCpf ? r.patientCpf : maskCpf(r.patientCpf),
+    }));
+    return { data: mapped, total, page, limit };
   }
 
   async findById(tenantId: string, id: string): Promise<Form3Response> {

@@ -14,6 +14,7 @@ import DateInput from "@/components/ui/date-input";
 import MetricCard from "@/components/ui/metric-card";
 import Form3Table from "@/components/dashboard/form3-table";
 import Pagination from "@/components/ui/pagination";
+import { ModalPdfCpf } from "@/components/ui/modal/modal-pdf-cpf";
 
 const PAGE_SIZE = 50;
 
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [form3DeptFilter, setForm3DeptFilter] = useState<string>("");
   const [isExporting, setIsExporting] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
 
   const isHoldingAdmin = user?.role === 'holding_admin';
   const isGlobalRhAdmin = user?.role === 'rh_admin' && !user?.tenantId;
@@ -95,7 +97,12 @@ export default function Dashboard() {
     setForm3DeptFilter("");
   };
 
-  const handleExportPdf = async () => {
+  const handleExportPdf = () => {
+    if (!metrics) return;
+    setShowPdfModal(true);
+  };
+
+  const handlePdfConfirm = async (includeCpf: boolean) => {
     if (!metrics) return;
     setIsExporting(true);
     try {
@@ -104,6 +111,7 @@ export default function Dashboard() {
         endDate,
         sortSatisfaction,
         formType: form3DeptFilter || undefined,
+        includeCpf,
       });
       generateDashboardReport(allFiltered, metrics, filteredFilters, allForms.length);
     } finally {
@@ -223,6 +231,12 @@ export default function Dashboard() {
 
         </div>
       </div>
+
+      <ModalPdfCpf
+        open={showPdfModal}
+        onClose={() => setShowPdfModal(false)}
+        onConfirm={handlePdfConfirm}
+      />
     </div>
   );
 }
