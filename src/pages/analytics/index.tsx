@@ -262,7 +262,13 @@ export default function Analytics3() {
               .filter(({ dept }, i) => selectedQuestionDept ? dept === selectedQuestionDept : i === 0)
               .map(({ dept, questions }) => (
                 <Card key={dept} shadow="md" padding="lg">
-                  <Text variant="body-sm-bold" className="text-gray-400 mb-4">{dept}</Text>
+                  <div className="flex items-center justify-between mb-4">
+                    <Text variant="body-sm-bold" className="text-gray-400">{dept}</Text>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ border: "1px solid #4a90e2", backgroundColor: "rgba(74,144,226,0.15)", boxShadow: "0 0 8px rgba(74,144,226,0.25)" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" style={{ color: "#4a90e2" }} className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
+                      <span className="text-xs font-semibold whitespace-nowrap" style={{ color: "#111827" }}>Clique na pergunta para análise detalhada</span>
+                    </div>
+                  </div>
                   <ResponsiveContainer width="100%" height={Math.max(280, questions.length * 72)}>
                     <BarChart
                       data={questions}
