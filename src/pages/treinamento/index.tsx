@@ -109,17 +109,22 @@ interface ScaleButtonProps {
 function ScaleButton({ value, selected, label, emojiUrl, activeStyle, inactiveStyle, onClick }: ScaleButtonProps) {
   const isActive = selected === value;
   return (
-    <button
-      type="button"
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={() => onClick(isActive ? 0 : value)}
-      className={`flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border-2 font-semibold text-xs transition-all duration-150 flex-1 min-w-0 ${isActive ? activeStyle : inactiveStyle}`}
-    >
-      {isActive && (
-        <img key={`${value}-active`} src={emojiUrl} alt={label} width={20} height={20} className="emoji-pop shrink-0" />
-      )}
-      <span className="truncate">{label}</span>
-    </button>
+    <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
+      <span className={`text-[10px] sm:hidden font-semibold text-center leading-tight w-full min-h-[2.5em] flex items-end justify-center ${isActive ? "text-gray-500" : "text-gray-300"}`}>
+        {label}
+      </span>
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => onClick(isActive ? 0 : value)}
+        className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 py-3 rounded-xl border-2 font-semibold text-xs transition-all duration-150 w-full ${isActive ? activeStyle : inactiveStyle}`}
+      >
+        {isActive && (
+          <img key={`${value}-active`} src={emojiUrl} alt={label} width={20} height={20} className="emoji-pop shrink-0" />
+        )}
+        <span className="hidden sm:inline truncate">{label}</span>
+      </button>
+    </div>
   );
 }
 
