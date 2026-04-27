@@ -30,10 +30,8 @@ export class RhUsersService {
   ) {}
 
   async findTenants(): Promise<{ id: string; slug: string; nome: string }[]> {
-    const tenants = await this.tenantService.findAll();
-    return tenants
-      .map((t) => ({ id: t.id, slug: t.slug, nome: t.name }))
-      .sort((a, b) => a.nome.localeCompare(b.nome));
+    const tenants = await this.tenantService.findAllActive();
+    return tenants.map((t) => ({ id: t.id, slug: t.slug, nome: t.name }));
   }
 
   async findAll(): Promise<RhUserRow[]> {

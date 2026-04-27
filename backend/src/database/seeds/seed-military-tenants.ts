@@ -16,6 +16,10 @@ const MILITARY_TENANTS = [
   { slug: 'hrte', name: 'Hospital Regional de Tefé - AM' },
   { slug: 'uhtb', name: 'Unidade Hospitalar de Tabatinga - AM' },
   { slug: 'uhhu', name: 'Unidade Hospitalar de Humaitá - AM' },
+  { slug: 'uti-hmab', name: 'UTI - Hospital Militar de Área de Brasília' },
+  { slug: 'uti-tefe', name: 'UTI - Tefé' },
+  { slug: 'uti-tabatinga', name: 'UTI - Tabatinga' },
+  { slug: 'uti-humaita', name: 'UTI - Humaitá' },
 ];
 
 async function seed() {

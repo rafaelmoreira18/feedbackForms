@@ -31,6 +31,11 @@ export class TenantService {
     return this.tenantRepo.find({ where: { active: true, hasFeedbackForms: true } });
   }
 
+  /** Returns all active tenants regardless of hasFeedbackForms — for RH user assignment. */
+  async findAllActive(): Promise<TenantEntity[]> {
+    return this.tenantRepo.find({ where: { active: true }, order: { name: 'ASC' } });
+  }
+
   /** Returns tenants that appear in /treinamentos: hasFeedbackForms=true + sede Mediall. */
   async findAllForTraining(): Promise<TenantEntity[]> {
     return this.tenantRepo
