@@ -263,7 +263,7 @@ function EditModal({ pesquisa, tenantSlug, onClose }: {
 
 function PesquisaCard({
   pesquisa,
-  tenantSlug,
+  tenantSlug: _tenantSlug,
   isSelected,
   copied,
   toggleAtivaPending,

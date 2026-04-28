@@ -136,7 +136,7 @@ function BlocoForm({ pesquisa, answers, onChange }: {
     <>
       {pesquisa.blocos.map(bloco => (
         <div key={bloco.id} className="flex flex-col gap-6">
-          <SectionHeader title={bloco.titulo} subtitle={bloco.descricao} />
+          <SectionHeader icon="📋" title={bloco.titulo} subtitle={bloco.descricao} />
           {bloco.perguntas.map(p => (
             <div key={p.id} className="flex flex-col gap-2">
               <PerguntaInput
@@ -270,7 +270,7 @@ export default function PesquisaCorporativaPublica() {
           {/* Metadados (antes do formulário) */}
           {step === 'metadados' && (
             <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col gap-6">
-              <SectionHeader title="Antes de começar" subtitle="Essas informações nos ajudam a entender melhor os resultados." />
+              <SectionHeader icon="👤" title="Antes de começar" subtitle="Essas informações nos ajudam a entender melhor os resultados." />
 
               <Input
                 label="Seu nome (opcional)"
