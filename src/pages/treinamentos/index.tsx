@@ -805,7 +805,7 @@ function PairedSessionCard({
 export default function Treinamentos() {
   const { tenantSlug: slugFromUrl = "" } = useParams<{ tenantSlug: string }>();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const isGlobalAdmin = user?.role === "holding_admin" || user?.role === "rh_admin";
 
   // Global rh_admin: no slug in URL — show tenant selector
@@ -896,6 +896,11 @@ export default function Treinamentos() {
           <Button size="sm" onClick={() => setShowCreate(true)} disabled={!tenantSlug}>
             + Nova Pesquisa
           </Button>
+          {tenantSlug && (
+            <Button variant="outline" size="sm" onClick={() => navigate(ROUTES.pesquisasCorporativas(tenantSlug))}>
+              Pesquisas Corporativas
+            </Button>
+          )}
           {!user?.tenantId && (
             <Link to={ROUTES.rhUsuarios}>
               <Button variant="outline" size="sm">
@@ -903,9 +908,6 @@ export default function Treinamentos() {
               </Button>
             </Link>
           )}
-          <Button variant="secondary" size="sm" onClick={logout}>
-            Sair
-          </Button>
         </div>
       </div>
 

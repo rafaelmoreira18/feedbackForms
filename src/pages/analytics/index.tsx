@@ -56,11 +56,13 @@ export default function Analytics3() {
   const [drillDetail, setDrillDetail] = useState<QuestionDetail | null>(null);
   const [selectedQuestionDept, setSelectedQuestionDept] = useState<string>("");
 
+  // Usa getAllForReport (paginado internamente, 200/página) em vez de getAll (sem paginação)
   const { data: allForms = [], isLoading: formsLoading } = useQuery({
-    queryKey: ["forms3", tenantSlug],
-    queryFn: () => form3Service.getAll(tenantSlug),
+    queryKey: ["forms3-report", tenantSlug],
+    queryFn: () => form3Service.getAllForReport(tenantSlug),
     enabled: !!tenantSlug,
     throwOnError: false,
+    staleTime: 10 * 60_000, // analytics pode ficar 10min em cache
   });
 
   const { data: templates = [] } = useQuery({

@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { ClipboardList, LayoutDashboard, LogOut } from "lucide-react";
+import { ClipboardList, LayoutDashboard, LogOut, Users, LineChart } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useQuery } from "@tanstack/react-query";
 import { tenantService } from "@/services/tenant-service";
@@ -78,6 +78,19 @@ export default function Header() {
               </button>
             )}
 
+            {/* Pesquisas Corporativas — rh_admin */}
+            {user.role === 'rh_admin' && activeTenantSlug && (
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.pesquisasCorporativas(activeTenantSlug))}
+                title="Pesquisas Corporativas"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-teal-base hover:bg-teal-light transition-colors duration-150"
+              >
+                <LineChart size={20} />
+                <span className="text-sm font-semibold font-sans hidden sm:inline">Pesquisas</span>
+              </button>
+            )}
+
             {/* Dashboard — admin roles, hidden when already on dashboard */}
             {isAdminRole && !isDashboard && (
               <button
@@ -88,6 +101,19 @@ export default function Header() {
               >
                 <LayoutDashboard size={20} />
                 <span className="text-sm font-semibold font-sans hidden sm:inline">Dashboard</span>
+              </button>
+            )}
+
+            {/* Usuários — holding_admin only */}
+            {isHoldingAdmin && (
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.adminUsuarios)}
+                title="Usuários"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-teal-base hover:bg-teal-light transition-colors duration-150"
+              >
+                <Users size={20} />
+                <span className="text-sm font-semibold font-sans hidden sm:inline">Usuários</span>
               </button>
             )}
 

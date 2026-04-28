@@ -166,3 +166,63 @@ export interface CreateTrainingSessionDto {
   trainingType: TrainingType;
   instructor: string;
 }
+
+// ─── Pesquisas Corporativas ────────────────────────────────────────────────────
+
+export type PesquisaEscala = 'likert5' | 'likert3' | 'nps' | 'aberta' | 'opcoes' | 'multipla' | 'booleano';
+
+export interface PesquisaPergunta {
+  id: string;
+  texto: string;
+  escala: PesquisaEscala;
+  opcoes?: string[];
+  obrigatoria: boolean;
+  ordem: number;
+}
+
+export interface PesquisaBloco {
+  id: string;
+  titulo: string;
+  descricao?: string;
+  ordem: number;
+  perguntas: PesquisaPergunta[];
+}
+
+export interface PesquisaCorporativa {
+  id: string;
+  tenantId: string | null;
+  titulo: string;
+  slug: string;
+  tipo: string;
+  blocos: PesquisaBloco[];
+  ativa: boolean;
+  periodo: string | null;
+  criadoEm: string;
+}
+
+export interface PesquisaAnswer {
+  perguntaId: string;
+  valor: number | string | boolean | string[];
+}
+
+export interface CreatePesquisaRespostaDto {
+  nomeRespondente?: string;
+  metadados?: Record<string, unknown>;
+  answers: PesquisaAnswer[];
+}
+
+export interface PesquisaResposta {
+  id: string;
+  tenantId: string;
+  pesquisaId: string;
+  nomeRespondente: string;
+  metadados: Record<string, unknown>;
+  answers: PesquisaAnswer[];
+  criadoEm: string;
+}
+
+export interface PesquisaMetricas {
+  total: number;
+  mediaGeral: number | null;
+  porPergunta: Record<string, { media: number; total: number }>;
+}

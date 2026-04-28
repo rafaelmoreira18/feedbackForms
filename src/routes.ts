@@ -13,4 +13,9 @@ export const ROUTES = {
   treinamento: (tenantSlug: string, sessionSlug: string) => `/${tenantSlug}/treinamento/${sessionSlug}`,
   // RH Users
   rhUsuarios: '/rh/usuarios',
+  // Admin Users
+  adminUsuarios: '/admin/usuarios',
+  // Pesquisas Corporativas
+  pesquisasCorporativas: (tenantSlug: string) => `/${tenantSlug}/pesquisas-corporativas`,
+  pesquisaCorporativaPublica: (tenantSlug: string, pesquisaSlug: string) => `/${tenantSlug}/pesquisa-corporativa/${pesquisaSlug}`,
 } as const;

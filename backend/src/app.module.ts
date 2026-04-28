@@ -11,6 +11,7 @@ import { FormTemplateModule } from './modules/form-templates/form-template.modul
 import { Form3Module } from './modules/forms/forms.module';
 import { TrainingSessionsModule } from './modules/training-sessions/training-sessions.module';
 import { RhUsersModule } from './modules/rh-users/rh-users.module';
+import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { TenantEntity } from './modules/tenants/tenant.entity';
 import { Form3ResponseEntity } from './modules/forms/forms.entity';
 import {
@@ -22,6 +23,9 @@ import { TrainingSessionEntity } from './modules/training-sessions/training-sess
 import { TrainingResponseEntity } from './modules/training-sessions/training-response.entity';
 import { AuditLogEntity } from './modules/audit-log/audit-log.entity';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { PesquisasCorporativasModule } from './modules/pesquisas-corporativas/pesquisas-corporativas.module';
+import { PesquisaCorporativaEntity } from './modules/pesquisas-corporativas/entities/pesquisa-corporativa.entity';
+import { PesquisaRespostaEntity } from './modules/pesquisas-corporativas/entities/pesquisa-resposta.entity';
 
 @Module({
   imports: [
@@ -60,6 +64,8 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
           TrainingSessionEntity,
           TrainingResponseEntity,
           AuditLogEntity,
+          PesquisaCorporativaEntity,
+          PesquisaRespostaEntity,
         ],
         synchronize: config.get<string>('DB_SYNCHRONIZE', 'false') === 'true',
         ssl:
@@ -82,7 +88,9 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
     Form3Module,
     TrainingSessionsModule,
     RhUsersModule,
+    AdminUsersModule,
     AuditLogModule,
+    PesquisasCorporativasModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: CustomThrottlerGuard },

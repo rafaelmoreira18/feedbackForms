@@ -2,13 +2,13 @@ import axios from 'axios'
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
-  withCredentials: true, // send HttpOnly auth_token cookie on every request
+  withCredentials: true,
+  timeout: 30_000, // 30s — evita requests pendurados indefinidamente
 })
 
 api.interceptors.response.use(
   (res) => {
     // Unwrap NestJS envelope: { data, statusCode, timestamp } → data
-    // Identificado de forma estrita: requer exatamente statusCode + timestamp presentes
     if (
       res.data &&
       typeof res.data === 'object' &&

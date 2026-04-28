@@ -5,7 +5,19 @@ import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { ROUTES } from "@/routes";
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60_000,   // 5 min — dados de analytics não mudam a cada segundo
+      gcTime: 30 * 60_000,     // 30 min em cache após ficar inativo
+      retry: (failureCount, error: unknown) => {
+        // Não tenta novamente em 401/403 — são erros de auth, não transientes
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        if (status === 401 || status === 403) return false;
+        return failureCount < 2;
+      },
+      refetchOnWindowFocus: false, // evita re-fetch desnecessário ao focar janela
+    },
+  },
 });
 import Header from "@/components/layout/header";
 import Home from "@/pages/home";
@@ -19,6 +31,9 @@ import Form3Preview from "@/pages/survey/survey-preview";
 import Treinamentos from "@/pages/treinamentos";
 import TrainingSurvey from "@/pages/treinamento";
 import RhUsuarios from "@/pages/rh-usuarios";
+import AdminUsuarios from "@/pages/admin-usuarios";
+import PesquisasCorporativas from "@/pages/pesquisas-corporativas";
+import PesquisaCorporativaPublica from "@/pages/pesquisa-corporativa";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth();
@@ -62,8 +77,15 @@ function AppRoutes() {
       <Route path="/:tenantSlug/treinamentos" element={<RhRoute><Treinamentos /></RhRoute>} />
       <Route path="/:tenantSlug/treinamento/:sessionSlug" element={<TrainingSurvey />} />
 
+      {/* Pesquisas Corporativas — gestão (RH) e formulário público */}
+      <Route path="/:tenantSlug/pesquisas-corporativas" element={<RhRoute><PesquisasCorporativas /></RhRoute>} />
+      <Route path="/:tenantSlug/pesquisa-corporativa/:pesquisaSlug" element={<PesquisaCorporativaPublica />} />
+
       {/* RH Users — only global rh_admin (no tenantId) */}
       <Route path="/rh/usuarios" element={<RhRoute requireGlobal><RhUsuarios /></RhRoute>} />
+
+      {/* Admin Users — only holding_admin */}
+      <Route path="/admin/usuarios" element={<AdminRoute><AdminUsuarios /></AdminRoute>} />
 
       {/* Admin only */}
       <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
@@ -91,8 +113,10 @@ function AppShell() {
     !path.endsWith("/analytics") &&
     !path.endsWith("/pesquisa") &&
     !path.endsWith("/treinamentos") &&
+    !path.endsWith("/pesquisas-corporativas") &&
     !path.includes("/responses/") &&
-    !path.includes("/treinamento/");
+    !path.includes("/treinamento/") &&
+    !path.includes("/pesquisa-corporativa/");
 
   return (
     <div
