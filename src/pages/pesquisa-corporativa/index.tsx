@@ -68,10 +68,14 @@ function PerguntaInput({ pergunta, value, onChange }: {
   value: PesquisaAnswer['valor'] | undefined
   onChange: (v: PesquisaAnswer['valor']) => void
 }) {
+  const label = pergunta.obrigatoria
+    ? <>{pergunta.texto} <span className="text-red-base">*</span></>
+    : pergunta.texto
+
   if (pergunta.escala === 'likert5') {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-sm font-semibold text-gray-400">{pergunta.texto}</p>
+        <p className="text-sm font-semibold text-gray-400">{label}</p>
         <div className="flex gap-2">
           {LIKERT5_CONFIG.map(cfg => (
             <Likert5Button
@@ -89,7 +93,7 @@ function PerguntaInput({ pergunta, value, onChange }: {
   if (pergunta.escala === 'opcoes') {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-sm font-semibold text-gray-400">{pergunta.texto}</p>
+        <p className="text-sm font-semibold text-gray-400">{label}</p>
         <div className="grid grid-cols-2 gap-2">
           {(pergunta.opcoes ?? []).map(opt => {
             const isActive = value === opt
@@ -113,7 +117,7 @@ function PerguntaInput({ pergunta, value, onChange }: {
   if (pergunta.escala === 'aberta') {
     return (
       <Textarea
-        label={pergunta.texto}
+        label={<>{pergunta.texto}{pergunta.obrigatoria && <span className="text-red-base"> *</span>}</>}
         value={(value as string) ?? ''}
         onChange={e => onChange(e.target.value)}
         placeholder="Sua resposta..."
@@ -195,7 +199,13 @@ export default function PesquisaCorporativaPublica() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const obrigatorias = pesquisa?.blocos.flatMap(b => b.perguntas.filter(p => p.obrigatoria)) ?? []
-    const faltando = obrigatorias.filter(p => answers[p.id] === undefined || answers[p.id] === '' || answers[p.id] === 0)
+    const faltando = obrigatorias.filter(p => {
+      const v = answers[p.id]
+      if (v === undefined || v === null) return true
+      if (typeof v === 'number') return v === 0
+      if (typeof v === 'string') return v.trim() === ''
+      return false
+    })
     if (faltando.length > 0) {
       toast.error(`Responda todas as perguntas obrigatórias (${faltando.length} pendente${faltando.length > 1 ? 's' : ''})`)
       return

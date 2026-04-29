@@ -89,11 +89,11 @@ const blocos: PesquisaBloco[] = [
     titulo: 'Perguntas Abertas',
     ordem: 8,
     perguntas: [
-      { id: uuid(), texto: 'O que a Mediall faz bem em relação às pessoas?', escala: 'aberta', obrigatoria: false, ordem: 1 },
-      { id: uuid(), texto: 'O que precisa melhorar no ambiente de trabalho?', escala: 'aberta', obrigatoria: false, ordem: 2 },
-      { id: uuid(), texto: 'O que seu líder poderia fazer melhor?', escala: 'aberta', obrigatoria: false, ordem: 3 },
-      { id: uuid(), texto: 'Cite uma situação positiva que você viveu na empresa', escala: 'aberta', obrigatoria: false, ordem: 4 },
-      { id: uuid(), texto: 'Cite uma situação que poderia ter sido melhor conduzida', escala: 'aberta', obrigatoria: false, ordem: 5 },
+      { id: uuid(), texto: 'O que a Mediall faz bem em relação às pessoas?', escala: 'aberta', obrigatoria: true, ordem: 1 },
+      { id: uuid(), texto: 'O que precisa melhorar no ambiente de trabalho?', escala: 'aberta', obrigatoria: true, ordem: 2 },
+      { id: uuid(), texto: 'O que seu líder poderia fazer melhor?', escala: 'aberta', obrigatoria: true, ordem: 3 },
+      { id: uuid(), texto: 'Cite uma situação positiva que você viveu na empresa', escala: 'aberta', obrigatoria: true, ordem: 4 },
+      { id: uuid(), texto: 'Cite uma situação que poderia ter sido melhor conduzida', escala: 'aberta', obrigatoria: true, ordem: 5 },
     ],
   },
 ];

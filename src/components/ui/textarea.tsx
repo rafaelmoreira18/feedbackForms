@@ -1,12 +1,12 @@
 import React from "react";
 
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  label?: string;
+  label?: React.ReactNode;
   error?: string;
 }
 
 export default function Textarea({ label, error, className, id, ...props }: TextareaProps) {
-  const textareaId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
+  const textareaId = id ?? (typeof label === 'string' ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
   return (
     <div className="flex flex-col gap-1.5">
       {label && (

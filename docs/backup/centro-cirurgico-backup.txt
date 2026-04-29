@@ -1,0 +1,63 @@
+BACKUP – Formulário Centro Cirúrgico
+Removido do banco em 2026-04-06 (havia sido deletado manualmente em ~2026-04-03 e recriado acidentalmente pelo seed em 06/04)
+Nenhuma resposta (form3_responses) existia para este formulário.
+
+Tenants afetados: hrgm, hmmdo, hrpg
+
+======================================================================
+BLOCO 1 – Satisfação do Paciente (Infraestrutura e ambiente do Centro Cirúrgico)
+======================================================================
+
+q1 – Como você avalia as condições gerais das instalações do Centro Cirúrgico?
+  Scale: rating4 (Ruim / Regular / Bom / Excelente)
+  Justificativas:
+    - Instalações com aparência de falta de manutenção ou desgaste
+    - Ambiente percebido como pouco organizado
+    - Temperatura inadequada nas áreas do centro cirúrgico
+
+q2 – Como você avalia a limpeza e organização dos ambientes do Centro Cirúrgico?
+  Scale: rating4
+  Justificativas:
+    - Ambiente com aparência de higienização insatisfatória
+    - Presença de materiais ou equipamentos fora do lugar
+    - Limpeza das áreas de circulação realizada com pouca frequência
+
+q3 – Como você avalia o conforto e a organização das áreas de preparo e recuperação?
+  Scale: rating4
+  Justificativas:
+    - Maca ou cama de recuperação desconfortável
+    - Temperatura inadequada na sala de recuperação
+    - Tempo de espera no pré-operatório foi excessivo sem informação
+
+======================================================================
+BLOCO 2 – Experiência do Paciente (Atendimento e processo assistencial cirúrgico)
+======================================================================
+
+q4 – Como você avalia o atendimento prestado pela equipe de enfermagem no período cirúrgico?
+  Scale: rating4
+  Justificativas:
+    - Pouca explicação sobre os procedimentos realizados no pré ou pós-operatório
+    - Demora no atendimento às necessidades durante a recuperação
+    - Falta de empatia ou acolhimento em momento de ansiedade
+
+q5 – Como você avalia o atendimento prestado pela equipe médica relacionado ao procedimento cirúrgico?
+  Scale: rating4
+  Justificativas:
+    - Explicação pré-operatória sobre o procedimento foi insuficiente
+    - Pouca presença do médico no pós-operatório imediato
+    - Dificuldade em obter respostas às dúvidas sobre o procedimento
+
+q6 – Como você avalia a clareza das orientações recebidas antes e após o procedimento cirúrgico?
+  Scale: rating4
+  Justificativas:
+    - Instruções pré-operatórias foram confusas ou entregues com pouca antecedência
+    - Orientações de cuidados pós-cirúrgicos foram insuficientes
+    - Não foram informados os sinais de alerta que demandam retorno ao hospital
+
+======================================================================
+BLOCO 3 – Recomendação
+======================================================================
+
+nps – Você recomendaria este serviço a um amigo ou familiar?
+  Scale: nps (0–10 ou Sim/Não conforme configuração vigente)
+  Justificativas: nenhuma

@@ -138,22 +138,8 @@ O sistema valida o CPF contra o algoritmo oficial de dígitos verificadores ante
 
 ---
 
-## 7. Comparativo com o Sistema Anterior (Google Forms)
 
-| Critério | Google Forms (anterior) | Sistema atual |
-|---|---|---|
-| Identificação do paciente | Não havia | Nome, idade, gênero, CPF ou justificativa |
-| Vinculação com internação | Não havia | Data de internação, alta e setor avaliado |
-| Trilha de auditoria | Não havia | Tabela `audit_logs` imutável com IP, usuário, timestamp |
-| Controle de acesso por unidade | Não havia | Isolamento por tenant com JWT |
-| Validação de dados | Não havia | Validação de CPF, campos obrigatórios, justificativas controladas |
-| Imutabilidade de timestamps | Google podia ser editado | `createdAt` gerado pelo servidor, não editável |
-| Soft-delete com rastreabilidade | Não havia | `deletedAt` preserva registro fisicamente |
-| Segregação por unidade hospitalar | Planilha única compartilhada | Banco de dados separado por unidade |
-
----
-
-## 8. Conclusão
+## 7. Conclusão
 
 O sistema de pesquisa de satisfação descrito neste documento atende aos requisitos de rastreabilidade, identificação de pacientes e integridade de dados exigidos para acreditação ONA. Diferentemente do Google Forms, cada resposta está vinculada a um paciente identificado (por CPF ou justificativa documentada), a um período de internação, a um setor específico e a um registro imutável de auditoria que permite determinar **quem coletou a informação, quando, de qual IP e em qual unidade hospitalar**.
 

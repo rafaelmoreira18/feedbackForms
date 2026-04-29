@@ -1,0 +1,158 @@
+================================================================================
+FEEDBACKFORMS — ARCHITECTURE ANALYSIS
+Date: 2026-03-30
+================================================================================
+
+OVERALL ARCHITECTURE RATING: 6.5 / 10
+
+--------------------------------------------------------------------------------
+STACK OVERVIEW
+--------------------------------------------------------------------------------
+Frontend : React 19 + TypeScript + Vite + Tailwind CSS + React Router DOM v7
+Backend  : NestJS 11 + TypeORM 0.3 + PostgreSQL (AWS RDS sa-east-1)
+Auth     : JWT (Bearer token, 1-day expiry, role-based access)
+Tenancy  : Row-level isolation (single database, tenant_id column per table)
+Deploy   : Frontend → nginx static, Backend → Node.js process (no Docker)
+
+--------------------------------------------------------------------------------
+WHAT IS GOOD (STRENGTHS)
+--------------------------------------------------------------------------------
+
+1. MODULAR BACKEND STRUCTURE
+   - NestJS modules cleanly separate concerns:
+     auth / user / tenants / forms / form-templates / training-sessions /
+     rh-users
+   - Guards, filters, and interceptors are in common/ (reusable)
+   - DI via @InjectRepository keeps services testable
+
+2. DTO-DRIVEN VALIDATION
+   - Every controller uses class-validator DTOs
+   - ValidationPipe is global — bad input is rejected at the edge
+   - CPF gets a custom validator (real-world domain rule enforced)
+
+3. MULTI-TENANCY PATTERN
+   - All tenant-scoped tables carry a tenantId column
+   - Tenant is resolved from URL slug before any business logic runs
+   - No cross-database complexity — single DB, one connection pool
+
+4. FRONTEND SERVICE LAYER
+   - API calls live in dedicated service files (api.ts, form-service.ts, etc.)
+   - React Query handles caching, loading and error states
+   - Auth context provides a single source of truth for user session
+
+5. TYPESCRIPT THROUGHOUT
+   - Shared types in src/types/index.ts
+   - TypeORM entities use TypeScript class decorators
+   - No loose `any` usage in critical paths
+
+6. PUBLIC vs PROTECTED SPLIT
+   - Form submission endpoints are public (no login needed)
+   - Dashboard, analytics, training management require JWT
+   - Role hierarchy: holding_admin > hospital_admin > viewer / rh_admin
+
+7. PARAMETERIZED QUERIES
+   - TypeORM QueryBuilder uses named parameters (:param)
+   - Raw pg queries use $1/$2 placeholders
+   - No string concatenation in SQL
+
+--------------------------------------------------------------------------------
+WEAKNESSES & ARCHITECTURAL ISSUES
+--------------------------------------------------------------------------------
+
+1. NO SEPARATION BETWEEN API LAYER AND BUSINESS LOGIC  [MEDIUM]
+   - Some controllers contain business logic that should live in services
+   - Example: tenant validation and response mapping in controller methods
+   - Risk: harder to unit-test, logic duplication
+
+2. SINGLE DATABASE — NO CONNECTION POOLING LIMITS  [MEDIUM]
+   - One TypeORM DataSource for all modules
+   - No pool size configuration (uses TypeORM default: 10 connections)
+   - Under load, analytics queries can exhaust the pool
+   Fix: set extra: { max: 20, idleTimeoutMillis: 30000 }
+
+3. ANALYTICS QUERIES NOT OPTIMIZED  [MEDIUM]
+   - forms3/metrics loads all responses into memory then aggregates
+   - JSONB answers array is filtered client-side after fetch
+   - As data grows (thousands of records) this will degrade significantly
+   Fix: push aggregation to PostgreSQL (GROUP BY, jsonb_array_elements)
+
+4. NO CACHING LAYER  [MEDIUM]
+   - Every analytics request hits the database
+   - No Redis or in-memory cache
+   - Dashboard metrics don't change frequently — should be cached 60–300s
+
+5. TRAINING MODULE IS A COPY-PASTE OF FORMS MODULE  [LOW-MEDIUM]
+   - training-responses mirrors form3-responses in structure
+   - Shared patterns (pagination, tenant scoping, metrics) are duplicated
+   - A shared base service / generic repository would reduce ~40% of code
+
+6. FRONTEND ROUTES FILE IS FLAT  [LOW]
+   - ROUTES constant in routes.ts grows as a flat map
+   - No route grouping by feature (auth, hospital, rh)
+   - Route protection logic is repeated per page component
+
+7. NO VERSIONING ON API  [LOW]
+   - All routes are /api/... with no /v1/ prefix
+   - Breaking changes require coordinated frontend + backend deploy
+   Fix: use NestJS versioning (app.enableVersioning())
+
+8. MISSING DATABASE INDEXES  [MEDIUM]
+   - form3_responses: no index on (tenantId, createdAt) — critical for analytics
+   - training_responses: no index on (sessionId, tenantId)
+   - form_templates: slug column has @Index but no composite (tenantId, slug)
+   Fix: add TypeORM @Index(['tenantId', 'createdAt']) decorators
+
+9. NO BACKGROUND JOB INFRASTRUCTURE  [LOW]
+   - Email notifications, report generation would need to be synchronous today
+   - No queue (BullMQ / Redis) configured
+   - Acceptable for current scale; will become a blocker at growth
+
+10. SEED SCRIPTS NOT IDEMPOTENT  [LOW]
+    - seed-first-tenant.ts and seed-other-tenants.ts fail if re-run
+    - Should use INSERT ... ON CONFLICT DO NOTHING
+
+--------------------------------------------------------------------------------
+SCALABILITY PROFILE
+--------------------------------------------------------------------------------
+Current scale  : Small (< 1,000 responses/day) — architecture is fine
+Medium scale   : 1,000–50,000 responses/day — needs indexes + caching
+Large scale    : 50,000+ responses/day — needs query optimization, read replicas
+
+--------------------------------------------------------------------------------
+IMPROVEMENT PLAN — ARCHITECTURE
+--------------------------------------------------------------------------------
+
+PRIORITY 1 (Immediate — correctness & stability)
+  [A1] Add composite indexes on (tenantId, createdAt) for form3_responses
+       and training_responses
+  [A2] Add connection pool size config (max: 20, idleTimeoutMillis: 30000)
+  [A3] Add query/statement timeouts (30s) in TypeORM extra config
+  [A4] Make seed scripts idempotent (ON CONFLICT DO NOTHING)
+
+PRIORITY 2 (Short-term — performance)
+  [A5] Move analytics aggregation to SQL (jsonb_array_elements, GROUP BY)
+  [A6] Add Redis cache layer for metrics endpoints (TTL: 60s)
+  [A7] Add API versioning prefix /api/v1/
+
+PRIORITY 3 (Medium-term — maintainability)
+  [A8] Extract shared base service for tenant-scoped CRUD + metrics
+  [A9] Reorganize frontend ROUTES into feature-grouped namespaces
+  [A10] Add composite unique index on (tenantId, slug) for form_templates
+
+--------------------------------------------------------------------------------
+RATING BREAKDOWN
+--------------------------------------------------------------------------------
+Module separation       : 8/10  (clean NestJS modules)
+Tenant isolation design : 7/10  (row-level, no DB enforcement)
+Validation              : 8/10  (DTOs, class-validator)
+Query safety            : 7/10  (parameterized, but no indexes)
+Frontend architecture   : 6/10  (React Query good, routes flat)
+Caching                 : 2/10  (none)
+Analytics efficiency    : 3/10  (all in memory)
+Scalability readiness   : 5/10  (workable now, not future-proof)
+Code reuse              : 5/10  (duplication in training module)
+API design              : 6/10  (no versioning, good REST conventions)
+
+OVERALL: 6.5 / 10
+
+================================================================================
