@@ -124,7 +124,8 @@ export const CLIMA_2026_S1 = {
 async function run() {
   const { DataSource } = await import('typeorm');
   const { PesquisaCorporativaEntity } = await import('../entities/pesquisa-corporativa.entity');
-  require('dotenv').config({ path: require('path').resolve(__dirname, '../../../../../.env') });
+  const { TenantEntity } = await import('../../tenants/tenant.entity');
+  require('dotenv').config({ path: require('path').resolve(__dirname, '../../../../.env') });
 
   const ds = new DataSource({
     type: 'postgres',
@@ -133,7 +134,7 @@ async function run() {
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_DATABASE,
-    entities: [PesquisaCorporativaEntity],
+    entities: [PesquisaCorporativaEntity, TenantEntity],
     ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
     synchronize: false,
   });

@@ -4,8 +4,8 @@ module.exports = {
       name: 'feedbackforms-api',
       script: 'dist/main.js',
       cwd: 'C:\\feedbackforms\\backend',
-      instances: 2,
-      exec_mode: 'cluster',
+      instances: 1,
+      exec_mode: 'fork',
       autorestart: true,
       watch: false,
       env: {

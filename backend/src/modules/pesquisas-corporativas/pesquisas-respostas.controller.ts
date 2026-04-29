@@ -7,6 +7,8 @@ import {
   Body,
   UseGuards,
   Req,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -46,6 +48,7 @@ export class PesquisasRespostasController extends BaseTenantController {
   /** Endpoint público — link enviado aos colaboradores */
   @ApiOperation({ summary: 'Submeter resposta à pesquisa (público, sem autenticação)' })
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true }))
   @Post()
   submit(
     @Param('tenantSlug') tenantSlug: string,
