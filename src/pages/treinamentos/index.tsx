@@ -806,7 +806,7 @@ export default function Treinamentos() {
   const { tenantSlug: slugFromUrl = "" } = useParams<{ tenantSlug: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isGlobalAdmin = user?.role === "holding_admin" || user?.role === "rh_admin";
+  const isGlobalAdmin = user?.role === "holding_admin";
 
   // Global rh_admin: no slug in URL — show tenant selector
   const isGlobal = !slugFromUrl;
