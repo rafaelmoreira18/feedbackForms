@@ -39,6 +39,10 @@ export const pesquisasCorporativasService = {
     return res.data
   },
 
+  delete: async (tenantSlug: string, slug: string): Promise<void> => {
+    await api.delete(`tenants/${tenantSlug}/pesquisas-corporativas/${slug}`)
+  },
+
   // ── Respostas ──────────────────────────────────────────────────────────────
 
   getRespostas: async (tenantSlug: string, slug: string): Promise<PesquisaResposta[]> => {

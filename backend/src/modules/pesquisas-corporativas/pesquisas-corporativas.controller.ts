@@ -94,7 +94,7 @@ export class PesquisasCorporativasController extends BaseTenantController {
   @ApiBearerAuth('access-token')
   @Delete(':slug')
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
-  @Roles('rh_admin', 'holding_admin')
+  @Roles('holding_admin')
   async remove(
     @Param('tenantSlug') tenantSlug: string,
     @Param('slug') slug: string,
