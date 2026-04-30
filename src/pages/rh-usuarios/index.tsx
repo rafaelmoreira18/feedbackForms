@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
-import { rhUsersService, type CreateRhUserInput, type RhUser } from "@/services/rh-users.service";
+import { rhUsersService, type CreateRhUserInput } from "@/services/rh-users.service";
 import { api } from "@/services/api";
 import { ROUTES } from "@/routes";
 import Text from "@/components/ui/text";
