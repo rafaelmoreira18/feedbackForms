@@ -98,7 +98,7 @@ export class TrainingSessionsController extends BaseTenantController {
   @ApiBearerAuth('access-token')
   @Delete(':slug')
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
-  @Roles('rh_admin', 'hospital_admin', 'holding_admin')
+  @Roles('holding_admin')
   async remove(
     @Param('tenantSlug') tenantSlug: string,
     @Param('slug') slug: string,
