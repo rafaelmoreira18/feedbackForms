@@ -204,10 +204,15 @@ function ModalCriarUsuarioRh({ open, onClose, onCreated }: ModalProps) {
       onCreated();
       onClose();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "";
-      setServerError(msg.includes("409") || msg.toLowerCase().includes("já cadastrado")
-        ? "Nome de usuário já cadastrado"
-        : "Erro ao criar usuário. Tente novamente.");
+      const axiosErr = err as { response?: { status?: number; data?: { message?: unknown } } };
+      const status = axiosErr?.response?.status;
+      const raw = axiosErr?.response?.data?.message;
+      const detail = Array.isArray(raw) ? raw.join(', ') : (typeof raw === 'string' ? raw : '');
+      if (status === 409 || detail.toLowerCase().includes("já cadastrado")) {
+        setServerError("Nome de usuário já cadastrado");
+      } else {
+        setServerError(detail || "Erro ao criar usuário. Tente novamente.");
+      }
     } finally {
       setSubmitting(false);
     }
