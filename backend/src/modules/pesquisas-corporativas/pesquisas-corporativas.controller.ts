@@ -48,8 +48,10 @@ export class PesquisasCorporativasController extends BaseTenantController {
   @Get()
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
   @Roles('rh_admin', 'hospital_admin', 'holding_admin')
-  findAll(@Param('tenantSlug') tenantSlug: string) {
-    return this.service.findAll(tenantSlug);
+  findAll(@Param('tenantSlug') tenantSlug: string, @Req() req: Request) {
+    const user = req.user as { role?: string } | undefined;
+    const isGlobalAdmin = user?.role === 'holding_admin';
+    return this.service.findAll(tenantSlug, { isGlobalAdmin });
   }
 
   @ApiOperation({ summary: 'Buscar pesquisa por slug (inclui blocos e perguntas)' })
@@ -94,7 +96,7 @@ export class PesquisasCorporativasController extends BaseTenantController {
   @ApiBearerAuth('access-token')
   @Delete(':slug')
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
-  @Roles('rh_admin', 'holding_admin')
+  @Roles('holding_admin')
   async remove(
     @Param('tenantSlug') tenantSlug: string,
     @Param('slug') slug: string,

@@ -188,6 +188,8 @@ export interface PesquisaBloco {
   perguntas: PesquisaPergunta[];
 }
 
+export type PesquisaVisibility = 'global' | 'especifica' | 'privada';
+
 export interface PesquisaCorporativa {
   id: string;
   tenantId: string | null;
@@ -197,6 +199,9 @@ export interface PesquisaCorporativa {
   blocos: PesquisaBloco[];
   ativa: boolean;
   periodo: string | null;
+  categoria: string | null;
+  visibility: PesquisaVisibility;
+  allowedTenantIds: string[] | null;
   criadoEm: string;
 }
 

@@ -53,8 +53,8 @@ export default function ChangePassword() {
           ? ROUTES.pesquisa(slug)
           : user?.role === "rh_admin"
           ? slug
-            ? ROUTES.treinamentos(slug)
-            : ROUTES.treinamentosGlobal
+            ? ROUTES.rhHub(slug)
+            : ROUTES.rhHubGlobal
           : ROUTES.dashboard;
 
       navigate(dest, { replace: true });

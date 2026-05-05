@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { PesquisaCorporativaEntity, PesquisaBloco } from './entities/pesquisa-corporativa.entity';
+import { PesquisaCorporativaEntity, PesquisaBloco, PesquisaVisibility } from './entities/pesquisa-corporativa.entity';
 import { TenantService } from '../tenants/tenant.service';
 import { CreatePesquisaDto } from './dto/create-pesquisa.dto';
 import { UpdatePesquisaDto } from './dto/update-pesquisa.dto';
@@ -71,12 +71,30 @@ export class PesquisasCorporativasService {
     return saved;
   }
 
-  async findAll(tenantSlug: string): Promise<PesquisaCorporativaEntity[]> {
+  async findAll(
+    tenantSlug: string,
+    options: { isGlobalAdmin: boolean },
+  ): Promise<PesquisaCorporativaEntity[]> {
     const tenantId = await this.tenantService.resolveId(tenantSlug);
-    return this.repo.find({
-      where: [{ tenantId }, { tenantId: IsNull() }],
-      order: { criadoEm: 'DESC' },
-    });
+
+    const qb = this.repo
+      .createQueryBuilder('p')
+      // (a) pesquisa da própria unidade — sempre visível
+      .where('p."tenantId" = :tenantId', { tenantId })
+      // (b) global — visível para todos
+      .orWhere('p.visibility = :global', { global: 'global' as PesquisaVisibility })
+      // (c) específica — este tenant está na lista de permitidos
+      .orWhere(
+        'p.visibility = :especifica AND :tenantId = ANY(p."allowedTenantIds")',
+        { especifica: 'especifica' as PesquisaVisibility, tenantId },
+      );
+
+    // (d) privada — apenas holding_admin global vê
+    if (options.isGlobalAdmin) {
+      qb.orWhere('p.visibility = :privada', { privada: 'privada' as PesquisaVisibility });
+    }
+
+    return qb.orderBy('p."criadoEm"', 'DESC').getMany();
   }
 
   async findBySlug(tenantSlug: string | null, slug: string): Promise<PesquisaCorporativaEntity> {

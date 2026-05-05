@@ -21,19 +21,18 @@ const queryClient = new QueryClient({
 });
 import Header from "@/components/layout/header";
 import Home from "@/pages/home";
-import Login from "@/pages/login";
-import ChangePassword from "@/pages/change-password";
-import SurveyForm3 from "@/pages/survey";
-import Pesquisa from "@/pages/pesquisa";
-import Dashboard from "@/pages/dashboard";
-import Analytics3 from "@/pages/analytics";
-import Form3Preview from "@/pages/survey/survey-preview";
-import Treinamentos from "@/pages/treinamentos";
-import TrainingSurvey from "@/pages/treinamento";
-import RhUsuarios from "@/pages/rh-usuarios";
-import AdminUsuarios from "@/pages/admin-usuarios";
-import PesquisasCorporativas from "@/pages/pesquisas-corporativas";
-import PesquisaCorporativaPublica from "@/pages/pesquisa-corporativa";
+import Login from "@/pages/auth/login";
+import ChangePassword from "@/pages/auth/change-password";
+import SurveyForm3 from "@/pages/paciente/survey";
+import Pesquisa from "@/pages/paciente/pesquisa";
+import Dashboard from "@/pages/paciente/dashboard";
+import Analytics3 from "@/pages/paciente/analytics";
+import Form3Preview from "@/pages/paciente/survey/survey-preview";
+import RhHub from "@/pages/rh/hub";
+import TrainingSurvey from "@/pages/rh/treinamento";
+import RhUsuarios from "@/pages/rh/rh-usuarios";
+import AdminUsuarios from "@/pages/admin/admin-usuarios";
+import PesquisaCorporativaPublica from "@/pages/rh/pesquisa-corporativa";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth();
@@ -51,12 +50,20 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function HoldingAdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
+  if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
+  if (user?.role !== 'holding_admin') return <Navigate to={ROUTES.home} replace />;
+  return <>{children}</>;
+}
+
 function RhRoute({ children, requireGlobal }: { children: React.ReactNode; requireGlobal?: boolean }) {
   const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
   if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
   if (user?.role !== 'rh_admin') return <Navigate to={ROUTES.login} replace />;
-  if (requireGlobal && user?.tenantId) return <Navigate to={ROUTES.treinamentos(user.tenantSlug ?? '')} replace />;
+  if (requireGlobal && user?.tenantId) return <Navigate to={ROUTES.rhHub(user.tenantSlug ?? '')} replace />;
   return <>{children}</>;
 }
 
@@ -72,20 +79,21 @@ function AppRoutes() {
       <Route path="/:tenantSlug/pesquisa" element={<ProtectedRoute><Pesquisa /></ProtectedRoute>} />
       <Route path="/:tenantSlug/:formSlug" element={<ProtectedRoute><SurveyForm3 /></ProtectedRoute>} />
 
-      {/* Training — RH manages sessions; public survey link */}
-      <Route path="/treinamentos" element={<RhRoute><Treinamentos /></RhRoute>} />
-      <Route path="/:tenantSlug/treinamentos" element={<RhRoute><Treinamentos /></RhRoute>} />
+      {/* RH Hub */}
+      <Route path="/rh-hub" element={<RhRoute><RhHub /></RhRoute>} />
+      <Route path="/:tenantSlug/rh-hub" element={<RhRoute><RhHub /></RhRoute>} />
+
+      {/* Training — public survey link only; management is via rh-hub */}
       <Route path="/:tenantSlug/treinamento/:sessionSlug" element={<TrainingSurvey />} />
 
-      {/* Pesquisas Corporativas — gestão (RH) e formulário público */}
-      <Route path="/:tenantSlug/pesquisas-corporativas" element={<RhRoute><PesquisasCorporativas /></RhRoute>} />
+      {/* Pesquisas Corporativas — public form only; management is via rh-hub */}
       <Route path="/:tenantSlug/pesquisa-corporativa/:pesquisaSlug" element={<PesquisaCorporativaPublica />} />
 
       {/* RH Users — only global rh_admin (no tenantId) */}
       <Route path="/rh/usuarios" element={<RhRoute requireGlobal><RhUsuarios /></RhRoute>} />
 
       {/* Admin Users — only holding_admin */}
-      <Route path="/admin/usuarios" element={<AdminRoute><AdminUsuarios /></AdminRoute>} />
+      <Route path="/admin/usuarios" element={<HoldingAdminRoute><AdminUsuarios /></HoldingAdminRoute>} />
 
       {/* Admin only */}
       <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
@@ -120,7 +128,7 @@ function AppShell() {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen overflow-x-hidden"
       style={isSurvey ? { background: "#f4f6f9" } : undefined}
     >
       <Header />

@@ -22,7 +22,7 @@ export default function Login() {
     const slug = user.tenantSlug ?? '';
     const dest =
       (user.role === 'viewer' || user.role === 'operator_forms') ? ROUTES.pesquisa(slug) :
-      user.role === 'rh_admin' ? (slug ? ROUTES.treinamentos(slug) : ROUTES.treinamentosGlobal) :
+      user.role === 'rh_admin' ? (slug ? ROUTES.rhHub(slug) : ROUTES.rhHubGlobal) :
       user.role === 'holding_admin' ? (activeTenantSlug ? ROUTES.pesquisa(activeTenantSlug) : ROUTES.dashboard) :
       ROUTES.dashboard;
     return <Navigate to={dest} replace />;
@@ -32,7 +32,7 @@ export default function Login() {
     if (!loggedUser) return ROUTES.login;
     const slug = loggedUser.tenantSlug ?? '';
     if (loggedUser.role === 'viewer' || loggedUser.role === 'operator_forms') return ROUTES.pesquisa(slug);
-    if (loggedUser.role === 'rh_admin') return slug ? ROUTES.treinamentos(slug) : ROUTES.treinamentosGlobal;
+    if (loggedUser.role === 'rh_admin') return slug ? ROUTES.rhHub(slug) : ROUTES.rhHubGlobal;
     if (loggedUser.role === 'holding_admin') return activeSlug ? ROUTES.pesquisa(activeSlug) : ROUTES.dashboard;
     return ROUTES.dashboard;
   };

@@ -69,7 +69,7 @@ export default function SurveyForm3() {
   }
 
   return (
-    <div className="min-h-screen py-6 px-3 sm:px-4">
+    <div className="min-h-screen py-6 px-3 sm:px-4 overflow-x-hidden">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-6 px-2">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-400 font-sans">{template.name}</h1>
@@ -155,7 +155,7 @@ export default function SurveyForm3() {
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 min-w-0">
                 <Input label="Idade" type="number" min="0" max="150" value={patientInfo.patientAge}
                   onChange={(e) => setPatientInfo({ ...patientInfo, patientAge: e.target.value })} required />
                 <div className="flex flex-col gap-1.5">
@@ -163,7 +163,7 @@ export default function SurveyForm3() {
                   <div className="flex rounded-xl border-2 border-gray-200 overflow-hidden h-12.5">
                     {(["Masculino", "Feminino", "Outro"] as const).map((g) => (
                       <button key={g} type="button" onClick={() => setPatientInfo({ ...patientInfo, patientGender: g })}
-                        className={`flex-1 text-sm font-semibold font-sans transition-all duration-150 ${patientInfo.patientGender === g ? "bg-teal-base text-white" : "bg-white text-gray-300 hover:bg-teal-light/30"}`}
+                        className={`flex-1 min-w-0 text-xs sm:text-sm font-semibold font-sans transition-all duration-150 ${patientInfo.patientGender === g ? "bg-teal-base text-white" : "bg-white text-gray-300 hover:bg-teal-light/30"}`}
                       >{g}</button>
                     ))}
                   </div>
