@@ -51,6 +51,14 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function HoldingAdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
+  if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
+  if (user?.role !== 'holding_admin') return <Navigate to={ROUTES.home} replace />;
+  return <>{children}</>;
+}
+
 function RhRoute({ children, requireGlobal }: { children: React.ReactNode; requireGlobal?: boolean }) {
   const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
@@ -85,7 +93,7 @@ function AppRoutes() {
       <Route path="/rh/usuarios" element={<RhRoute requireGlobal><RhUsuarios /></RhRoute>} />
 
       {/* Admin Users — only holding_admin */}
-      <Route path="/admin/usuarios" element={<AdminRoute><AdminUsuarios /></AdminRoute>} />
+      <Route path="/admin/usuarios" element={<HoldingAdminRoute><AdminUsuarios /></HoldingAdminRoute>} />
 
       {/* Admin only */}
       <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
@@ -120,7 +128,7 @@ function AppShell() {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen overflow-x-hidden"
       style={isSurvey ? { background: "#f4f6f9" } : undefined}
     >
       <Header />

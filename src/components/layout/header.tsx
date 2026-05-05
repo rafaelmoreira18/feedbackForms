@@ -40,7 +40,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-100 shadow-sm">
-      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-2 min-w-0">
         <img
           src={logoMediall}
           alt="Mediall"
@@ -56,7 +56,7 @@ export default function Header() {
               <select
                 value={activeTenantSlug}
                 onChange={(e) => handleTenantChange(e.target.value)}
-                className="text-sm font-sans border border-gray-200 rounded-xl px-3 py-2 text-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-teal-base max-w-50"
+                className="text-sm font-sans border border-gray-200 rounded-xl px-3 py-2 text-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-teal-base min-w-0 max-w-30 sm:max-w-50"
               >
                 <option value="">Selecione uma unidade...</option>
                 {allTenants.map((t) => (
