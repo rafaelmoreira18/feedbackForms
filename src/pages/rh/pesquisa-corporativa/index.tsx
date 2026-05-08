@@ -12,24 +12,13 @@ import logoMediall from '@/assets/Logo_mediall.png'
 
 // ─── Escala Likert 5 — mesmo padrão de cores do ScaleButton de treinamento ───
 
-const NOTO_BASE = 'https://fonts.gstatic.com/s/e/notoemoji/latest'
-
 const LIKERT5_CONFIG = [
-  { value: 1, label: 'Discordo totalmente',    emoji: `${NOTO_BASE}/1f622/512.webp`, active: 'bg-red-base border-red-base text-white shadow-md',    inactive: 'bg-white border-gray-200 text-gray-300 hover:border-red-base hover:text-red-base' },
-  { value: 2, label: 'Discordo parcialmente',  emoji: `${NOTO_BASE}/1f614/512.webp`, active: 'bg-orange-400 border-orange-400 text-white shadow-md', inactive: 'bg-white border-gray-200 text-gray-300 hover:border-orange-400 hover:text-orange-400' },
-  { value: 3, label: 'Neutro',                 emoji: `${NOTO_BASE}/1f610/512.webp`, active: 'bg-yellow-base border-yellow-base text-white shadow-md', inactive: 'bg-white border-gray-200 text-gray-300 hover:border-yellow-base hover:text-yellow-base' },
-  { value: 4, label: 'Concordo parcialmente',  emoji: `${NOTO_BASE}/1f642/512.webp`, active: 'bg-teal-base border-teal-base text-white shadow-md',   inactive: 'bg-white border-gray-200 text-gray-300 hover:border-teal-base hover:text-teal-base' },
-  { value: 5, label: 'Concordo totalmente',    emoji: `${NOTO_BASE}/1f601/512.webp`, active: 'bg-green-base border-green-base text-white shadow-md', inactive: 'bg-white border-gray-200 text-gray-300 hover:border-green-base hover:text-green-base' },
+  { value: 1, label: 'Discordo totalmente',   active: 'bg-red-base border-red-base text-white shadow-md',        inactive: 'bg-white border-gray-200 text-gray-300 hover:border-red-base hover:text-red-base' },
+  { value: 2, label: 'Discordo parcialmente', active: 'bg-orange-400 border-orange-400 text-white shadow-md',    inactive: 'bg-white border-gray-200 text-gray-300 hover:border-orange-400 hover:text-orange-400' },
+  { value: 3, label: 'Neutro',                active: 'bg-yellow-base border-yellow-base text-white shadow-md',  inactive: 'bg-white border-gray-200 text-gray-300 hover:border-yellow-base hover:text-yellow-base' },
+  { value: 4, label: 'Concordo parcialmente', active: 'bg-teal-base border-teal-base text-white shadow-md',      inactive: 'bg-white border-gray-200 text-gray-300 hover:border-teal-base hover:text-teal-base' },
+  { value: 5, label: 'Concordo totalmente',   active: 'bg-green-base border-green-base text-white shadow-md',   inactive: 'bg-white border-gray-200 text-gray-300 hover:border-green-base hover:text-green-base' },
 ]
-
-const ANIM = `
-@keyframes popIn {
-  0%   { transform: scale(0.5); opacity: 0; }
-  60%  { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
-.emoji-pop { animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards; }
-`
 
 const OPCOES_TEMPO = ['Até 6 meses', '6 meses a 1 ano', '1 a 3 anos', 'Mais de 3 anos']
 
@@ -50,11 +39,8 @@ function Likert5Button({ cfg, selected, onClick }: {
         type="button"
         onMouseDown={e => e.preventDefault()}
         onClick={() => onClick(isActive ? 0 : cfg.value)}
-        className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-3 rounded-xl border-2 font-semibold text-xs transition-all duration-150 w-full ${isActive ? `h-10 sm:h-20 ${cfg.active}` : `h-10 sm:h-16 ${cfg.inactive}`}`}
+        className={`flex items-center justify-center px-2 sm:px-3 py-3 sm:min-h-14 rounded-xl border-2 font-semibold text-xs transition-all duration-150 w-full ${isActive ? cfg.active : cfg.inactive}`}
       >
-        {isActive && (
-          <img key={`${cfg.value}-active`} src={cfg.emoji} alt={cfg.label} width={20} height={20} className="emoji-pop shrink-0" />
-        )}
         <span className="hidden sm:block text-center leading-tight">{cfg.label}</span>
       </button>
     </div>
@@ -262,9 +248,7 @@ export default function PesquisaCorporativaPublica() {
   // ── Layout ────────────────────────────────────────────────────────────────
 
   return (
-    <>
-      <style>{ANIM}</style>
-      <div className="min-h-screen bg-[#f4f6f9]">
+    <div className="min-h-screen bg-[#f4f6f9]">
         <div className="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-8">
 
           {/* Cabeçalho */}
@@ -331,6 +315,5 @@ export default function PesquisaCorporativaPublica() {
 
         </div>
       </div>
-    </>
   )
 }

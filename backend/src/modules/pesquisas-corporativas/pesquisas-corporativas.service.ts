@@ -57,12 +57,16 @@ export class PesquisasCorporativasService {
       blocos: dto.blocos as unknown as PesquisaBloco[],
       ativa: dto.ativa ?? true,
       periodo: dto.periodo ?? null,
+      categoria: dto.categoria ?? null,
+      visibility: dto.visibility ?? 'privada',
+      allowedTenantIds: dto.allowedTenantIds ?? null,
+      visivelParaUnidade: dto.visivelParaUnidade ?? true,
     });
 
     const saved = await this.repo.save(pesquisa);
 
     if (ctx) {
-      await this.auditLog.record(ctx, 'TRAINING_SESSION_CREATED', 'pesquisa_corporativa', saved.id, {
+      await this.auditLog.record(ctx, 'PESQUISA_CREATED', 'pesquisa_corporativa', saved.id, {
         titulo: dto.titulo,
         tipo: dto.tipo,
       });
@@ -77,24 +81,27 @@ export class PesquisasCorporativasService {
   ): Promise<PesquisaCorporativaEntity[]> {
     const tenantId = await this.tenantService.resolveId(tenantSlug);
 
-    const qb = this.repo
-      .createQueryBuilder('p')
-      // (a) pesquisa da própria unidade — sempre visível
-      .where('p."tenantId" = :tenantId', { tenantId })
-      // (b) global — visível para todos
-      .orWhere('p.visibility = :global', { global: 'global' as PesquisaVisibility })
-      // (c) específica — este tenant está na lista de permitidos
-      .orWhere(
-        'p.visibility = :especifica AND :tenantId = ANY(p."allowedTenantIds")',
-        { especifica: 'especifica' as PesquisaVisibility, tenantId },
-      );
-
-    // (d) privada — apenas holding_admin global vê
+    // global admin vê todas da unidade selecionada (incluindo visivelParaUnidade=false)
     if (options.isGlobalAdmin) {
-      qb.orWhere('p.visibility = :privada', { privada: 'privada' as PesquisaVisibility });
+      return this.repo.find({
+        where: { tenantId },
+        order: { criadoEm: 'DESC' },
+      });
     }
 
-    return qb.orderBy('p."criadoEm"', 'DESC').getMany();
+    // rh_admin de unidade vê: próprias visíveis + as explicitamente compartilhadas
+    return this.repo
+      .createQueryBuilder('p')
+      .where(
+        '(p."tenantId" = :tenantId AND p."visivelParaUnidade" = true)',
+        { tenantId },
+      )
+      .orWhere(
+        'p.visibility = :especifica AND :tenantId::uuid = ANY(p."allowedTenantIds")',
+        { especifica: 'especifica' as PesquisaVisibility, tenantId },
+      )
+      .orderBy('p."criadoEm"', 'DESC')
+      .getMany();
   }
 
   async findBySlug(tenantSlug: string | null, slug: string): Promise<PesquisaCorporativaEntity> {
@@ -124,7 +131,7 @@ export class PesquisasCorporativasService {
     const saved = await this.repo.save(pesquisa);
 
     if (ctx) {
-      await this.auditLog.record(ctx, 'TRAINING_SESSION_UPDATED', 'pesquisa_corporativa', pesquisa.id, {
+      await this.auditLog.record(ctx, 'PESQUISA_UPDATED', 'pesquisa_corporativa', pesquisa.id, {
         changes: dto,
       });
     }
@@ -140,7 +147,7 @@ export class PesquisasCorporativasService {
     await this.repo.remove(pesquisa);
 
     if (ctx) {
-      await this.auditLog.record(ctx, 'TRAINING_SESSION_DELETED', 'pesquisa_corporativa', pesquisa.id, {
+      await this.auditLog.record(ctx, 'PESQUISA_DELETED', 'pesquisa_corporativa', pesquisa.id, {
         titulo: pesquisa.titulo,
       });
     }

@@ -62,7 +62,7 @@ function RhRoute({ children, requireGlobal }: { children: React.ReactNode; requi
   const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
   if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
-  if (user?.role !== 'rh_admin') return <Navigate to={ROUTES.login} replace />;
+  if (user?.role !== 'rh_admin' && user?.role !== 'holding_admin') return <Navigate to={ROUTES.login} replace />;
   if (requireGlobal && user?.tenantId) return <Navigate to={ROUTES.rhHub(user.tenantSlug ?? '')} replace />;
   return <>{children}</>;
 }
@@ -79,7 +79,7 @@ function AppRoutes() {
       <Route path="/:tenantSlug/pesquisa" element={<ProtectedRoute><Pesquisa /></ProtectedRoute>} />
       <Route path="/:tenantSlug/:formSlug" element={<ProtectedRoute><SurveyForm3 /></ProtectedRoute>} />
 
-      {/* RH Hub */}
+      {/* RH Hub — all RH management lives here */}
       <Route path="/rh-hub" element={<RhRoute><RhHub /></RhRoute>} />
       <Route path="/:tenantSlug/rh-hub" element={<RhRoute><RhHub /></RhRoute>} />
 

@@ -15,7 +15,10 @@ export type AuditAction =
   | 'TRAINING_SESSION_UPDATED'
   | 'TRAINING_SESSION_DELETED'
   | 'TRAINING_RESPONSE_CREATED'
-  | 'TRAINING_RESPONSE_DELETED';
+  | 'TRAINING_RESPONSE_DELETED'
+  | 'PESQUISA_CREATED'
+  | 'PESQUISA_UPDATED'
+  | 'PESQUISA_DELETED';
 
 /**
  * Trilha de auditoria — registra quem fez o que, em qual registro, quando e de qual IP.

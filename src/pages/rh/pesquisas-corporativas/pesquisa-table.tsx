@@ -8,6 +8,7 @@ export interface PesquisaCardProps {
   isSelected: boolean
   copied: string | null
   toggleAtivaPending: boolean
+  canManage: boolean
   canDelete: boolean
   onSelect: () => void
   onCopy: (slug: string) => void
@@ -23,6 +24,7 @@ export function PesquisaCard({
   isSelected,
   copied,
   toggleAtivaPending,
+  canManage,
   canDelete,
   onSelect,
   onCopy,
@@ -75,10 +77,14 @@ export function PesquisaCard({
           <Button size="sm" variant="outline" onClick={() => onCopy(pesquisa.slug)}>
             {copied === pesquisa.slug ? 'Copiado!' : 'Copiar Link'}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => onToggleAtiva(pesquisa)} disabled={toggleAtivaPending}>
-            {pesquisa.ativa ? 'Desativar' : 'Ativar'}
-          </Button>
-          <Button size="sm" variant="outline" onClick={onEdit}>Editar</Button>
+          {canManage && (
+            <Button size="sm" variant="outline" onClick={() => onToggleAtiva(pesquisa)} disabled={toggleAtivaPending}>
+              {pesquisa.ativa ? 'Desativar' : 'Ativar'}
+            </Button>
+          )}
+          {canManage && (
+            <Button size="sm" variant="outline" onClick={onEdit}>Editar</Button>
+          )}
           {canDelete && (
             <Button
               size="sm"

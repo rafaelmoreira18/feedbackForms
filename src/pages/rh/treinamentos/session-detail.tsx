@@ -10,9 +10,12 @@ import {
   EFICACIA_COLORS,
   REACAO_COLORS,
 } from "./session-constants";
+import { avgColor, npsColor, questionAvgColor } from "@/utils/rh-colors";
+import { RhPagination } from "@/pages/rh/hub/hub-icons";
 import Text from "@/components/ui/text";
-import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
+
+const PAGE_SIZE = 10;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -23,26 +26,6 @@ function avgScore(answers: { questionId: string; value: number }[], count: numbe
     .map((a) => a.value);
   if (scores.length === 0) return 0;
   return scores.reduce((s, v) => s + v, 0) / scores.length;
-}
-
-function avgColor(avg: number, max: number) {
-  const pct = avg / max;
-  if (pct >= 0.75) return "bg-green-base/10 text-green-base border border-green-base/30";
-  if (pct >= 0.5) return "bg-yellow-50 text-yellow-600 border border-yellow-300";
-  return "bg-red-base/10 text-red-base border border-red-base/30";
-}
-
-function npsColor(v: number) {
-  if (v >= 9) return "bg-green-base/10 text-green-base border border-green-base/30";
-  if (v >= 7) return "bg-yellow-50 text-yellow-600 border border-yellow-300";
-  return "bg-red-base/10 text-red-base border border-red-base/30";
-}
-
-function questionAvgColor(avg: number, max: number) {
-  const pct = avg / max;
-  if (pct >= 0.75) return { barColor: "#52a350", badge: "bg-green-base/10 text-green-base border border-green-base/30" };
-  if (pct >= 0.5)  return { barColor: "#facc15", badge: "bg-yellow-50 text-yellow-600 border border-yellow-300" };
-  return { barColor: "#e74c3c", badge: "bg-red-base/10 text-red-base border border-red-base/30" };
 }
 
 // ─── Single response row ──────────────────────────────────────────────────────
@@ -107,9 +90,9 @@ function ResponseRow({
           })}
         </Text>
 
-        <span className={`text-gray-300 text-xs transition-transform duration-150 ${expanded ? "rotate-180" : ""}`}>
-          ▼
-        </span>
+        <svg viewBox="0 0 16 16" fill="currentColor" className={`w-4 h-4 text-gray-300 shrink-0 transition-transform duration-150 ${expanded ? "rotate-180" : ""}`}>
+          <path d="M3.22 6.22a.75.75 0 0 1 1.06 0L8 9.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L3.22 7.28a.75.75 0 0 1 0-1.06Z" />
+        </svg>
       </div>
 
       {expanded && (
@@ -242,33 +225,32 @@ function QuestionAnalytics({
 export function ResponsesPanel({
   tenantSlug,
   session,
-  onClose,
+  onClose: _onClose,
 }: {
   tenantSlug: string;
   session: TrainingSession;
   onClose: () => void;
 }) {
+  const [page, setPage] = useState(1);
+
   const { data, isLoading } = useQuery({
     queryKey: ["training-responses", tenantSlug, session.slug],
     queryFn: () => trainingService.getResponses(tenantSlug, { session: session.slug }),
   });
 
   const allResponses = data?.data ?? [];
+  const totalPages = Math.ceil(allResponses.length / PAGE_SIZE);
+  const paged = allResponses.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <Text variant="heading-sm" className="text-gray-400">
-            Respostas — {session.title}
-          </Text>
-          <Text variant="body-sm" className="text-gray-300">
-            {session.trainingDate} · {session.instructor}
-          </Text>
-        </div>
-        <Button variant="outline" size="sm" onClick={onClose}>
-          ✕ Fechar
-        </Button>
+      <div>
+        <Text variant="heading-sm" className="text-gray-400">
+          Respostas — {session.title}
+        </Text>
+        <Text variant="body-sm" className="text-gray-300">
+          {session.trainingDate} · {session.instructor}
+        </Text>
       </div>
 
       {isLoading ? (
@@ -290,9 +272,16 @@ export function ResponsesPanel({
           <Text variant="caption" className="text-gray-300">
             {allResponses.length} {allResponses.length === 1 ? "resposta" : "respostas"}
           </Text>
-          {allResponses.map((r) => (
+          {paged.map((r) => (
             <ResponseRow key={r.id} response={r} trainingType={session.trainingType} />
           ))}
+          <RhPagination
+            page={page}
+            totalPages={totalPages}
+            total={allResponses.length}
+            pageSize={PAGE_SIZE}
+            onChange={setPage}
+          />
         </div>
       )}
     </div>

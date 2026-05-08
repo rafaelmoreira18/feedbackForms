@@ -2,18 +2,12 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { pesquisasCorporativasService } from '@/services/pesquisas-corporativas.service'
 import type { PesquisaCorporativa, PesquisaBloco, PesquisaResposta, PesquisaMetricas } from '@/types'
+import { questionAvgColor } from '@/utils/rh-colors'
+import { RhPagination } from '@/pages/rh/hub/hub-icons'
 import Text from '@/components/ui/text'
-import Button from '@/components/ui/button'
 import Card from '@/components/ui/card'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function questionAvgColor(avg: number, max: number) {
-  const pct = avg / max
-  if (pct >= 0.75) return { barColor: '#52a350', badge: 'bg-green-base/10 text-green-base border border-green-base/30' }
-  if (pct >= 0.5)  return { barColor: '#facc15', badge: 'bg-yellow-50 text-yellow-600 border border-yellow-300' }
-  return { barColor: '#e74c3c', badge: 'bg-red-base/10 text-red-base border border-red-base/30' }
-}
+const PAGE_SIZE = 10;
 
 const LIKERT5_LABELS: Record<number, string> = {
   1: 'Discordo totalmente',
@@ -22,6 +16,7 @@ const LIKERT5_LABELS: Record<number, string> = {
   4: 'Concordo parcialmente',
   5: 'Concordo totalmente',
 }
+
 const LIKERT5_COLORS: Record<number, string> = {
   1: 'bg-red-base/10 text-red-base border border-red-base/30',
   2: 'bg-orange-100 text-orange-500 border border-orange-300',
@@ -115,7 +110,9 @@ function RespostaRow({ resposta, blocos }: { resposta: PesquisaResposta; blocos:
         <Text variant="caption" className="text-gray-300 shrink-0 ml-auto">
           {new Date(resposta.criadoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
         </Text>
-        <span className={`text-gray-300 text-xs transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}>▼</span>
+        <svg viewBox="0 0 16 16" fill="currentColor" className={`w-4 h-4 text-gray-300 shrink-0 transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}>
+          <path d="M3.22 6.22a.75.75 0 0 1 1.06 0L8 9.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L3.22 7.28a.75.75 0 0 1 0-1.06Z" />
+        </svg>
       </div>
 
       {expanded && (
@@ -144,11 +141,13 @@ function RespostaRow({ resposta, blocos }: { resposta: PesquisaResposta; blocos:
 
 // ─── Painel de respostas ──────────────────────────────────────────────────────
 
-export function ResponsesPanel({ tenantSlug, pesquisa, onClose }: {
+export function ResponsesPanel({ tenantSlug, pesquisa, onClose: _onClose }: {
   tenantSlug: string
   pesquisa: PesquisaCorporativa
   onClose: () => void
 }) {
+  const [page, setPage] = useState(1)
+
   const { data: respostas = [], isLoading } = useQuery<PesquisaResposta[]>({
     queryKey: ['pesquisa-respostas', tenantSlug, pesquisa.slug],
     queryFn: () => pesquisasCorporativasService.getRespostas(tenantSlug, pesquisa.slug),
@@ -159,9 +158,14 @@ export function ResponsesPanel({ tenantSlug, pesquisa, onClose }: {
     queryFn: () => pesquisasCorporativasService.getMetricas(tenantSlug, pesquisa.slug),
   })
 
+  const totalPages = Math.ceil(respostas.length / PAGE_SIZE)
+  const paged = respostas.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const mediaGeral = metricas?.mediaGeral ?? null
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <Text variant="heading-sm" className="text-gray-400">
             Respostas — {pesquisa.titulo}
@@ -170,7 +174,13 @@ export function ResponsesPanel({ tenantSlug, pesquisa, onClose }: {
             {pesquisa.periodo ?? pesquisa.tipo} · {respostas.length} {respostas.length === 1 ? 'resposta' : 'respostas'}
           </Text>
         </div>
-        <Button variant="outline" size="sm" onClick={onClose}>✕ Fechar</Button>
+        {mediaGeral !== null && (
+          <div className={`flex flex-col items-center px-4 py-2 rounded-xl border ${questionAvgColor(mediaGeral, 5).badge}`}>
+            <span className="text-xs font-semibold uppercase tracking-wide opacity-70">Média geral</span>
+            <span className="text-2xl font-bold leading-tight">{mediaGeral.toFixed(1)}</span>
+            <span className="text-xs opacity-70">/ 5</span>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -190,9 +200,16 @@ export function ResponsesPanel({ tenantSlug, pesquisa, onClose }: {
           <Text variant="caption" className="text-gray-300">
             {respostas.length} {respostas.length === 1 ? 'resposta' : 'respostas'}
           </Text>
-          {respostas.map(r => (
+          {paged.map(r => (
             <RespostaRow key={r.id} resposta={r} blocos={pesquisa.blocos} />
           ))}
+          <RhPagination
+            page={page}
+            totalPages={totalPages}
+            total={respostas.length}
+            pageSize={PAGE_SIZE}
+            onChange={setPage}
+          />
         </div>
       )}
     </div>

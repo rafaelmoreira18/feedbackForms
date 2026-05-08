@@ -60,6 +60,7 @@ interface PairedSessionCardProps {
   tenantSlug: string;
   selectedSession: TrainingSession | null;
   canCreate: boolean;
+  canManage: boolean;
   canDelete: boolean;
   copied: string | null;
   toggleActivePending: boolean;
@@ -78,6 +79,7 @@ export function PairedSessionCard({
   tenantSlug: _tenantSlug,
   selectedSession,
   canCreate,
+  canManage,
   canDelete,
   copied,
   toggleActivePending,
@@ -161,10 +163,14 @@ export function PairedSessionCard({
             <Button size="sm" variant="outline" onClick={() => onCopy(reacao.slug)}>
               {copied === reacao.slug ? "Copiado!" : "Copiar Link"}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => onToggleActive(reacao)} disabled={toggleActivePending}>
-              {reacao.active ? "Desativar" : "Ativar"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => onEdit(reacao)}>Editar</Button>
+            {canManage && (
+              <Button size="sm" variant="outline" onClick={() => onToggleActive(reacao)} disabled={toggleActivePending}>
+                {reacao.active ? "Desativar" : "Ativar"}
+              </Button>
+            )}
+            {canManage && (
+              <Button size="sm" variant="outline" onClick={() => onEdit(reacao)}>Editar</Button>
+            )}
             {canDelete && (
               <Button size="sm" variant="secondary" onClick={() => onDelete(reacao)}>Excluir</Button>
             )}
@@ -201,10 +207,14 @@ export function PairedSessionCard({
               <Button size="sm" variant="outline" onClick={() => onCopy(eficacia.slug)}>
                 {copied === eficacia.slug ? "Copiado!" : "Copiar Link"}
               </Button>
-              <Button size="sm" variant="outline" onClick={() => onToggleActive(eficacia)} disabled={toggleActivePending}>
-                {eficacia.active ? "Desativar" : "Ativar"}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => onEdit(eficacia)}>Editar</Button>
+              {canManage && (
+                <Button size="sm" variant="outline" onClick={() => onToggleActive(eficacia)} disabled={toggleActivePending}>
+                  {eficacia.active ? "Desativar" : "Ativar"}
+                </Button>
+              )}
+              {canManage && (
+                <Button size="sm" variant="outline" onClick={() => onEdit(eficacia)}>Editar</Button>
+              )}
               {canDelete && (
                 <Button size="sm" variant="secondary" onClick={() => onDelete(eficacia)}>Excluir</Button>
               )}

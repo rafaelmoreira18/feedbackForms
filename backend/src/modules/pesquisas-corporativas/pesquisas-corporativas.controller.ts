@@ -49,8 +49,9 @@ export class PesquisasCorporativasController extends BaseTenantController {
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
   @Roles('rh_admin', 'hospital_admin', 'holding_admin')
   findAll(@Param('tenantSlug') tenantSlug: string, @Req() req: Request) {
-    const user = req.user as { role?: string } | undefined;
-    const isGlobalAdmin = user?.role === 'holding_admin';
+    const user = req.user as { role?: string; tenantId?: string | null } | undefined;
+    // holding_admin OU rh_admin sem tenantId (global) vê tudo
+    const isGlobalAdmin = user?.role === 'holding_admin' || (user?.role === 'rh_admin' && !user?.tenantId);
     return this.service.findAll(tenantSlug, { isGlobalAdmin });
   }
 

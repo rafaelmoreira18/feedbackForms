@@ -77,6 +77,13 @@ export class PesquisaCorporativaEntity {
   @Column({ type: 'uuid', array: true, nullable: true, default: null })
   allowedTenantIds: string[] | null;
 
+  /**
+   * Quando false, a pesquisa existe no tenant mas o rh_admin da unidade não a vê no hub.
+   * O link público continua funcional. Usado para pesquisas geridas pela sede.
+   */
+  @Column({ default: true })
+  visivelParaUnidade: boolean;
+
   @CreateDateColumn({ name: 'criadoEm' })
   criadoEm: Date;
 

@@ -1,146 +1,81 @@
-import { useState, useMemo } from 'react'
-import { useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/auth-context'
 import { trainingService } from '@/services/training-service'
 import { pesquisasCorporativasService } from '@/services/pesquisas-corporativas.service'
 import { tenantService } from '@/services/tenant-service'
-import type { TrainingSession, PesquisaCorporativa } from '@/types'
+import type { PesquisaCorporativa } from '@/types'
+import { ROUTES } from '@/routes'
+import { groupSessions, PairedSessionCard } from '@/pages/rh/treinamentos/session-table'
+import type { SessionGroup } from '@/pages/rh/treinamentos/session-table'
+import { ResponsesPanel as TreinamentoResponsesPanel } from '@/pages/rh/treinamentos/session-detail'
+import { ResponsesPanel as CorporativaResponsesPanel } from '@/pages/rh/pesquisas-corporativas/pesquisa-respostas'
+import { PesquisaCard } from '@/pages/rh/pesquisas-corporativas/pesquisa-table'
+import { Breadcrumb, ItemRow, FolderRow } from '@/pages/rh/hub/hub-icons'
 import Text from '@/components/ui/text'
 import Card from '@/components/ui/card'
 import Select from '@/components/ui/select'
-import { ResponsesPanel as TrainingResponsesPanel } from '@/pages/rh/treinamentos/session-detail'
-import { groupSessions } from '@/pages/rh/treinamentos/session-table'
-import { ResponsesPanel as CorporativaResponsesPanel } from '@/pages/rh/pesquisas-corporativas/pesquisa-respostas'
 
-// ─── Ícones inline (sem dependência extra) ────────────────────────────────────
-
-function ChevronRight({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" className={className}>
-      <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
-    </svg>
-  )
-}
-
-function ChevronDown({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" className={className}>
-      <path d="M3.22 6.22a.75.75 0 0 1 1.06 0L8 9.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L3.22 7.28a.75.75 0 0 1 0-1.06Z" />
-    </svg>
-  )
-}
-
-function FolderIcon({ open, className }: { open: boolean; className?: string }) {
-  return open ? (
-    <svg viewBox="0 0 16 16" fill="currentColor" className={className}>
-      <path d="M1.75 4.5h4.586a.25.25 0 0 1 .177.073l.927.927c.14.14.331.22.53.22h6.28c.138 0 .25.112.25.25v7.28a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75V5.25a.75.75 0 0 1 .75-.75Z" />
-    </svg>
-  ) : (
-    <svg viewBox="0 0 16 16" fill="currentColor" className={className}>
-      <path d="M1.75 4.5h4.586a.25.25 0 0 1 .177.073l.927.927c.14.14.331.22.53.22h6.28c.138 0 .25.112.25.25v7.28a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75V5.25a.75.75 0 0 1 .75-.75ZM1 5.25v7.03c0 .69.56 1.25 1.25 1.25h12.5c.69 0 1.25-.56 1.25-1.25V5.5a.75.75 0 0 0-.75-.75H8a.75.75 0 0 1-.53-.22L6.543 3.6A1.75 1.75 0 0 0 5.306 3H1.75A.75.75 0 0 0 1 3.75v1.5Z" />
-    </svg>
-  )
-}
-
-function FileIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" className={className}>
-      <path d="M2 1.75A1.75 1.75 0 0 1 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 8.75 4.25V1.5Zm6.75.988V4.25c0 .138.112.25.25.25h1.762Z" />
-    </svg>
-  )
-}
-
-// ─── Row de item (pesquisa individual) ────────────────────────────────────────
-
-function ItemRow({
-  label,
-  count,
-  depth,
-  onClick,
-}: {
-  label: string
-  count?: number
-  depth: number
-  onClick: () => void
-}) {
-  return (
-    <div
-      className="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer hover:bg-gray-100 group select-none"
-      style={{ paddingLeft: `${depth * 16 + 8}px` }}
-      onDoubleClick={onClick}
-    >
-      <FileIcon className="w-3.5 h-3.5 text-gray-300 shrink-0" />
-      <span className="text-sm text-gray-400 flex-1 truncate group-hover:text-teal-base transition-colors">
-        {label}
-      </span>
-      {count !== undefined && (
-        <span className="text-xs text-gray-300 tabular-nums shrink-0">{count}</span>
-      )}
-    </div>
-  )
-}
-
-// ─── Row de pasta (colapsável) ────────────────────────────────────────────────
-
-function FolderRow({
-  label,
-  count,
-  open,
-  depth,
-  onToggle,
-  onNavigate,
-}: {
-  label: string
-  count: number
-  open: boolean
-  depth: number
-  onToggle: () => void
-  onNavigate?: () => void
-}) {
-  return (
-    <div
-      className="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer hover:bg-gray-100 group select-none"
-      style={{ paddingLeft: `${depth * 16 + 8}px` }}
-      onClick={onToggle}
-      onDoubleClick={e => { e.stopPropagation(); onNavigate?.(); }}
-    >
-      {open
-        ? <ChevronDown className="w-3 h-3 text-gray-300 shrink-0" />
-        : <ChevronRight className="w-3 h-3 text-gray-300 shrink-0" />
-      }
-      <FolderIcon
-        open={open}
-        className={`w-3.5 h-3.5 shrink-0 transition-colors ${open ? 'text-teal-base' : 'text-yellow-500'}`}
-      />
-      <span className="text-sm font-medium text-gray-400 flex-1 truncate group-hover:text-teal-base transition-colors">
-        {label}
-      </span>
-      <span className="text-xs text-gray-300 tabular-nums shrink-0">{count}</span>
-    </div>
-  )
-}
-
-// ─── Hub principal ─────────────────────────────────────────────────────────────
+// ─── Hub ──────────────────────────────────────────────────────────────────────
 
 export default function RhHub() {
   const { tenantSlug: slugFromUrl = '' } = useParams<{ tenantSlug: string }>()
   const { user } = useAuth()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const isGlobal = !slugFromUrl
   const [selectedSlug, setSelectedSlug] = useState(user?.tenantSlug ?? '')
   const tenantSlug = isGlobal ? selectedSlug : slugFromUrl
 
+  // tree state
   const [openTreinamentos, setOpenTreinamentos] = useState(false)
   const [openCorporativas, setOpenCorporativas] = useState(false)
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
-  const [selectedSession, setSelectedSession] = useState<TrainingSession | null>(null)
+
+  // selection state
+  const [selectedGroup, setSelectedGroup] = useState<SessionGroup | null>(null)
+  const [selectedSession, setSelectedSession] = useState<SessionGroup['reacao'] | null>(null)
   const [selectedPesquisa, setSelectedPesquisa] = useState<PesquisaCorporativa | null>(null)
 
+  // copy link — single state tracks whichever slug was last copied
+  const [copied, setCopied] = useState<string | null>(null)
+
+  // refs para resolução de pesquisa equivalente ao trocar unidade
+  const pendingPesquisa = useRef<PesquisaCorporativa | null>(null)
+  const prevTenantSlug = useRef(tenantSlug)
+
+  // mutations
+  const toggleActive = useMutation({
+    mutationFn: (session: SessionGroup['reacao']) =>
+      trainingService.updateSession(tenantSlug, session.slug, { active: !session.active }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['training-sessions', tenantSlug] }),
+  })
+
+  const createEficacia = useMutation({
+    mutationFn: (reacaoSlug: string) => trainingService.createEficacia(tenantSlug, reacaoSlug),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['training-sessions', tenantSlug] }),
+  })
+
+  const copyLink = (slug: string, path: 'treinamento' | 'pesquisa-corporativa' = 'treinamento') => {
+    const url = `${window.location.origin}/${tenantSlug}/${path}/${slug}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(slug)
+      setTimeout(() => setCopied(null), 2000)
+    })
+  }
+
+  const toggleAtivaPesquisa = useMutation({
+    mutationFn: (p: PesquisaCorporativa) =>
+      pesquisasCorporativasService.updateAtiva(tenantSlug, p.slug, !p.ativa),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pesquisas-corporativas', tenantSlug] }),
+  })
+
+  // queries
   const { data: allTenants = [] } = useQuery({
     queryKey: ['tenants-all-active'],
     queryFn: tenantService.getAllActive,
-    enabled: isGlobal,
   })
 
   const { data: sessions = [], isLoading: loadingSessions } = useQuery({
@@ -155,13 +90,26 @@ export default function RhHub() {
     enabled: !!tenantSlug,
   })
 
-  // Agrupar sessões em pares reação + eficácia
-  const { groups: sessionGroups, standalone: standaloneEficacia } = useMemo(
-    () => groupSessions(sessions),
-    [sessions],
-  )
+  // ao trocar unidade com pesquisa aberta, detecta a mudança e salva referência
+  if (prevTenantSlug.current !== tenantSlug && selectedPesquisa) {
+    pendingPesquisa.current = selectedPesquisa
+    prevTenantSlug.current = tenantSlug
+    setSelectedPesquisa(null)
+  } else if (prevTenantSlug.current !== tenantSlug) {
+    prevTenantSlug.current = tenantSlug
+  }
 
-  // Agrupar pesquisas corporativas por categoria
+  // quando as pesquisas da nova unidade chegam, resolve o equivalente
+  useEffect(() => {
+    if (!pendingPesquisa.current || pesquisas.length === 0) return
+    const ref = pendingPesquisa.current
+    pendingPesquisa.current = null
+    const match = pesquisas.find(p => p.tipo === ref.tipo && p.categoria === ref.categoria)
+    setSelectedPesquisa(match ?? null)
+  }, [pesquisas])
+
+  const { groups: sessionGroups } = useMemo(() => groupSessions(sessions), [sessions])
+
   const categoriaMap = new Map<string, typeof pesquisas>()
   for (const p of pesquisas) {
     const key = p.categoria ?? 'Geral'
@@ -182,21 +130,24 @@ export default function RhHub() {
 
   const isLoading = loadingSessions || loadingPesquisas
 
+  const canCreate = user?.role === 'rh_admin' || user?.role === 'holding_admin'
+  const canDelete = user?.role === 'holding_admin'
+  const canManage = user?.role === 'holding_admin' || (user?.role === 'rh_admin' && !user?.tenantId)
+
+  function closeGroup() {
+    setSelectedGroup(null)
+    setSelectedSession(null)
+  }
+
   return (
     <div className="min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-6">
-
-        {/* Header da página */}
+      {/* Header + unit selector — always narrow */}
+      <div className="max-w-3xl mx-auto px-4 pt-6 flex flex-col gap-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <Text variant="heading-md" className="text-gray-400">
-            RH
-          </Text>
-          <Text variant="body-sm" className="text-gray-300 hidden sm:block">
-            {user?.name}
-          </Text>
+          <Text variant="heading-md" className="text-gray-400">RH</Text>
+          <Text variant="body-sm" className="text-gray-300 hidden sm:block">{user?.name}</Text>
         </div>
 
-        {/* Seletor de unidade — global rh_admin */}
         {isGlobal && (
           <Card shadow="sm">
             <Select
@@ -207,6 +158,10 @@ export default function RhHub() {
             />
           </Card>
         )}
+      </div>
+
+      {/* Content — widens when a training group is open */}
+      <div className={`${selectedGroup ? 'max-w-6xl' : 'max-w-3xl'} mx-auto px-4 pb-6 pt-6 flex flex-col gap-6`}>
 
         {isGlobal && !tenantSlug ? (
           <div className="flex flex-col items-center justify-center py-24">
@@ -214,82 +169,103 @@ export default function RhHub() {
               Selecione uma unidade para visualizar
             </Text>
           </div>
+
         ) : isLoading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-8 h-8 border-4 border-teal-base border-t-transparent rounded-full animate-spin" />
           </div>
+
+        ) : selectedGroup ? (
+          <>
+            <Breadcrumb
+              parts={['Treinamentos', selectedGroup.reacao.title]}
+              onClose={closeGroup}
+            />
+            <PairedSessionCard
+              group={selectedGroup}
+              tenantSlug={tenantSlug}
+              selectedSession={selectedSession}
+              canCreate={canCreate}
+              canManage={canManage}
+              canDelete={canDelete}
+              copied={copied}
+              toggleActivePending={toggleActive.isPending}
+              createEficaciaPending={createEficacia.isPending}
+              onSelect={(s) => setSelectedSession(prev => prev?.id === s.id ? null : s)}
+              onCopy={copyLink}
+              onToggleActive={(s) => toggleActive.mutate(s)}
+              onEdit={() => {}}
+              onDelete={() => {}}
+              onNavigate={(s) => navigate(ROUTES.treinamento(tenantSlug, s.slug))}
+              onCreateEficacia={(slug) => createEficacia.mutate(slug)}
+            />
+            {selectedSession && (
+              <TreinamentoResponsesPanel
+                tenantSlug={tenantSlug}
+                session={selectedSession}
+                onClose={() => setSelectedSession(null)}
+              />
+            )}
+          </>
+
+        ) : selectedPesquisa ? (
+          <>
+            <Breadcrumb
+              parts={[
+                allTenants.find(t => t.slug === tenantSlug)?.name ?? tenantSlug,
+                'Pesquisas Corporativas',
+                selectedPesquisa.categoria ?? 'Geral',
+                selectedPesquisa.titulo.replace(/^\[TESTE\]\s*/i, ''),
+              ]}
+              onClose={() => setSelectedPesquisa(null)}
+            />
+            <PesquisaCard
+              pesquisa={selectedPesquisa}
+              tenantSlug={tenantSlug}
+              isSelected={false}
+              copied={copied}
+              toggleAtivaPending={toggleAtivaPesquisa.isPending}
+              canManage={canManage}
+              canDelete={canDelete}
+              onSelect={() => {}}
+              onCopy={(slug) => copyLink(slug, 'pesquisa-corporativa')}
+              onToggleAtiva={(p) => toggleAtivaPesquisa.mutate(p)}
+              onNavigate={() => navigate(`/${tenantSlug}/pesquisa-corporativa/${selectedPesquisa.slug}`)}
+              onEdit={() => {}}
+              onDelete={() => {}}
+            />
+            <CorporativaResponsesPanel
+              tenantSlug={tenantSlug}
+              pesquisa={selectedPesquisa}
+              onClose={() => setSelectedPesquisa(null)}
+            />
+          </>
+
         ) : (
           <Card shadow="sm" className="py-2 px-0 overflow-hidden">
 
-            {/* ── Treinamentos ── */}
             <FolderRow
               label="Treinamentos"
-              count={sessionGroups.length + standaloneEficacia.length}
+              count={sessionGroups.length}
               open={openTreinamentos}
               depth={0}
               onToggle={() => setOpenTreinamentos(v => !v)}
             />
-
             {openTreinamentos && (
-              <>
-                {sessions.length === 0 ? (
-                  <ItemRow label="Nenhuma sessão criada" depth={1} onClick={() => {}} />
-                ) : (
-                  <>
-                    {sessionGroups.map(({ reacao, eficacia }) => {
-                      const isOpen = openCategories[reacao.id] ?? false
-                      const childCount = eficacia ? 2 : 1
-                      return (
-                        <div key={reacao.id}>
-                          <FolderRow
-                            label={reacao.title}
-                            count={childCount}
-                            open={isOpen}
-                            depth={1}
-                            onToggle={() => toggleCategory(reacao.id)}
-                          />
-                          {isOpen && (
-                            <>
-                              <ItemRow
-                                label="Avaliação de Reação"
-                                depth={2}
-                                onClick={() => setSelectedSession(reacao)}
-                              />
-                              {eficacia ? (
-                                <ItemRow
-                                  label="Avaliação de Eficácia"
-                                  depth={2}
-                                  onClick={() => setSelectedSession(eficacia)}
-                                />
-                              ) : (
-                                <ItemRow
-                                  label="Avaliação de Eficácia — pendente"
-                                  depth={2}
-                                  onClick={() => {}}
-                                />
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )
-                    })}
-                    {standaloneEficacia.map(s => (
-                      <ItemRow
-                        key={s.id}
-                        label={`${s.title} (Eficácia)`}
-                        depth={1}
-                        onClick={() => setSelectedSession(s)}
-                      />
-                    ))}
-                  </>
-                )}
-              </>
+              sessions.length === 0
+                ? <ItemRow label="Nenhuma sessão criada" depth={1} onClick={() => {}} />
+                : sessionGroups.map((group) => (
+                    <ItemRow
+                      key={group.reacao.id}
+                      label={group.reacao.title}
+                      depth={1}
+                      onClick={() => { setSelectedGroup(group); setSelectedSession(null) }}
+                    />
+                  ))
             )}
 
-            {/* Divider */}
             <div className="border-t border-gray-100 my-1" />
 
-            {/* ── Pesquisas Corporativas ── */}
             <FolderRow
               label="Pesquisas Corporativas"
               count={pesquisas.length}
@@ -297,13 +273,10 @@ export default function RhHub() {
               depth={0}
               onToggle={() => setOpenCorporativas(v => !v)}
             />
-
             {openCorporativas && (
-              <>
-                {pesquisas.length === 0 ? (
-                  <ItemRow label="Nenhuma pesquisa disponível" depth={1} onClick={() => {}} />
-                ) : (
-                  categorias.map(([categoria, items]) => {
+              pesquisas.length === 0
+                ? <ItemRow label="Nenhuma pesquisa disponível" depth={1} onClick={() => {}} />
+                : categorias.map(([categoria, items]) => {
                     const isOpen = openCategories[categoria] ?? false
                     return (
                       <div key={categoria}>
@@ -325,26 +298,8 @@ export default function RhHub() {
                       </div>
                     )
                   })
-                )}
-              </>
             )}
           </Card>
-        )}
-
-        {selectedSession && (
-          <TrainingResponsesPanel
-            tenantSlug={tenantSlug}
-            session={selectedSession}
-            onClose={() => setSelectedSession(null)}
-          />
-        )}
-
-        {selectedPesquisa && (
-          <CorporativaResponsesPanel
-            tenantSlug={tenantSlug}
-            pesquisa={selectedPesquisa}
-            onClose={() => setSelectedPesquisa(null)}
-          />
         )}
       </div>
     </div>

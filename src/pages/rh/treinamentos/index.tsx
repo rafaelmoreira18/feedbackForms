@@ -102,21 +102,37 @@ export default function Treinamentos() {
   return (
     <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <Text variant="heading-md" className="text-gray-400">
-          Pesquisas de Treinamento
-        </Text>
+        {selectedSession ? (
+          <div className="flex items-center gap-1.5 text-sm text-gray-300 min-w-0">
+            <span>Treinamentos</span>
+            <span className="text-gray-300">›</span>
+            <span className="text-gray-400 font-medium truncate">{selectedSession.title}</span>
+          </div>
+        ) : (
+          <Text variant="heading-md" className="text-gray-400">
+            Pesquisas de Treinamento
+          </Text>
+        )}
         <div className="flex items-center gap-3 flex-wrap">
           <Text variant="body-sm" className="text-gray-300 hidden sm:block">
             {user?.name}
           </Text>
-          <Button size="sm" onClick={() => setShowCreate(true)} disabled={!tenantSlug}>
-            + Nova Pesquisa
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate(
-            tenantSlug ? ROUTES.rhHub(tenantSlug) : ROUTES.rhHubGlobal
-          )}>
-            ← RH
-          </Button>
+          {!selectedSession && (
+            <Button size="sm" onClick={() => setShowCreate(true)} disabled={!tenantSlug}>
+              + Nova Pesquisa
+            </Button>
+          )}
+          {selectedSession ? (
+            <Button variant="outline" size="sm" onClick={() => setSelectedSession(null)}>
+              ✕ Fechar
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => navigate(
+              tenantSlug ? ROUTES.rhHub(tenantSlug) : ROUTES.rhHubGlobal
+            )}>
+              ← RH
+            </Button>
+          )}
         </div>
       </div>
 
