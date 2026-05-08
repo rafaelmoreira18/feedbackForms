@@ -61,6 +61,7 @@ export default function PesquisasCorporativas() {
   })
 
   const isHoldingAdmin = user?.role === 'holding_admin'
+  const canManage = user?.role === 'holding_admin' || (user?.role === 'rh_admin' && !user?.tenantId)
 
   useEffect(() => {
     const slug = searchParams.get('pesquisa')
@@ -163,6 +164,7 @@ export default function PesquisasCorporativas() {
               isSelected
               copied={copied}
               toggleAtivaPending={toggleAtiva.isPending}
+              canManage={canManage}
               canDelete={isHoldingAdmin}
               onSelect={() => setSelectedPesquisa(null)}
               onCopy={copyLink}
@@ -202,6 +204,7 @@ export default function PesquisasCorporativas() {
                     isSelected={false}
                     copied={copied}
                     toggleAtivaPending={toggleAtiva.isPending}
+                    canManage={canManage}
                     canDelete={isHoldingAdmin}
                     onSelect={() => handleSelect(p)}
                     onCopy={copyLink}

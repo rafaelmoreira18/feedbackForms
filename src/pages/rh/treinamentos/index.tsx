@@ -20,6 +20,7 @@ export default function Treinamentos() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isGlobalAdmin = user?.role === "holding_admin";
+  const canManage = user?.role === "holding_admin" || (user?.role === "rh_admin" && !user?.tenantId);
 
   const isGlobal = !slugFromUrl;
   const [selectedSlug, setSelectedSlug] = useState(user?.tenantSlug ?? "");
@@ -179,6 +180,7 @@ export default function Treinamentos() {
                 tenantSlug={tenantSlug}
                 selectedSession={selectedSession}
                 canCreate={canCreate}
+                canManage={canManage}
                 canDelete={isGlobalAdmin}
                 copied={copied}
                 toggleActivePending={toggleActive.isPending}
@@ -252,6 +254,7 @@ export default function Treinamentos() {
                 tenantSlug={tenantSlug}
                 selectedSession={selectedSession}
                 canCreate={canCreate}
+                canManage={canManage}
                 canDelete={isGlobalAdmin}
                 copied={copied}
                 toggleActivePending={toggleActive.isPending}
