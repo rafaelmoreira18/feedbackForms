@@ -267,22 +267,26 @@ function PesquisaCard({
   isSelected,
   copied,
   toggleAtivaPending,
+  canDelete,
   onSelect,
   onCopy,
   onToggleAtiva,
   onNavigate,
   onEdit,
+  onDelete,
 }: {
   pesquisa: PesquisaCorporativa
   tenantSlug: string
   isSelected: boolean
   copied: string | null
   toggleAtivaPending: boolean
+  canDelete: boolean
   onSelect: () => void
   onCopy: (slug: string) => void
   onToggleAtiva: (p: PesquisaCorporativa) => void
   onNavigate: () => void
   onEdit: () => void
+  onDelete: (p: PesquisaCorporativa) => void
 }) {
   return (
     <div
@@ -331,6 +335,16 @@ function PesquisaCard({
           <Button size="sm" variant="outline" onClick={onEdit}>
             Editar
           </Button>
+          {canDelete && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-red-base border-red-base/40 hover:bg-red-base/5"
+              onClick={() => onDelete(pesquisa)}
+            >
+              Excluir
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -371,11 +385,27 @@ export default function PesquisasCorporativas() {
     enabled: !!tenantSlug && !!selectedPesquisa,
   })
 
+  const isHoldingAdmin = user?.role === 'holding_admin'
+
   const toggleAtiva = useMutation({
     mutationFn: (p: PesquisaCorporativa) =>
       pesquisasCorporativasService.updateAtiva(tenantSlug, p.slug, !p.ativa),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pesquisas-corporativas', tenantSlug] }),
   })
+
+  const deletePesquisa = useMutation({
+    mutationFn: (p: PesquisaCorporativa) =>
+      pesquisasCorporativasService.delete(tenantSlug, p.slug),
+    onSuccess: () => {
+      setSelectedPesquisa(null)
+      queryClient.invalidateQueries({ queryKey: ['pesquisas-corporativas', tenantSlug] })
+    },
+  })
+
+  const handleDelete = (p: PesquisaCorporativa) => {
+    if (!window.confirm(`Excluir a pesquisa "${p.titulo}"? Esta ação não pode ser desfeita.`)) return
+    deletePesquisa.mutate(p)
+  }
 
   const copyLink = (slug: string) => {
     const url = `${window.location.origin}/${tenantSlug}/pesquisa-corporativa/${slug}`
@@ -454,11 +484,13 @@ export default function PesquisasCorporativas() {
               isSelected
               copied={copied}
               toggleAtivaPending={toggleAtiva.isPending}
+              canDelete={isHoldingAdmin}
               onSelect={() => setSelectedPesquisa(null)}
               onCopy={copyLink}
               onToggleAtiva={p => toggleAtiva.mutate(p)}
               onNavigate={() => window.open(`/${tenantSlug}/pesquisa-corporativa/${selectedPesquisa.slug}`, '_blank')}
               onEdit={() => setEditTarget(selectedPesquisa)}
+              onDelete={handleDelete}
             />
 
             {metricas && metricas.total > 0 && (
@@ -491,11 +523,13 @@ export default function PesquisasCorporativas() {
                 isSelected={false}
                 copied={copied}
                 toggleAtivaPending={toggleAtiva.isPending}
+                canDelete={isHoldingAdmin}
                 onSelect={() => handleSelect(p)}
                 onCopy={copyLink}
                 onToggleAtiva={p => toggleAtiva.mutate(p)}
                 onNavigate={() => window.open(`/${tenantSlug}/pesquisa-corporativa/${p.slug}`, '_blank')}
                 onEdit={() => setEditTarget(p)}
+                onDelete={handleDelete}
               />
             ))}
             <Text variant="caption" className="text-gray-300 text-center mt-2">
