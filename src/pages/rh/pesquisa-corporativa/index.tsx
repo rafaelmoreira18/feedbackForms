@@ -266,7 +266,7 @@ export default function PesquisaCorporativaPublica() {
               <SectionHeader icon="👤" title="Antes de começar" subtitle="Essas informações nos ajudam a entender melhor os resultados." />
 
               <Input
-                label="Fornecedor"
+                label="Fornecedor (opcional)"
                 type="text"
                 placeholder="Nome da empresa fornecedora"
                 value={fornecedor}
