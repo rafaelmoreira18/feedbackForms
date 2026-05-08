@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { PesquisaCorporativaEntity, PesquisaBloco } from './entities/pesquisa-corporativa.entity';
+import { PesquisaCorporativaEntity, PesquisaBloco, PesquisaVisibility } from './entities/pesquisa-corporativa.entity';
 import { TenantService } from '../tenants/tenant.service';
 import { CreatePesquisaDto } from './dto/create-pesquisa.dto';
 import { UpdatePesquisaDto } from './dto/update-pesquisa.dto';
@@ -57,12 +57,16 @@ export class PesquisasCorporativasService {
       blocos: dto.blocos as unknown as PesquisaBloco[],
       ativa: dto.ativa ?? true,
       periodo: dto.periodo ?? null,
+      categoria: dto.categoria ?? null,
+      visibility: dto.visibility ?? 'privada',
+      allowedTenantIds: dto.allowedTenantIds ?? null,
+      visivelParaUnidade: dto.visivelParaUnidade ?? true,
     });
 
     const saved = await this.repo.save(pesquisa);
 
     if (ctx) {
-      await this.auditLog.record(ctx, 'TRAINING_SESSION_CREATED', 'pesquisa_corporativa', saved.id, {
+      await this.auditLog.record(ctx, 'PESQUISA_CREATED', 'pesquisa_corporativa', saved.id, {
         titulo: dto.titulo,
         tipo: dto.tipo,
       });
@@ -71,12 +75,33 @@ export class PesquisasCorporativasService {
     return saved;
   }
 
-  async findAll(tenantSlug: string): Promise<PesquisaCorporativaEntity[]> {
+  async findAll(
+    tenantSlug: string,
+    options: { isGlobalAdmin: boolean },
+  ): Promise<PesquisaCorporativaEntity[]> {
     const tenantId = await this.tenantService.resolveId(tenantSlug);
-    return this.repo.find({
-      where: [{ tenantId }, { tenantId: IsNull() }],
-      order: { criadoEm: 'DESC' },
-    });
+
+    // global admin vê todas da unidade selecionada (incluindo visivelParaUnidade=false)
+    if (options.isGlobalAdmin) {
+      return this.repo.find({
+        where: { tenantId },
+        order: { criadoEm: 'DESC' },
+      });
+    }
+
+    // rh_admin de unidade vê: próprias visíveis + as explicitamente compartilhadas
+    return this.repo
+      .createQueryBuilder('p')
+      .where(
+        '(p."tenantId" = :tenantId AND p."visivelParaUnidade" = true)',
+        { tenantId },
+      )
+      .orWhere(
+        'p.visibility = :especifica AND :tenantId::uuid = ANY(p."allowedTenantIds")',
+        { especifica: 'especifica' as PesquisaVisibility, tenantId },
+      )
+      .orderBy('p."criadoEm"', 'DESC')
+      .getMany();
   }
 
   async findBySlug(tenantSlug: string | null, slug: string): Promise<PesquisaCorporativaEntity> {
@@ -106,7 +131,7 @@ export class PesquisasCorporativasService {
     const saved = await this.repo.save(pesquisa);
 
     if (ctx) {
-      await this.auditLog.record(ctx, 'TRAINING_SESSION_UPDATED', 'pesquisa_corporativa', pesquisa.id, {
+      await this.auditLog.record(ctx, 'PESQUISA_UPDATED', 'pesquisa_corporativa', pesquisa.id, {
         changes: dto,
       });
     }
@@ -122,7 +147,7 @@ export class PesquisasCorporativasService {
     await this.repo.remove(pesquisa);
 
     if (ctx) {
-      await this.auditLog.record(ctx, 'TRAINING_SESSION_DELETED', 'pesquisa_corporativa', pesquisa.id, {
+      await this.auditLog.record(ctx, 'PESQUISA_DELETED', 'pesquisa_corporativa', pesquisa.id, {
         titulo: pesquisa.titulo,
       });
     }

@@ -23,43 +23,27 @@ interface ReqUser {
   tenantId: string | null;
 }
 
+function assertGlobal(req: { user: ReqUser }) {
+  if (req.user.tenantId !== null) throw new ForbiddenException('Acesso restrito ao administrador global');
+}
+
 @Controller('admin/usuarios')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('holding_admin', 'hospital_admin')
+@Roles('holding_admin')
 export class AdminUsersController {
   constructor(private readonly adminUsersService: AdminUsersService) {}
 
-  /** GET /admin/usuarios?tenantId=<uuid|"global">
-   *  - holding_admin: pode passar qualquer tenantId ou "global"
-   *  - hospital_admin: ignora o parâmetro e retorna apenas o seu tenant
-   */
   @Get()
   find(@Query('tenantId') tenantId: string, @Request() req: { user: ReqUser }) {
-    const { role, tenantId: userTenantId } = req.user;
-
-    if (role === 'hospital_admin') {
-      if (!userTenantId) throw new ForbiddenException('Usuário sem unidade associada');
-      return this.adminUsersService.findByTenant(userTenantId);
-    }
-
-    // holding_admin
+    assertGlobal(req);
     if (!tenantId) throw new BadRequestException('Selecione uma unidade para listar os usuários');
     if (tenantId === 'global') return this.adminUsersService.findGlobal();
     return this.adminUsersService.findByTenant(tenantId);
   }
 
-  /** hospital_admin só pode criar usuários dentro do próprio tenant */
   @Post()
   create(@Body() dto: CreateAdminUserDto, @Request() req: { user: ReqUser }) {
-    const { role, tenantId: userTenantId } = req.user;
-
-    if (role === 'hospital_admin') {
-      if (!userTenantId) throw new ForbiddenException('Usuário sem unidade associada');
-      // força o tenantId e impede criar super_admin
-      if (dto.role === 'super_admin') throw new ForbiddenException('Sem permissão para criar Admin Global');
-      return this.adminUsersService.create({ ...dto, tenantId: userTenantId });
-    }
-
+    assertGlobal(req);
     return this.adminUsersService.create(dto);
   }
 
@@ -69,10 +53,11 @@ export class AdminUsersController {
     @Body() body: { newPassword: string },
     @Request() req: { user: ReqUser },
   ) {
+    assertGlobal(req);
     if (!body.newPassword || body.newPassword.length < 8) {
       throw new BadRequestException('Nova senha deve ter ao menos 8 caracteres');
     }
-    await this.adminUsersService.resetPassword(id, body.newPassword, req.user.role === 'hospital_admin' ? req.user.tenantId : null);
+    await this.adminUsersService.resetPassword(id, body.newPassword);
     return { message: 'Senha redefinida. O usuário deverá alterá-la no próximo acesso.' };
   }
 
@@ -82,10 +67,11 @@ export class AdminUsersController {
     @Body() body: { ativo: boolean },
     @Request() req: { user: ReqUser },
   ) {
+    assertGlobal(req);
     if (typeof body.ativo !== 'boolean') {
       throw new BadRequestException('Campo "ativo" deve ser booleano');
     }
-    await this.adminUsersService.toggleAtivo(id, body.ativo, req.user.role === 'hospital_admin' ? req.user.tenantId : null);
+    await this.adminUsersService.toggleAtivo(id, body.ativo);
     return { ativo: body.ativo };
   }
 }

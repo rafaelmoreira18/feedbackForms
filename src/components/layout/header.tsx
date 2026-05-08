@@ -78,16 +78,18 @@ export default function Header() {
               </button>
             )}
 
-            {/* Pesquisas Corporativas — rh_admin */}
-            {user.role === 'rh_admin' && activeTenantSlug && (
+            {/* RH Hub — rh_admin */}
+            {user.role === 'rh_admin' && (
               <button
                 type="button"
-                onClick={() => navigate(ROUTES.pesquisasCorporativas(activeTenantSlug))}
-                title="Pesquisas Corporativas"
+                onClick={() => navigate(
+                  activeTenantSlug ? ROUTES.rhHub(activeTenantSlug) : ROUTES.rhHubGlobal
+                )}
+                title="RH"
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-teal-base hover:bg-teal-light transition-colors duration-150"
               >
                 <LineChart size={20} />
-                <span className="text-sm font-semibold font-sans hidden sm:inline">Pesquisas</span>
+                <span className="text-sm font-semibold font-sans hidden sm:inline">RH</span>
               </button>
             )}
 

@@ -432,8 +432,8 @@ export default function PesquisasCorporativas() {
         <div className="flex items-center gap-3 flex-wrap">
           <Text variant="body-sm" className="text-gray-300 hidden sm:block">{user?.name}</Text>
           {tenantSlug && (
-            <Button variant="outline" size="sm" onClick={() => navigate(ROUTES.treinamentos(tenantSlug))}>
-              ← Treinamentos
+            <Button variant="outline" size="sm" onClick={() => navigate(ROUTES.rhHub(tenantSlug))}>
+              ← RH
             </Button>
           )}
         </div>
