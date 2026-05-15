@@ -145,12 +145,13 @@ export function RhPagination({
   )
 }
 
-export function FolderRow({ label, count, open, depth, onToggle }: {
+export function FolderRow({ label, count, open, depth, onToggle, action }: {
   label: string
   count: number
   open: boolean
   depth: number
   onToggle: () => void
+  action?: { label: string; onClick: () => void }
 }) {
   return (
     <div
@@ -170,6 +171,14 @@ export function FolderRow({ label, count, open, depth, onToggle }: {
         {label}
       </span>
       <span className="text-xs text-gray-300 tabular-nums shrink-0">{count}</span>
+      {action && (
+        <button
+          onClick={e => { e.stopPropagation(); action.onClick() }}
+          className="ml-1 text-xs text-teal-base hover:text-teal-dark font-medium shrink-0 px-1"
+        >
+          {action.label}
+        </button>
+      )}
     </div>
   )
 }

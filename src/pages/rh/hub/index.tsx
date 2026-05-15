@@ -13,6 +13,7 @@ import { ResponsesPanel as TreinamentoResponsesPanel } from '@/pages/rh/treiname
 import { ResponsesPanel as CorporativaResponsesPanel } from '@/pages/rh/pesquisas-corporativas/pesquisa-respostas'
 import { PesquisaCard } from '@/pages/rh/pesquisas-corporativas/pesquisa-table'
 import { Breadcrumb, ItemRow, FolderRow } from '@/pages/rh/hub/hub-icons'
+import { SessionForm } from '@/pages/rh/treinamentos/session-form-modal'
 import Text from '@/components/ui/text'
 import Card from '@/components/ui/card'
 import Select from '@/components/ui/select'
@@ -41,6 +42,8 @@ export default function RhHub() {
 
   // copy link — single state tracks whichever slug was last copied
   const [copied, setCopied] = useState<string | null>(null)
+
+  const [showCreateTreinamento, setShowCreateTreinamento] = useState(false)
 
   // refs para resolução de pesquisa equivalente ao trocar unidade
   const pendingPesquisa = useRef<PesquisaCorporativa | null>(null)
@@ -242,6 +245,18 @@ export default function RhHub() {
           </>
 
         ) : (
+          <>
+          {showCreateTreinamento && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+                <SessionForm
+                  tenantSlug={tenantSlug}
+                  onClose={() => setShowCreateTreinamento(false)}
+                  onSaved={() => setShowCreateTreinamento(false)}
+                />
+              </div>
+            </div>
+          )}
           <Card shadow="sm" className="py-2 px-0 overflow-hidden">
 
             <FolderRow
@@ -250,6 +265,7 @@ export default function RhHub() {
               open={openTreinamentos}
               depth={0}
               onToggle={() => setOpenTreinamentos(v => !v)}
+              action={canCreate && tenantSlug ? { label: '+ Novo', onClick: () => setShowCreateTreinamento(true) } : undefined}
             />
             {openTreinamentos && (
               sessions.length === 0
@@ -300,6 +316,7 @@ export default function RhHub() {
                   })
             )}
           </Card>
+          </>
         )}
       </div>
     </div>
