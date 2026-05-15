@@ -2,20 +2,11 @@ import { v4 as uuid } from 'uuid';
 import { PesquisaBloco } from '../entities/pesquisa-corporativa.entity';
 
 /**
- * Atualiza todas as pesquisas "Clima e Soft Skills 2026" por unidade para
- * "Pesquisa de Satisfação de Fornecedores", substituindo título, slug, tipo,
- * período, categoria e blocos.
+ * Atualiza os blocos/perguntas de todas as pesquisas de fornecedores já existentes.
+ * Não cria nem remove pesquisas — apenas substitui a coluna `blocos`.
  *
- * Execução: npx ts-node src/modules/pesquisas-corporativas/seeds/update-para-fornecedores.seed.ts
- * Idempotente: ignora unidades que já possuem o novo slug.
+ * Execução: npx ts-node src/modules/pesquisas-corporativas/seeds/update-perguntas-fornecedores.seed.ts
  */
-
-const SLUG_ANTIGO_BASE = 'clima-soft-skills-2026';
-const SLUG_NOVO_BASE   = 'satisfacao-fornecedores-2026';
-const TITULO_NOVO      = 'Pesquisa de Satisfação de Fornecedores';
-const TIPO_NOVO        = 'fornecedores';
-const PERIODO_NOVO     = 'Anual 2026';
-const CATEGORIA_NOVA   = 'Fornecedores';
 
 function makeBlocos(): PesquisaBloco[] {
   return [
@@ -65,9 +56,9 @@ function makeBlocos(): PesquisaBloco[] {
       titulo: '5. Imagem institucional e parceria',
       ordem: 5,
       perguntas: [
-        { id: uuid(), texto: 'Confiança e percepção da Organização como parceira estratégica',                   escala: 'likert5', obrigatoria: true, ordem: 1 },
-        { id: uuid(), texto: 'Ética, transparência e respeito no relacionamento e acordos estabelecidos',         escala: 'likert5', obrigatoria: true, ordem: 2 },
-        { id: uuid(), texto: 'Interesse em manter ou ampliar a relação comercial',                               escala: 'likert5', obrigatoria: true, ordem: 3 },
+        { id: uuid(), texto: 'Confiança e percepção da Organização como parceira estratégica',            escala: 'likert5', obrigatoria: true, ordem: 1 },
+        { id: uuid(), texto: 'Ética, transparência e respeito no relacionamento e acordos estabelecidos', escala: 'likert5', obrigatoria: true, ordem: 2 },
+        { id: uuid(), texto: 'Interesse em manter ou ampliar a relação comercial',                       escala: 'likert5', obrigatoria: true, ordem: 3 },
       ],
     },
     {
@@ -75,8 +66,8 @@ function makeBlocos(): PesquisaBloco[] {
       titulo: '6. Avaliação geral',
       ordem: 6,
       perguntas: [
-        { id: uuid(), texto: 'De forma geral, qual seu nível de satisfação com a Organização?',             escala: 'likert5', obrigatoria: true, ordem: 1 },
-        { id: uuid(), texto: 'Você recomendaria nossa Organização para outros fornecedores ou parceiros?',  escala: 'opcoes', opcoes: ['Sim', 'Não', 'Talvez'], obrigatoria: true, ordem: 2 },
+        { id: uuid(), texto: 'De forma geral, qual seu nível de satisfação com a Organização?',            escala: 'likert5', obrigatoria: true, ordem: 1 },
+        { id: uuid(), texto: 'Você recomendaria nossa Organização para outros fornecedores ou parceiros?', escala: 'opcoes', opcoes: ['Sim', 'Não', 'Talvez'], obrigatoria: true, ordem: 2 },
       ],
     },
     {
@@ -84,10 +75,10 @@ function makeBlocos(): PesquisaBloco[] {
       titulo: '7. Questões abertas',
       ordem: 7,
       perguntas: [
-        { id: uuid(), texto: 'Quais pontos positivos você identifica no relacionamento com a Organização?', escala: 'aberta', obrigatoria: true,  ordem: 1 },
-        { id: uuid(), texto: 'Quais oportunidades de melhoria você sugere?',                                escala: 'aberta', obrigatoria: true,  ordem: 2 },
+        { id: uuid(), texto: 'Quais pontos positivos você identifica no relacionamento com a Organização?',           escala: 'aberta', obrigatoria: true,  ordem: 1 },
+        { id: uuid(), texto: 'Quais oportunidades de melhoria você sugere?',                                          escala: 'aberta', obrigatoria: true,  ordem: 2 },
         { id: uuid(), texto: 'Houve alguma situação que dificultou a prestação do serviço ou fornecimento do produto?', escala: 'aberta', obrigatoria: true,  ordem: 3 },
-        { id: uuid(), texto: 'Comentários adicionais',                                                      escala: 'aberta', obrigatoria: false, ordem: 4 },
+        { id: uuid(), texto: 'Comentários adicionais',                                                                escala: 'aberta', obrigatoria: false, ordem: 4 },
       ],
     },
   ];
@@ -113,61 +104,17 @@ async function run() {
 
   await ds.initialize();
   const repo = ds.getRepository(PesquisaCorporativaEntity);
-  const tenantRepo = ds.getRepository(TenantEntity);
 
-  const tenants = await tenantRepo.find({ where: { active: true }, order: { name: 'ASC' } });
-  console.log(`\nUnidades encontradas: ${tenants.length}`);
+  const pesquisas = await repo.find({ where: { tipo: 'fornecedores' } });
+  console.log(`\nPesquisas de fornecedores encontradas: ${pesquisas.length}`);
 
-  let atualizadas = 0;
-  let ignoradas = 0;
-
-  for (const tenant of tenants) {
-    const slugNovo = `${SLUG_NOVO_BASE}-${tenant.slug}`;
-
-    // Já foi migrada?
-    const jaExiste = await repo.findOne({ where: { tenantId: tenant.id, slug: slugNovo } });
-    if (jaExiste) {
-      console.log(`  ↳ [${tenant.slug}] já existe — ignorado`);
-      ignoradas++;
-      continue;
-    }
-
-    // Remove qualquer pesquisa antiga de clima desta unidade
-    const antigas = await repo.find({ where: { tenantId: tenant.id } });
-    const deClima = antigas.filter(p => p.slug.startsWith(SLUG_ANTIGO_BASE));
-    if (deClima.length > 0) {
-      await repo.remove(deClima);
-      console.log(`  🗑  [${tenant.slug}] ${deClima.length} pesquisa(s) de clima removida(s)`);
-    }
-
-    const nova = repo.create({
-      tenantId:    tenant.id,
-      titulo:      TITULO_NOVO,
-      slug:        slugNovo,
-      tipo:        TIPO_NOVO,
-      periodo:     PERIODO_NOVO,
-      ativa:       true,
-      categoria:   CATEGORIA_NOVA,
-      visibility:  'privada',
-      allowedTenantIds: null,
-      visivelParaUnidade: false,
-      blocos:      makeBlocos(),
-    });
-
-    const saved = await repo.save(nova);
-    console.log(`  ✓ [${tenant.slug}] criada — id: ${saved.id}`);
-    atualizadas++;
+  for (const p of pesquisas) {
+    p.blocos = makeBlocos();
+    await repo.save(p);
+    console.log(`  ✓ Atualizada: ${p.slug}`);
   }
 
-  // Remove linha global de clima (tenantId = null), se existir
-  const globaisClima = await repo.find({ where: { tenantId: null as any } });
-  const globaisParaRemover = globaisClima.filter(p => p.slug.startsWith(SLUG_ANTIGO_BASE));
-  if (globaisParaRemover.length > 0) {
-    await repo.remove(globaisParaRemover);
-    console.log(`\n🗑  ${globaisParaRemover.length} linha(s) global(is) de clima removida(s).`);
-  }
-
-  console.log(`\nResumo: ${atualizadas} atualizada(s), ${ignoradas} ignorada(s).`);
+  console.log(`\nConcluído: ${pesquisas.length} pesquisa(s) atualizada(s).`);
   await ds.destroy();
 }
 
