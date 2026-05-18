@@ -156,16 +156,11 @@ export default function Dashboard() {
           ) : (
             <>
               {/* Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
                 <MetricCard
                   title="Total de Respostas"
                   value={metrics?.totalResponses ?? 0}
                   subtitle={hasActiveFilters ? `${allForms.length} no total` : undefined}
-                />
-                <MetricCard
-                  title="Média Satisfação (1–4)"
-                  value={`${metrics?.averageSatisfaction ?? 0}/4`}
-                  subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
                 />
                 <MetricCard
                   title="Recomendariam"
@@ -176,6 +171,21 @@ export default function Dashboard() {
                   title="Respostas Este Mês"
                   value={metrics?.responsesThisMonth ?? 0}
                   subtitle={`${metrics?.responsesLastMonth ?? 0} no mês anterior`}
+                />
+                <MetricCard
+                  title="Média Satisfação (1–4)"
+                  value={`${metrics?.averageSatisfactionOnly ?? 0}/4`}
+                  subtitle="Infraestrutura e ambiente"
+                />
+                <MetricCard
+                  title="Média Experiência (1–4)"
+                  value={`${metrics?.averageExperience ?? 0}/4`}
+                  subtitle="Atendimento e cuidado assistencial"
+                />
+                <MetricCard
+                  title="Média Geral (1–4)"
+                  value={`${metrics?.averageSatisfaction ?? 0}/4`}
+                  subtitle="Satisfação + Experiência"
                 />
               </div>
 

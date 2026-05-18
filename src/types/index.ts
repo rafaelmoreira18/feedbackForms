@@ -130,6 +130,8 @@ export interface Form3Filters {
 export interface Form3Metrics {
   totalResponses: number;
   averageSatisfaction: number;
+  averageSatisfactionOnly: number;
+  averageExperience: number;
   responsesThisMonth: number;
   responsesLastMonth: number;
   averageNps: number;

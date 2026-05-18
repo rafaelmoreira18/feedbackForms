@@ -191,6 +191,30 @@ export class Form3Service {
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
+    // Build per-formType maps of which questionKeys belong to each category
+    // based on the block title ("Satisfação" vs "Experiência").
+    const templates = await this.templateRepo.find({ where: { tenantId } });
+    const satisfactionByForm: Record<string, string[]> = {};
+    const experienceByForm: Record<string, string[]> = {};
+    for (const tmpl of templates) {
+      const sat: string[] = [];
+      const exp: string[] = [];
+      for (const block of tmpl.blocks ?? []) {
+        const title = (block.title ?? '').toLowerCase();
+        const target = title.includes('satisfação') || title.includes('satisfacao')
+          ? sat
+          : title.includes('experiência') || title.includes('experiencia')
+            ? exp
+            : null;
+        if (!target) continue;
+        for (const q of block.questions ?? []) {
+          if (q.scale !== 'nps') target.push(q.questionKey);
+        }
+      }
+      satisfactionByForm[tmpl.slug] = sat;
+      experienceByForm[tmpl.slug] = exp;
+    }
+
     // Base filter query builder (reused for all aggregations)
     const buildBase = () => {
       const qb = this.repo.createQueryBuilder('form');
@@ -208,6 +232,21 @@ export class Form3Service {
       return qb;
     };
 
+    // Per-form-type avg by category: averages each response's category mean,
+    // then averages those means across responses (mirrors avgSatisfaction logic).
+    // The map is a JSON object { [formType]: [questionKey, ...] } passed as a
+    // jsonb parameter; we extract the array for this row's formType and check
+    // membership.
+    const categoryAvgSql = (mapName: 'satKeys' | 'expKeys') => `AVG(
+      (SELECT AVG((elem->>'value')::float)
+       FROM jsonb_array_elements(form.answers) AS elem
+       WHERE elem->>'questionId' IN (
+         SELECT jsonb_array_elements_text(
+           COALESCE(CAST(:${mapName} AS jsonb)->form."formType", '[]'::jsonb)
+         )
+       ))
+    )`;
+
     // All aggregations in a single SQL query
     const row = await buildBase()
       .select('COUNT(*)', 'totalResponses')
@@ -219,6 +258,8 @@ export class Form3Service {
         )`,
         'avgSatisfaction',
       )
+      .addSelect(categoryAvgSql('satKeys'), 'avgSatisfactionOnly')
+      .addSelect(categoryAvgSql('expKeys'), 'avgExperience')
       .addSelect(
         `CASE WHEN COUNT(*) FILTER (WHERE EXISTS (
             SELECT 1 FROM jsonb_array_elements(form.answers) AS elem
@@ -247,17 +288,26 @@ export class Form3Service {
       .setParameter('thisMonthStart', thisMonthStart)
       .setParameter('lastMonthStart', lastMonthStart)
       .setParameter('lastMonthEnd', lastMonthEnd)
+      .setParameter('satKeys', JSON.stringify(satisfactionByForm))
+      .setParameter('expKeys', JSON.stringify(experienceByForm))
       .getRawOne<{
         totalResponses: string;
         avgSatisfaction: string | null;
+        avgSatisfactionOnly: string | null;
+        avgExperience: string | null;
         avgNps: string | null;
         responsesThisMonth: string;
         responsesLastMonth: string;
       }>();
 
+    const round1 = (v: string | null | undefined) =>
+      Math.round((parseFloat(v ?? '0') || 0) * 10) / 10;
+
     return {
       totalResponses: parseInt(row?.totalResponses ?? '0', 10),
-      averageSatisfaction: Math.round((parseFloat(row?.avgSatisfaction ?? '0') || 0) * 10) / 10,
+      averageSatisfaction: round1(row?.avgSatisfaction),
+      averageSatisfactionOnly: round1(row?.avgSatisfactionOnly),
+      averageExperience: round1(row?.avgExperience),
       averageNps: parseFloat(row?.avgNps ?? '0') || 0, // % de Sim (0–100)
       responsesThisMonth: parseInt(row?.responsesThisMonth ?? '0', 10),
       responsesLastMonth: parseInt(row?.responsesLastMonth ?? '0', 10),
