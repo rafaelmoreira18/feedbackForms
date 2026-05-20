@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { ROUTES } from "@/routes";
 import { form3Service } from "@/services/form3-service";
-import { generateDashboardReport } from "@/services/report-service";
+import { generateDashboardReport, type CategoryFilter } from "@/services/report-service";
 import type { Form3Filters } from "@/types";
 import Text from "@/components/ui/text";
 import Select from "@/components/ui/select";
@@ -17,6 +17,10 @@ import Pagination from "@/components/ui/pagination";
 import { ModalPdfCpf } from "@/components/ui/modal/modal-pdf-cpf";
 
 const PAGE_SIZE = 50;
+
+function isCategoryFilter(v: string | null): v is CategoryFilter {
+  return v === "both" || v === "satisfaction" || v === "experience";
+}
 
 export default function Dashboard() {
   const { user, logout, activeTenantSlug } = useAuth();
@@ -37,6 +41,8 @@ export default function Dashboard() {
   const endDate = searchParams.get("endDate") || "";
   const sortSatisfaction = (searchParams.get("sortSatisfaction") as "asc" | "desc") || undefined;
   const currentPage = Number(searchParams.get("page") || "1");
+  const rawCategory = searchParams.get("category");
+  const categoryFilter: CategoryFilter = isCategoryFilter(rawCategory) ? rawCategory : "both";
 
   const setFilters = useCallback(
     (patch: Partial<{ startDate: string; endDate: string; sortSatisfaction: string }>) => {
@@ -56,6 +62,16 @@ export default function Dashboard() {
     (page: number) => {
       const next = new URLSearchParams(searchParams);
       next.set("page", String(page));
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const setCategoryFilter = useCallback(
+    (value: CategoryFilter) => {
+      const next = new URLSearchParams(searchParams);
+      if (value === "both") next.delete("category");
+      else next.set("category", value);
       setSearchParams(next, { replace: true });
     },
     [searchParams, setSearchParams],
@@ -90,7 +106,7 @@ export default function Dashboard() {
   const filteredForms = filteredPage?.data ?? [];
   const totalFiltered = filteredPage?.total ?? 0;
   const totalPages = Math.ceil(totalFiltered / PAGE_SIZE);
-  const hasActiveFilters = !!(startDate || endDate || sortSatisfaction || form3DeptFilter);
+  const hasActiveFilters = !!(startDate || endDate || sortSatisfaction || form3DeptFilter || categoryFilter !== "both");
 
   const clearFilters = () => {
     setSearchParams({ page: "1" }, { replace: true });
@@ -113,7 +129,7 @@ export default function Dashboard() {
         formType: form3DeptFilter || undefined,
         includeCpf,
       });
-      generateDashboardReport(allFiltered, metrics, filteredFilters, allForms.length);
+      generateDashboardReport(allFiltered, metrics, filteredFilters, allForms.length, categoryFilter);
     } finally {
       setIsExporting(false);
     }
@@ -155,6 +171,34 @@ export default function Dashboard() {
             </div>
           ) : (
             <>
+              {/* Category segmented control */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Text variant="body-sm" className="text-gray-300">Exibir:</Text>
+                <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+                  {([
+                    { value: "both", label: "Ambas" },
+                    { value: "satisfaction", label: "Satisfação" },
+                    { value: "experience", label: "Experiência" },
+                  ] as const).map((opt) => {
+                    const active = categoryFilter === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setCategoryFilter(opt.value)}
+                        className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                          active
+                            ? "bg-teal-base text-white"
+                            : "bg-white text-gray-400 hover:bg-gray-50"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
                 <MetricCard
@@ -172,21 +216,27 @@ export default function Dashboard() {
                   value={metrics?.responsesThisMonth ?? 0}
                   subtitle={`${metrics?.responsesLastMonth ?? 0} no mês anterior`}
                 />
-                <MetricCard
-                  title="Média Satisfação (1–4)"
-                  value={`${metrics?.averageSatisfactionOnly ?? 0}/4`}
-                  subtitle="Infraestrutura e ambiente"
-                />
-                <MetricCard
-                  title="Média Experiência (1–4)"
-                  value={`${metrics?.averageExperience ?? 0}/4`}
-                  subtitle="Atendimento e cuidado assistencial"
-                />
-                <MetricCard
-                  title="Média Geral (1–4)"
-                  value={`${metrics?.averageSatisfaction ?? 0}/4`}
-                  subtitle="Satisfação + Experiência"
-                />
+                {(categoryFilter === "both" || categoryFilter === "satisfaction") && (
+                  <MetricCard
+                    title="Média Satisfação (1–4)"
+                    value={`${metrics?.averageSatisfactionOnly ?? 0}/4`}
+                    subtitle="Infraestrutura e ambiente"
+                  />
+                )}
+                {(categoryFilter === "both" || categoryFilter === "experience") && (
+                  <MetricCard
+                    title="Média Experiência (1–4)"
+                    value={`${metrics?.averageExperience ?? 0}/4`}
+                    subtitle="Atendimento e cuidado assistencial"
+                  />
+                )}
+                {categoryFilter === "both" && (
+                  <MetricCard
+                    title="Média Geral (1–4)"
+                    value={`${metrics?.averageSatisfaction ?? 0}/4`}
+                    subtitle="Satisfação + Experiência"
+                  />
+                )}
               </div>
 
               {/* Filters */}

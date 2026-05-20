@@ -78,7 +78,7 @@ export default function Form3Table({ forms, onRowClick, total, currentPage, page
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    {["Nome do Paciente", "CPF", "Setor", "Média Satisfação", "Recomendaria", "Data"].map((h, i) => (
+                    {["Nome do Paciente", "CPF", "Setor", "Média Satisfação Geral", "Recomendaria", "Data"].map((h, i) => (
                       <th key={i} className="text-left py-3 px-4">
                         <Text variant="body-sm-bold" className="text-gray-400">{h}</Text>
                       </th>
