@@ -46,7 +46,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
   if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
   // global rh_admin (tenantId === null) can access admin routes; tenant-scoped rh_admin cannot
-  if (user?.role === 'viewer' || user?.role === 'operator_forms' || (user?.role === 'rh_admin' && !!user?.tenantId)) return <Navigate to={ROUTES.home} replace />;
+  if (user?.role === 'viewer' || user?.role === 'operator_forms' || user?.role === 'rh_admin') return <Navigate to={ROUTES.rhHubGlobal} replace />;
   return <>{children}</>;
 }
 
@@ -75,13 +75,13 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/change-password" element={<ChangePassword />} />
 
-      {/* Protected — nurse operates these */}
-      <Route path="/:tenantSlug/pesquisa" element={<ProtectedRoute><Pesquisa /></ProtectedRoute>} />
-      <Route path="/:tenantSlug/:formSlug" element={<ProtectedRoute><SurveyForm3 /></ProtectedRoute>} />
-
       {/* RH Hub — all RH management lives here */}
       <Route path="/rh-hub" element={<RhRoute><RhHub /></RhRoute>} />
       <Route path="/:tenantSlug/rh-hub" element={<RhRoute><RhHub /></RhRoute>} />
+
+      {/* Protected — nurse operates these */}
+      <Route path="/:tenantSlug/pesquisa" element={<ProtectedRoute><Pesquisa /></ProtectedRoute>} />
+      <Route path="/:tenantSlug/:formSlug" element={<ProtectedRoute><SurveyForm3 /></ProtectedRoute>} />
 
       {/* Training — public survey link only; management is via rh-hub */}
       <Route path="/:tenantSlug/treinamento/:sessionSlug" element={<TrainingSurvey />} />

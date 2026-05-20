@@ -179,6 +179,12 @@ describe('Form3Service', () => {
   // ─── getMetrics ──────────────────────────────────────────────────────────────
 
   describe('getMetrics()', () => {
+    beforeEach(() => {
+      // getMetrics fetches templates to bucket questionIds into
+      // satisfaction/experience — return empty for the basic SQL-shape tests.
+      (templateRepo as any).find = jest.fn().mockResolvedValue([]);
+    });
+
     function makeQbWithRawOne(rawRow: Record<string, string | null>) {
       const qb = {
         where: jest.fn().mockReturnThis(),

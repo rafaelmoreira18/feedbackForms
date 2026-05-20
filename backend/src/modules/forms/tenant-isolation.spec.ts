@@ -80,6 +80,7 @@ describe('Tenant Isolation — Form3Service', () => {
 
 const templateRepoMock = {
       findOne: jest.fn().mockResolvedValue({ id: 'tmpl-1', slug: 'uti', active: true }),
+      find: jest.fn().mockResolvedValue([]),
     };
 
     const module: TestingModule = await Test.createTestingModule({

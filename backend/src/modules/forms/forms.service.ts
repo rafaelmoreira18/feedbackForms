@@ -28,6 +28,30 @@ function endOfDay(value: string, field: string): string {
   return `${value} 23:59:59.999`;
 }
 
+type QuestionCategory = 'satisfaction' | 'experience' | null;
+
+// Block titles in templates use "Bloco 1 – Satisfação do Paciente" /
+// "Bloco 2 – Experiência do Paciente". Keywords (with and without accent)
+// classify a block into a metric category.
+const SATISFACTION_KEYWORDS = ['satisfação', 'satisfacao'];
+const EXPERIENCE_KEYWORDS = ['experiência', 'experiencia'];
+
+function classifyBlock(title: string | null | undefined): QuestionCategory {
+  const t = (title ?? '').toLowerCase();
+  if (SATISFACTION_KEYWORDS.some((k) => t.includes(k))) return 'satisfaction';
+  if (EXPERIENCE_KEYWORDS.some((k) => t.includes(k))) return 'experience';
+  return null;
+}
+
+function getMonthBoundaries() {
+  const now = new Date();
+  return {
+    thisMonthStart: new Date(now.getFullYear(), now.getMonth(), 1),
+    lastMonthStart: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+    lastMonthEnd: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59),
+  };
+}
+
 @Injectable()
 export class Form3Service {
   constructor(
@@ -186,10 +210,8 @@ export class Form3Service {
   }
 
   async getMetrics(tenantId: string, filters?: FilterForm3Dto) {
-    const now = new Date();
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const { thisMonthStart, lastMonthStart, lastMonthEnd } = getMonthBoundaries();
+    const { satisfactionByForm, experienceByForm } = await this.buildCategoryMaps(tenantId);
 
     // Base filter query builder (reused for all aggregations)
     const buildBase = () => {
@@ -208,6 +230,16 @@ export class Form3Service {
       return qb;
     };
 
+    const categoryAvgSql = (mapName: 'satKeys' | 'expKeys') => `AVG(
+      (SELECT AVG((elem->>'value')::float)
+       FROM jsonb_array_elements(form.answers) AS elem
+       WHERE elem->>'questionId' IN (
+         SELECT jsonb_array_elements_text(
+           COALESCE(CAST(:${mapName} AS jsonb)->form."formType", '[]'::jsonb)
+         )
+       ))
+    )`;
+
     // All aggregations in a single SQL query
     const row = await buildBase()
       .select('COUNT(*)', 'totalResponses')
@@ -219,6 +251,8 @@ export class Form3Service {
         )`,
         'avgSatisfaction',
       )
+      .addSelect(categoryAvgSql('satKeys'), 'avgSatisfactionOnly')
+      .addSelect(categoryAvgSql('expKeys'), 'avgExperience')
       .addSelect(
         `CASE WHEN COUNT(*) FILTER (WHERE EXISTS (
             SELECT 1 FROM jsonb_array_elements(form.answers) AS elem
@@ -247,20 +281,59 @@ export class Form3Service {
       .setParameter('thisMonthStart', thisMonthStart)
       .setParameter('lastMonthStart', lastMonthStart)
       .setParameter('lastMonthEnd', lastMonthEnd)
+      .setParameter('satKeys', JSON.stringify(satisfactionByForm))
+      .setParameter('expKeys', JSON.stringify(experienceByForm))
       .getRawOne<{
         totalResponses: string;
         avgSatisfaction: string | null;
+        avgSatisfactionOnly: string | null;
+        avgExperience: string | null;
         avgNps: string | null;
         responsesThisMonth: string;
         responsesLastMonth: string;
       }>();
 
+    const round1 = (v: string | null | undefined) =>
+      Math.round((parseFloat(v ?? '0') || 0) * 10) / 10;
+
     return {
       totalResponses: parseInt(row?.totalResponses ?? '0', 10),
-      averageSatisfaction: Math.round((parseFloat(row?.avgSatisfaction ?? '0') || 0) * 10) / 10,
+      averageSatisfaction: round1(row?.avgSatisfaction),
+      averageSatisfactionOnly: round1(row?.avgSatisfactionOnly),
+      averageExperience: round1(row?.avgExperience),
       averageNps: parseFloat(row?.avgNps ?? '0') || 0, // % de Sim (0–100)
       responsesThisMonth: parseInt(row?.responsesThisMonth ?? '0', 10),
       responsesLastMonth: parseInt(row?.responsesLastMonth ?? '0', 10),
     };
+  }
+
+  /**
+   * Builds `{ [formType]: [questionKey, ...] }` maps for each metric category
+   * by classifying template blocks via their title. NPS questions are excluded.
+   */
+  private async buildCategoryMaps(tenantId: string): Promise<{
+    satisfactionByForm: Record<string, string[]>;
+    experienceByForm: Record<string, string[]>;
+  }> {
+    const templates = await this.templateRepo.find({ where: { tenantId } });
+    const satisfactionByForm: Record<string, string[]> = {};
+    const experienceByForm: Record<string, string[]> = {};
+
+    for (const tmpl of templates) {
+      const sat: string[] = [];
+      const exp: string[] = [];
+      for (const block of tmpl.blocks ?? []) {
+        const category = classifyBlock(block.title);
+        if (!category) continue;
+        const target = category === 'satisfaction' ? sat : exp;
+        for (const q of block.questions ?? []) {
+          if (q.scale !== 'nps') target.push(q.questionKey);
+        }
+      }
+      satisfactionByForm[tmpl.slug] = sat;
+      experienceByForm[tmpl.slug] = exp;
+    }
+
+    return { satisfactionByForm, experienceByForm };
   }
 }
