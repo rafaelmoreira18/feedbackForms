@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import { getScaleAverage } from "./analytics3-service";
-import { formatDate, formatRating } from "@/utils/format";
+import { formatDate, formatRating, metricsViewLabel } from "@/utils/format";
 import type { Form3Response, Form3Filters, Form3Metrics, MetricsView } from "@/types";
 
 const COLORS = {
@@ -9,7 +9,6 @@ const COLORS = {
   gray: [100, 100, 100] as const,
   lightGray: [200, 200, 200] as const,
   white: [255, 255, 255] as const,
-  headerBg: [41, 98, 255] as const,
   rowAlt: [245, 247, 250] as const,
 };
 
@@ -26,8 +25,7 @@ function buildFilterDescription(filters: Form3Filters, metricsView: MetricsView)
     const label = filters.sortSatisfaction === "desc" ? "Maior para Menor" : "Menor para Maior";
     parts.push(`Ordenacao: ${label}`);
   }
-  const viewLabel = metricsView === 'satisfacao' ? 'Satisfacao' : metricsView === 'avaliacao' ? 'Avaliacao' : 'Ambos';
-  parts.push(`Exibindo: ${viewLabel}`);
+  parts.push(`Exibindo: ${metricsViewLabel(metricsView)}`);
   return parts.length > 0 ? parts.join(" | ") : "Sem filtros aplicados";
 }
 
@@ -40,7 +38,7 @@ function checkPageBreak(doc: jsPDF, y: number, needed: number): number {
 }
 
 function drawCard(doc: jsPDF, x: number, y: number, width: number, height: number, title: string, value: string) {
-  doc.setFillColor(...COLORS.headerBg);
+  doc.setFillColor(...COLORS.primary);
   doc.roundedRect(x, y, width, height, 2, 2, "F");
   doc.setTextColor(...COLORS.white);
   doc.setFontSize(8);
@@ -110,7 +108,7 @@ function drawResponsesTable(
   const headers = ["Nome do Paciente", "Setor Avaliado", "CPF", "Media", "Data"];
   const rowHeight = 8;
 
-  doc.setFillColor(...COLORS.headerBg);
+  doc.setFillColor(...COLORS.primary);
   doc.rect(PAGE_MARGIN, y, CONTENT_WIDTH, rowHeight, "F");
   doc.setFontSize(7);
   doc.setFont("helvetica", "bold");

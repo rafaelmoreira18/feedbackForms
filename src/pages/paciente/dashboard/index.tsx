@@ -22,8 +22,22 @@ const PAGE_SIZE = 50;
 const METRICS_VIEW_OPTIONS: { value: MetricsView; label: string }[] = [
   { value: "satisfacao", label: "Satisfação" },
   { value: "avaliacao", label: "Avaliação" },
-  { value: "ambos", label: "Ambos" },
+  { value: "ambos",     label: "Ambos" },
 ];
+
+function patchSearchParams(
+  current: URLSearchParams,
+  patch: Record<string, string | undefined>,
+  resetPage = false,
+): URLSearchParams {
+  const next = new URLSearchParams(current);
+  Object.entries(patch).forEach(([k, v]) => {
+    if (v) next.set(k, v);
+    else next.delete(k);
+  });
+  if (resetPage) next.set("page", "1");
+  return next;
+}
 
 export default function Dashboard() {
   const { user, logout, activeTenantSlug } = useAuth();
@@ -37,7 +51,6 @@ export default function Dashboard() {
   const isHoldingAdmin = user?.role === 'holding_admin';
   const isGlobalRhAdmin = user?.role === 'rh_admin' && !user?.tenantId;
   const isGlobal = isHoldingAdmin || isGlobalRhAdmin;
-
   const tenantSlug = isGlobal ? activeTenantSlug : (user?.tenantSlug ?? "");
 
   const startDate = searchParams.get("startDate") || "";
@@ -46,23 +59,15 @@ export default function Dashboard() {
   const currentPage = Number(searchParams.get("page") || "1");
 
   const setFilters = useCallback(
-    (patch: Partial<{ startDate: string; endDate: string; sortSatisfaction: string }>) => {
-      const next = new URLSearchParams(searchParams);
-      Object.entries(patch).forEach(([k, v]) => {
-        if (v) next.set(k, v);
-        else next.delete(k);
-      });
-      next.set("page", "1");
-      setSearchParams(next, { replace: true });
+    (patch: Record<string, string | undefined>) => {
+      setSearchParams(patchSearchParams(searchParams, patch, true), { replace: true });
     },
     [searchParams, setSearchParams],
   );
 
   const setPage = useCallback(
     (page: number) => {
-      const next = new URLSearchParams(searchParams);
-      next.set("page", String(page));
-      setSearchParams(next, { replace: true });
+      setSearchParams(patchSearchParams(searchParams, { page: String(page) }), { replace: true });
     },
     [searchParams, setSearchParams],
   );
@@ -134,8 +139,45 @@ export default function Dashboard() {
     ...Array.from(new Set(allForms.map((f) => f.formType))).map((d) => ({ value: d, label: d })),
   ];
 
-  const showSatisfacao = metricsView === "satisfacao" || metricsView === "ambos";
-  const showAvaliacao = metricsView === "avaliacao" || metricsView === "ambos";
+  // Metric cards driven by metricsView — add/remove entries to change what's shown
+  const metricCards = [
+    {
+      show: true,
+      title: "Total de Respostas",
+      value: metrics?.totalResponses ?? 0,
+      subtitle: hasActiveFilters ? `${allForms.length} no total` : undefined,
+    },
+    {
+      show: true,
+      title: "Recomendariam",
+      value: `${metrics?.averageNps ?? 0}%`,
+      subtitle: hasActiveFilters ? "Baseado nos filtros ativos" : undefined,
+    },
+    {
+      show: true,
+      title: "Respostas Este Mês",
+      value: metrics?.responsesThisMonth ?? 0,
+      subtitle: `${metrics?.responsesLastMonth ?? 0} no mês anterior`,
+    },
+    {
+      show: metricsView === "satisfacao" || metricsView === "ambos",
+      title: "Média Satisfação (1–4)",
+      value: `${metrics?.averageSatisfactionOnly ?? 0}/4`,
+      subtitle: "Infraestrutura e ambiente",
+    },
+    {
+      show: metricsView === "avaliacao" || metricsView === "ambos",
+      title: "Média Avaliação (1–4)",
+      value: `${metrics?.averageExperience ?? 0}/4`,
+      subtitle: "Atendimento e cuidado assistencial",
+    },
+    {
+      show: metricsView === "ambos",
+      title: "Média Geral (1–4)",
+      value: `${metrics?.averageSatisfaction ?? 0}/4`,
+      subtitle: "Satisfação + Avaliação",
+    },
+  ].filter((c) => c.show);
 
   return (
     <div className="min-h-screen">
@@ -175,7 +217,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <>
-              {/* Metrics View Selector */}
+              {/* Metrics View Selector + Cards */}
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Text variant="body-sm" className="text-gray-400 font-medium">Exibir métricas:</Text>
@@ -197,44 +239,15 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Metrics Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
-                  <MetricCard
-                    title="Total de Respostas"
-                    value={metrics?.totalResponses ?? 0}
-                    subtitle={hasActiveFilters ? `${allForms.length} no total` : undefined}
-                  />
-                  <MetricCard
-                    title="Recomendariam"
-                    value={`${metrics?.averageNps ?? 0}%`}
-                    subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
-                  />
-                  <MetricCard
-                    title="Respostas Este Mês"
-                    value={metrics?.responsesThisMonth ?? 0}
-                    subtitle={`${metrics?.responsesLastMonth ?? 0} no mês anterior`}
-                  />
-                  {showSatisfacao && (
+                  {metricCards.map((card) => (
                     <MetricCard
-                      title="Média Satisfação (1–4)"
-                      value={`${metrics?.averageSatisfactionOnly ?? 0}/4`}
-                      subtitle="Infraestrutura e ambiente"
+                      key={card.title}
+                      title={card.title}
+                      value={card.value}
+                      subtitle={card.subtitle}
                     />
-                  )}
-                  {showAvaliacao && (
-                    <MetricCard
-                      title="Média Avaliação (1–4)"
-                      value={`${metrics?.averageExperience ?? 0}/4`}
-                      subtitle="Atendimento e cuidado assistencial"
-                    />
-                  )}
-                  {metricsView === "ambos" && (
-                    <MetricCard
-                      title="Média Geral (1–4)"
-                      value={`${metrics?.averageSatisfaction ?? 0}/4`}
-                      subtitle="Satisfação + Avaliação"
-                    />
-                  )}
+                  ))}
                 </div>
               </div>
 
@@ -277,7 +290,6 @@ export default function Dashboard() {
                 onRowClick={(id) => navigate(ROUTES.response(tenantSlug, id))}
               />
 
-              {/* Pagination */}
               {totalPages > 1 && (
                 <Pagination
                   currentPage={currentPage}
