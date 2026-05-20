@@ -127,6 +127,8 @@ export interface Form3Filters {
   page?: number;
 }
 
+export type MetricsView = 'satisfacao' | 'avaliacao' | 'ambos';
+
 export interface Form3Metrics {
   totalResponses: number;
   averageSatisfaction: number;

@@ -3,13 +3,14 @@ import { EyeOff, Eye, AlertTriangle } from "lucide-react";
 import { Modal } from "./modal";
 import Button from "@/components/ui/button";
 
-interface ModalPdfCpfProps {
+interface ModalExportCpfProps {
   open: boolean;
+  exportType: 'pdf' | 'excel';
   onClose: () => void;
   onConfirm: (includeCpf: boolean) => void;
 }
 
-export function ModalPdfCpf({ open, onClose, onConfirm }: ModalPdfCpfProps) {
+export function ModalPdfCpf({ open, exportType, onClose, onConfirm }: ModalExportCpfProps) {
   const [includeCpf, setIncludeCpf] = useState(false);
 
   function handleConfirm() {
@@ -17,13 +18,15 @@ export function ModalPdfCpf({ open, onClose, onConfirm }: ModalPdfCpfProps) {
     onClose();
   }
 
+  const label = exportType === 'pdf' ? 'PDF' : 'Excel';
+
   return (
     <Modal open={open} onClose={onClose}>
       <div className="p-6 flex flex-col gap-5">
 
         {/* Header */}
         <div>
-          <h2 className="text-base font-semibold text-gray-800">Exportar Relatório PDF</h2>
+          <h2 className="text-base font-semibold text-gray-800">Exportar Relatório {label}</h2>
           <p className="mt-1 text-sm text-gray-500 leading-relaxed">
             Escolha como o CPF dos pacientes deve aparecer no relatório.
             O CPF é um dado pessoal sensível — inclua somente quando necessário.
@@ -78,7 +81,7 @@ export function ModalPdfCpf({ open, onClose, onConfirm }: ModalPdfCpfProps) {
             Cancelar
           </Button>
           <Button variant="primary" size="sm" onClick={handleConfirm}>
-            Gerar PDF
+            Gerar {label}
           </Button>
         </div>
 
