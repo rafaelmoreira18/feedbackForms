@@ -203,7 +203,7 @@ export function generateTrainingReport(
   y = drawQuestionAnalytics(doc, buildQuestionStats(responses, session.trainingType), scaleMax, y);
 
   if (responses.length > 0) {
-    y = drawResponses(doc, responses, session.trainingType, y);
+    drawResponses(doc, responses, session.trainingType, y);
   }
 
   drawFooter(doc);

@@ -1,4 +1,4 @@
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 
 export const PDF_COLORS = {
   primary: [41, 98, 255] as const,

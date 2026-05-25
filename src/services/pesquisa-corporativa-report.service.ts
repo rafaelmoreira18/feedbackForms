@@ -183,7 +183,7 @@ export function generatePesquisaCorporativaReport(
   y = drawQuestionAnalytics(doc, buildQuestionStats(pesquisa.blocos, metricas), 5, y);
 
   if (respostas.length > 0) {
-    y = drawResponses(doc, respostas, pesquisa.blocos, y);
+    drawResponses(doc, respostas, pesquisa.blocos, y);
   }
 
   drawFooter(doc);
