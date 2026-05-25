@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { trainingService, type TrainingResponse } from "@/services/training-service";
+import { generateTrainingReport } from "@/services/training-report.service";
 import type { TrainingSession, TrainingType } from "@/types";
 import {
   EFICACIA_QUESTIONS,
@@ -14,6 +15,7 @@ import { avgColor, npsColor, questionAvgColor } from "@/utils/rh-colors";
 import { RhPagination } from "@/pages/rh/hub/hub-icons";
 import Text from "@/components/ui/text";
 import Card from "@/components/ui/card";
+import Button from "@/components/ui/button";
 
 const PAGE_SIZE = 10;
 
@@ -238,19 +240,37 @@ export function ResponsesPanel({
     queryFn: () => trainingService.getResponses(tenantSlug, { session: session.slug }),
   });
 
+  const { data: metrics } = useQuery({
+    queryKey: ["training-metrics", tenantSlug, session.slug],
+    queryFn: () => trainingService.getMetrics(tenantSlug, { session: session.slug }),
+  });
+
   const allResponses = data?.data ?? [];
   const totalPages = Math.ceil(allResponses.length / PAGE_SIZE);
   const paged = allResponses.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const canExport = !!metrics && allResponses.length > 0;
+  const handleExport = () => {
+    if (!metrics) return;
+    generateTrainingReport(session, metrics, allResponses);
+  };
+
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <Text variant="heading-sm" className="text-gray-400">
-          Respostas — {session.title}
-        </Text>
-        <Text variant="body-sm" className="text-gray-300">
-          {session.trainingDate} · {session.instructor}
-        </Text>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <Text variant="heading-sm" className="text-gray-400">
+            Respostas — {session.title}
+          </Text>
+          <Text variant="body-sm" className="text-gray-300">
+            {session.trainingDate} · {session.instructor}
+          </Text>
+        </div>
+        {canExport && (
+          <Button size="sm" variant="outline" onClick={handleExport}>
+            Exportar PDF
+          </Button>
+        )}
       </div>
 
       {isLoading ? (

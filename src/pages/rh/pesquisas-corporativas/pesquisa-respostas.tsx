@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { pesquisasCorporativasService } from '@/services/pesquisas-corporativas.service'
+import { generatePesquisaCorporativaReport } from '@/services/pesquisa-corporativa-report.service'
 import type { PesquisaCorporativa, PesquisaBloco, PesquisaResposta, PesquisaMetricas } from '@/types'
 import { questionAvgColor } from '@/utils/rh-colors'
 import { RhPagination } from '@/pages/rh/hub/hub-icons'
 import Text from '@/components/ui/text'
 import Card from '@/components/ui/card'
+import Button from '@/components/ui/button'
 
 const PAGE_SIZE = 10;
 
@@ -165,6 +167,12 @@ export function ResponsesPanel({ tenantSlug, pesquisa, onClose: _onClose }: {
 
   const mediaGeral = metricas?.mediaGeral ?? null
 
+  const canExport = !!metricas && respostas.length > 0
+  const handleExport = () => {
+    if (!metricas) return
+    generatePesquisaCorporativaReport(pesquisa, metricas, respostas)
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -176,13 +184,20 @@ export function ResponsesPanel({ tenantSlug, pesquisa, onClose: _onClose }: {
             {pesquisa.periodo ?? pesquisa.tipo} · {respostas.length} {respostas.length === 1 ? 'resposta' : 'respostas'}
           </Text>
         </div>
-        {mediaGeral !== null && (
-          <div className={`flex flex-col items-center px-4 py-2 rounded-xl border ${questionAvgColor(mediaGeral, 5).badge}`}>
-            <span className="text-xs font-semibold uppercase tracking-wide opacity-70">Média geral</span>
-            <span className="text-2xl font-bold leading-tight">{mediaGeral.toFixed(1)}</span>
-            <span className="text-xs opacity-70">/ 5</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {canExport && (
+            <Button size="sm" variant="outline" onClick={handleExport}>
+              Exportar PDF
+            </Button>
+          )}
+          {mediaGeral !== null && (
+            <div className={`flex flex-col items-center px-4 py-2 rounded-xl border ${questionAvgColor(mediaGeral, 5).badge}`}>
+              <span className="text-xs font-semibold uppercase tracking-wide opacity-70">Média geral</span>
+              <span className="text-2xl font-bold leading-tight">{mediaGeral.toFixed(1)}</span>
+              <span className="text-xs opacity-70">/ 5</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
