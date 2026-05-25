@@ -92,6 +92,7 @@ export function SessionForm({ tenantSlug, initial, onClose, onSaved }: SessionFo
             label="Data do Treinamento *"
             value={trainingDate}
             onChange={setTrainingDate}
+            allowFuture
           />
 
           <Input
