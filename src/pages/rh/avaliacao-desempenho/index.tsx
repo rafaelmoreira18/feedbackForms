@@ -119,16 +119,36 @@ function CompetencyQuestionnaire({
 
 // ─── Telas auxiliares ────────────────────────────────────────────────────────────
 
-function CenteredCard({ icon, title, message }: { icon: string; title: string; message: string }) {
+function CenteredCard({
+  icon,
+  title,
+  message,
+  children,
+}: {
+  icon: string;
+  title: string;
+  message: string;
+  children?: React.ReactNode;
+}) {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8">
       <div className="bg-white rounded-3xl p-8 text-center shadow-xl max-w-sm w-full">
         <div className="text-4xl mb-4">{icon}</div>
         <h2 className="text-xl font-bold text-gray-400 font-sans mb-2">{title}</h2>
         <p className="text-gray-300 font-sans text-sm">{message}</p>
+        {children && <div className="mt-5">{children}</div>}
       </div>
     </div>
   );
+}
+
+// Copia a URL da avaliação para a área de transferência (com feedback via toast).
+function copyEvaluationLink() {
+  const url = window.location.href;
+  navigator.clipboard
+    .writeText(url)
+    .then(() => toast.success("Link copiado!"))
+    .catch(() => toast.error("Não foi possível copiar o link"));
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────────
@@ -213,7 +233,11 @@ export default function AvaliacaoDesempenhoPublica() {
         icon="✅"
         title="Avaliação do gestor registrada!"
         message="Agora compartilhe este mesmo link com o colaborador para que ele faça a autoavaliação."
-      />
+      >
+        <Button className="w-full" onClick={copyEvaluationLink}>
+          Copiar link do colaborador
+        </Button>
+      </CenteredCard>
     );
   }
 
