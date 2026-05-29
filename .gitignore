@@ -20,6 +20,10 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Projeto padronizado em npm — evita lockfile concorrente que quebra o deploy na Vercel
+pnpm-lock.yaml
+yarn.lock
 .env
 .env.prod
 .env.production
