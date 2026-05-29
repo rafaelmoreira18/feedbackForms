@@ -48,12 +48,14 @@ function Likert5Button({ cfg, selected, onClick }: {
 
 // ─── Pergunta individual ──────────────────────────────────────────────────────
 
-function PerguntaInput({ pergunta, value, onChange }: {
+function PerguntaInput({ pergunta, value, onChange, forcarObrigatoria }: {
   pergunta: PesquisaPergunta
   value: PesquisaAnswer['valor'] | undefined
   onChange: (v: PesquisaAnswer['valor']) => void
+  forcarObrigatoria?: boolean
 }) {
-  const label = pergunta.obrigatoria
+  const obrigatoria = forcarObrigatoria || pergunta.obrigatoria
+  const label = obrigatoria
     ? <>{pergunta.texto} <span className="text-red-base">*</span></>
     : pergunta.texto
 
@@ -102,7 +104,7 @@ function PerguntaInput({ pergunta, value, onChange }: {
   if (pergunta.escala === 'aberta') {
     return (
       <Textarea
-        label={<>{pergunta.texto}{pergunta.obrigatoria && <span className="text-red-base"> *</span>}</>}
+        label={<>{pergunta.texto}{obrigatoria && <span className="text-red-base"> *</span>}</>}
         value={(value as string) ?? ''}
         onChange={e => onChange(e.target.value)}
         placeholder="Sua resposta..."
@@ -121,6 +123,7 @@ function BlocoForm({ pesquisa, answers, onChange }: {
   answers: Record<string, PesquisaAnswer['valor']>
   onChange: (id: string, valor: PesquisaAnswer['valor']) => void
 }) {
+  const forcarObrigatoria = pesquisa.tipo === 'fornecedores'
   return (
     <>
       {pesquisa.blocos.map(bloco => (
@@ -132,6 +135,7 @@ function BlocoForm({ pesquisa, answers, onChange }: {
                 pergunta={p}
                 value={answers[p.id]}
                 onChange={v => onChange(p.id, v)}
+                forcarObrigatoria={forcarObrigatoria}
               />
             </div>
           ))}
@@ -177,14 +181,25 @@ export default function PesquisaCorporativaPublica() {
   }
 
   const handleIniciar = () => {
+    const faltando: string[] = []
+    if (!fornecedor.trim()) faltando.push('Fornecedor')
+    if (!nome.trim()) faltando.push('Seu nome')
+    if (!cargo.trim()) faltando.push('Cargo / Função')
+    if (faltando.length > 0) {
+      toast.error(`Preencha: ${faltando.join(', ')}`)
+      return
+    }
     setStep('formulario')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const obrigatorias = pesquisa?.blocos.flatMap(b => b.perguntas.filter(p => p.obrigatoria)) ?? []
-    const faltando = obrigatorias.filter(p => {
+    const todasObrigatorias = pesquisa?.tipo === 'fornecedores'
+    const perguntasAValidar = pesquisa?.blocos.flatMap(b =>
+      b.perguntas.filter(p => todasObrigatorias || p.obrigatoria),
+    ) ?? []
+    const faltando = perguntasAValidar.filter(p => {
       const v = answers[p.id]
       if (v === undefined || v === null) return true
       if (typeof v === 'number') return v === 0
@@ -192,7 +207,7 @@ export default function PesquisaCorporativaPublica() {
       return false
     })
     if (faltando.length > 0) {
-      toast.error(`Responda todas as perguntas obrigatórias (${faltando.length} pendente${faltando.length > 1 ? 's' : ''})`)
+      toast.error(`Responda todas as perguntas (${faltando.length} pendente${faltando.length > 1 ? 's' : ''})`)
       return
     }
     submit.mutate()
@@ -256,7 +271,7 @@ export default function PesquisaCorporativaPublica() {
             <h1 className="text-lg font-bold text-gray-400 mt-2">{pesquisa.titulo}</h1>
             {pesquisa.periodo && <p className="text-sm text-gray-300">{pesquisa.periodo}</p>}
             <p className="text-xs text-gray-300 max-w-sm">
-              Suas respostas são anônimas. O nome é opcional. Preencha com honestidade para contribuir com um ambiente melhor.
+              Preencha com honestidade para contribuir com um ambiente melhor.
             </p>
           </div>
 
@@ -266,27 +281,30 @@ export default function PesquisaCorporativaPublica() {
               <SectionHeader icon="👤" title="Antes de começar" subtitle="Essas informações nos ajudam a entender melhor os resultados." />
 
               <Input
-                label="Fornecedor (opcional)"
+                label="Fornecedor *"
                 type="text"
                 placeholder="Nome da empresa fornecedora"
                 value={fornecedor}
                 onChange={e => setFornecedor(e.target.value)}
+                required
               />
 
               <Input
-                label="Seu nome (opcional)"
+                label="Seu nome *"
                 type="text"
-                placeholder="Deixe em branco para anonimato"
+                placeholder="Nome do respondente"
                 value={nome}
                 onChange={e => setNome(e.target.value)}
+                required
               />
 
               <Input
-                label="Cargo / Função (opcional)"
+                label="Cargo / Função *"
                 type="text"
                 placeholder="Seu cargo ou função"
                 value={cargo}
                 onChange={e => setCargo(e.target.value)}
+                required
               />
 
               <Button onClick={handleIniciar} className="w-full">

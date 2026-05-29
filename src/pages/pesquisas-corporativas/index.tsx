@@ -71,11 +71,11 @@ function QuestionAnalytics({ blocos, metricas }: { blocos: PesquisaBloco[]; metr
 // ─── Painel de respostas ──────────────────────────────────────────────────────
 
 const LIKERT5_LABELS: Record<number, string> = {
-  1: 'Discordo totalmente',
-  2: 'Discordo parcialmente',
-  3: 'Neutro',
-  4: 'Concordo parcialmente',
-  5: 'Concordo totalmente',
+  1: 'Muito insatisfeito',
+  2: 'Insatisfeito',
+  3: 'Regular',
+  4: 'Satisfeito',
+  5: 'Muito satisfeito',
 }
 const LIKERT5_COLORS: Record<number, string> = {
   1: 'bg-red-base/10 text-red-base border border-red-base/30',
@@ -96,7 +96,9 @@ function RespostaRow({ resposta, blocos }: { resposta: PesquisaResposta; blocos:
     ? numericAnswers.reduce((s, a) => s + (a.valor as number), 0) / numericAnswers.length
     : null
 
+  const fornecedor = (resposta.metadados?.fornecedor as string | undefined)?.trim() || null
   const tempo = resposta.metadados?.tempoDeEmpresa as string | undefined
+  const tituloLinha = fornecedor || resposta.nomeRespondente
 
   return (
     <div
@@ -107,7 +109,7 @@ function RespostaRow({ resposta, blocos }: { resposta: PesquisaResposta; blocos:
     >
       <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
         <Text variant="body-sm-bold" className="text-gray-400 flex-1 min-w-30">
-          {resposta.nomeRespondente}
+          {tituloLinha}
         </Text>
         {tempo && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">

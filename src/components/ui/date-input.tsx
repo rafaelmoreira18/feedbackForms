@@ -9,16 +9,16 @@ function isoFromCursorDay(y: number, m: number, day: number) {
 }
 
 export default function DateInput({
-  label, value, onChange, required, minDate, maxDate, error,
+  label, value, onChange, required, minDate, maxDate, allowFuture, error,
 }: {
   label: string; value: string; onChange: (iso: string) => void;
-  required?: boolean; minDate?: string; maxDate?: string; error?: string;
+  required?: boolean; minDate?: string; maxDate?: string; allowFuture?: boolean; error?: string;
 }) {
   const today = new Date();
   today.setHours(12, 0, 0, 0);
   const parsed = value ? toMidnight(value) : null;
   const min = minDate ? toMidnight(minDate) : null;
-  const max = maxDate ? toMidnight(maxDate) : today; // never future
+  const max = maxDate ? toMidnight(maxDate) : allowFuture ? null : today;
 
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState({
