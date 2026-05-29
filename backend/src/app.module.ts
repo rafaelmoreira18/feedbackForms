@@ -26,6 +26,8 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { PesquisasCorporativasModule } from './modules/pesquisas-corporativas/pesquisas-corporativas.module';
 import { PesquisaCorporativaEntity } from './modules/pesquisas-corporativas/entities/pesquisa-corporativa.entity';
 import { PesquisaRespostaEntity } from './modules/pesquisas-corporativas/entities/pesquisa-resposta.entity';
+import { PerformanceEvaluationsModule } from './modules/performance-evaluations/performance-evaluations.module';
+import { PerformanceEvaluationEntity } from './modules/performance-evaluations/entities/performance-evaluation.entity';
 
 @Module({
   imports: [
@@ -66,6 +68,7 @@ import { PesquisaRespostaEntity } from './modules/pesquisas-corporativas/entitie
           AuditLogEntity,
           PesquisaCorporativaEntity,
           PesquisaRespostaEntity,
+          PerformanceEvaluationEntity,
         ],
         synchronize: config.get<string>('DB_SYNCHRONIZE', 'false') === 'true',
         ssl:
@@ -91,6 +94,7 @@ import { PesquisaRespostaEntity } from './modules/pesquisas-corporativas/entitie
     AdminUsersModule,
     AuditLogModule,
     PesquisasCorporativasModule,
+    PerformanceEvaluationsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: CustomThrottlerGuard },

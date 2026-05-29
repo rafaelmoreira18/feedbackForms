@@ -33,6 +33,10 @@ import TrainingSurvey from "@/pages/rh/treinamento";
 import RhUsuarios from "@/pages/rh/rh-usuarios";
 import AdminUsuarios from "@/pages/admin/admin-usuarios";
 import PesquisaCorporativaPublica from "@/pages/rh/pesquisa-corporativa";
+import AvaliacaoDesempenhoPublica from "@/pages/rh/avaliacao-desempenho";
+import AvaliacaoPlayground from "@/pages/dev/avaliacao-playground";
+
+const MOCK_PERF = import.meta.env.VITE_MOCK_PERF === "true";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth();
@@ -89,6 +93,14 @@ function AppRoutes() {
       {/* Pesquisas Corporativas — public form only; management is via rh-hub */}
       <Route path="/:tenantSlug/pesquisa-corporativa/:pesquisaSlug" element={<PesquisaCorporativaPublica />} />
 
+      {/* Avaliação de Desempenho — public link only; management is via rh-hub */}
+      <Route path="/:tenantSlug/avaliacao-desempenho/:slug" element={<AvaliacaoDesempenhoPublica />} />
+
+      {/* Dev playground — só com VITE_MOCK_PERF=true (testa o fluxo sem backend) */}
+      {MOCK_PERF && (
+        <Route path="/dev/avaliacoes" element={<AvaliacaoPlayground />} />
+      )}
+
       {/* RH Users — only global rh_admin (no tenantId) */}
       <Route path="/rh/usuarios" element={<RhRoute requireGlobal><RhUsuarios /></RhRoute>} />
 
@@ -124,7 +136,8 @@ function AppShell() {
     !path.endsWith("/pesquisas-corporativas") &&
     !path.includes("/responses/") &&
     !path.includes("/treinamento/") &&
-    !path.includes("/pesquisa-corporativa/");
+    !path.includes("/pesquisa-corporativa/") &&
+    !path.includes("/avaliacao-desempenho/");
 
   return (
     <div

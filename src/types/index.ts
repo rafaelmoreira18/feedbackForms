@@ -169,6 +169,56 @@ export interface CreateTrainingSessionDto {
   instructor: string;
 }
 
+// ─── Avaliação de Desempenho ───────────────────────────────────────────────────
+
+/**
+ * pendente               — criada; aguardando a avaliação do gestor
+ * aguardando_colaborador — gestor respondeu; aguardando a autoavaliação do colaborador
+ * concluida              — ambos responderam; relatório (radar) disponível
+ */
+export type PerformanceEvaluationStatus =
+  | 'pendente'
+  | 'aguardando_colaborador'
+  | 'concluida';
+
+export interface PerformanceAnswer {
+  competenciaId: string;
+  /** nota de 0 a 10 */
+  valor: number;
+  justificativa: string;
+}
+
+export interface PerformanceEvaluation {
+  id: string;
+  tenantId: string;
+  createdByUserId: string | null;
+  slug: string;
+  colaboradorNome: string;
+  setor: string;
+  cargo: string;
+  gestorArea: string;
+  projeto: string;
+  avaliador: string;
+  dataAvaliacao: string;
+  status: PerformanceEvaluationStatus;
+  managerAnswers: PerformanceAnswer[] | null;
+  selfAnswers: PerformanceAnswer[] | null;
+  managerSubmittedAt: string | null;
+  selfSubmittedAt: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface CreatePerformanceEvaluationDto {
+  colaboradorNome: string;
+  setor: string;
+  cargo: string;
+  gestorArea: string;
+  avaliador: string;
+  dataAvaliacao: string;
+  projeto?: string;
+}
+
 // ─── Pesquisas Corporativas ────────────────────────────────────────────────────
 
 export type PesquisaEscala = 'likert5' | 'likert3' | 'nps' | 'aberta' | 'opcoes' | 'multipla' | 'booleano';
