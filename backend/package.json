@@ -18,7 +18,9 @@
     "seed:other-tenants": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-other-tenants.ts",
     "seed:military-tenants": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-military-tenants.ts",
     "seed:mediall-sede": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-mediall-sede.ts",
-    "seed:uti-military": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-uti-military.ts"
+    "seed:uti-military": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-uti-military.ts",
+    "seed:protocolo-users": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-protocolo-users.ts",
+    "seed:protocolos": "npx ts-node -r tsconfig-paths/register src/database/seeds/seed-protocolos.ts"
   },
   "jest": {
     "moduleFileExtensions": [

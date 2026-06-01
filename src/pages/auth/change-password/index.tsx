@@ -48,9 +48,15 @@ export default function ChangePassword() {
 
       // Redirect to the appropriate page based on role
       const slug = user?.tenantSlug ?? "";
+      const isProtocolo =
+        user?.role === "protocolo_operador" ||
+        user?.role === "protocolo_admin" ||
+        user?.role === "protocolo_admin_global";
       const dest =
         user?.role === "viewer" || user?.role === "operator_forms"
           ? ROUTES.pesquisa(slug)
+          : isProtocolo
+          ? ROUTES.protocolos(slug || undefined)
           : user?.role === "rh_admin"
           ? slug
             ? ROUTES.rhHub(slug)

@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { ClipboardList, LayoutDashboard, LogOut, Users, LineChart } from "lucide-react";
+import { ClipboardList, ClipboardCheck, LayoutDashboard, LogOut, Users, LineChart, HeartPulse } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useQuery } from "@tanstack/react-query";
 import { tenantService } from "@/services/tenant-service";
@@ -13,6 +13,13 @@ export default function Header() {
 
   const isHoldingAdmin = user?.role === 'holding_admin';
   const isAdminRole = user?.role === 'holding_admin' || user?.role === 'hospital_admin';
+  const isProtocolo =
+    user?.role === 'protocolo_operador' ||
+    user?.role === 'protocolo_admin' ||
+    user?.role === 'protocolo_admin_global';
+  // Admins de protocolo veem o atalho do dashboard de protocolos (operador não)
+  const isProtocoloAdmin =
+    user?.role === 'protocolo_admin' || user?.role === 'protocolo_admin_global';
   const isDashboard = location.pathname === "/dashboard";
 
   const { data: allTenants = [] } = useQuery({
@@ -65,8 +72,8 @@ export default function Header() {
               </select>
             )}
 
-            {/* Pesquisas — non-global roles with fixed tenant */}
-            {!isHoldingAdmin && user.role !== 'rh_admin' && activeTenantSlug && (
+            {/* Pesquisas — non-global roles with fixed tenant (protocolo profiles excluded) */}
+            {!isHoldingAdmin && user.role !== 'rh_admin' && !isProtocolo && activeTenantSlug && (
               <button
                 type="button"
                 onClick={() => navigate(ROUTES.pesquisa(activeTenantSlug))}
@@ -93,6 +100,32 @@ export default function Header() {
               </button>
             )}
 
+            {/* Protocolos — perfis do módulo de protocolos */}
+            {isProtocolo && (
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.protocolos(user.tenantSlug ?? undefined))}
+                title="Protocolos"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-teal-base hover:bg-teal-light transition-colors duration-150"
+              >
+                <HeartPulse size={20} />
+                <span className="text-sm font-semibold font-sans hidden sm:inline">Protocolos</span>
+              </button>
+            )}
+
+            {/* Dashboard de protocolos — admins de protocolo (sempre visível, igual aos demais) */}
+            {isProtocoloAdmin && (
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.protocolosDashboard(user.tenantSlug ?? undefined))}
+                title="Dashboard"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-teal-base hover:bg-teal-light transition-colors duration-150"
+              >
+                <LayoutDashboard size={20} />
+                <span className="text-sm font-semibold font-sans hidden sm:inline">Dashboard</span>
+              </button>
+            )}
+
             {/* Dashboard — admin roles, hidden when already on dashboard */}
             {isAdminRole && !isDashboard && (
               <button
@@ -103,6 +136,19 @@ export default function Header() {
               >
                 <LayoutDashboard size={20} />
                 <span className="text-sm font-semibold font-sans hidden sm:inline">Dashboard</span>
+              </button>
+            )}
+
+            {/* Concluídos — admins de protocolo */}
+            {isProtocoloAdmin && (
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.protocolosConcluidos(user.tenantSlug ?? undefined))}
+                title="Concluídos"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-teal-base hover:bg-teal-light transition-colors duration-150"
+              >
+                <ClipboardCheck size={20} />
+                <span className="text-sm font-semibold font-sans hidden sm:inline">Concluídos</span>
               </button>
             )}
 

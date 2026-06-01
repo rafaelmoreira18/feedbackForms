@@ -20,4 +20,13 @@ export const ROUTES = {
   pesquisaCorporativaPublica: (tenantSlug: string, pesquisaSlug: string) => `/${tenantSlug}/pesquisa-corporativa/${pesquisaSlug}`,
   // Avaliação de Desempenho — public link (form do gestor → form do colaborador → relatório)
   avaliacaoDesempenho: (tenantSlug: string, slug: string) => `/${tenantSlug}/avaliacao-desempenho/${slug}`,
+  // Protocolos (Protocolo de Dor Torácica) — aba do feedbackforms gateada por papel
+  protocolos: (tenantSlug?: string) => (tenantSlug ? `/${tenantSlug}/protocolos` : '/protocolos'),
+  protocoloForm: (tenantSlug: string, slug: string) => `/${tenantSlug}/protocolos/${slug}`,
+  protocolosDashboard: (tenantSlug?: string) =>
+    tenantSlug ? `/${tenantSlug}/protocolos-dashboard` : '/protocolos-dashboard',
+  protocolosUsuarios: (tenantSlug?: string) =>
+    tenantSlug ? `/${tenantSlug}/protocolos-usuarios` : '/protocolos-usuarios',
+  protocolosConcluidos: (tenantSlug?: string) =>
+    tenantSlug ? `/${tenantSlug}/protocolos-concluidos` : '/protocolos-concluidos',
 } as const;

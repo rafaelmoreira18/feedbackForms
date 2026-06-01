@@ -9,6 +9,7 @@ import { TenantService } from '../../modules/tenants/tenant.service';
  * Rules:
  *  - holding_admin can access any tenant
  *  - rh_admin with tenantId === null is a global RH (can access any tenant)
+ *  - protocolo_admin_global can access any tenant (Protocolos)
  *  - All other roles can only access their own tenant
  */
 export abstract class BaseTenantController {
@@ -23,6 +24,7 @@ export abstract class BaseTenantController {
     const user = req.user as { role: string; tenantId: string | null };
     const isGlobal =
       user.role === 'holding_admin' ||
+      user.role === 'protocolo_admin_global' ||
       (user.role === 'rh_admin' && user.tenantId === null);
     if (!isGlobal && user.tenantId !== tenant.id) {
       throw new ForbiddenException('Acesso negado a este tenant');

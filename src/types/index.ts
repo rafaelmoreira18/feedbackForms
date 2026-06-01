@@ -1,4 +1,12 @@
-export type UserRole = 'holding_admin' | 'hospital_admin' | 'viewer' | 'operator_forms' | 'rh_admin';
+export type UserRole =
+  | 'holding_admin'
+  | 'hospital_admin'
+  | 'viewer'
+  | 'operator_forms'
+  | 'rh_admin'
+  | 'protocolo_admin_global'
+  | 'protocolo_admin'
+  | 'protocolo_operador';
 
 export interface User {
   id: string;
@@ -284,4 +292,154 @@ export interface PesquisaMetricas {
   total: number;
   mediaGeral: number | null;
   porPergunta: Record<string, { media: number; total: number }>;
+}
+
+// ─── Protocolos (Protocolo de Dor Torácica — FORMMED027) ────────────────────────
+
+export type ProtocoloStage = 'triagem' | 'investigacao' | 'desfecho' | 'concluido';
+
+export interface ResponsavelBloco {
+  responsavelNome: string;
+  registroProfissional: string;
+  fechadoEm: string;
+}
+
+export interface BlocoTriagem extends ResponsavelBloco {
+  inicioTriagem: string;
+  classificacaoManchester: 'vermelho' | 'laranja' | '';
+  sinaisVitais: {
+    paMsd: string; paMse: string; fc: string; fr: string; spo2: string; tax: string; glicemia: string;
+  };
+  queixaPrincipal: {
+    dorToracica: boolean; dispneiaSubita: boolean; sudoreseNauseaSincope: boolean; dorIrradiada: boolean;
+  };
+  inicioSintomasData: string;
+  inicioSintomasHora: string;
+  alergias: boolean;
+  alergiasDescricao: string;
+  instabilidade: boolean;
+  primeiroEcgHora: string;
+  interpretacaoMedicaHora: string;
+  resultadoEcg: 'via_i' | 'via_ii' | 'via_iii' | '';
+  derivacoesExtras: { v3rV4r: boolean; v7v9: boolean; ecgSeriado: boolean };
+}
+
+export interface ColetaTroponina {
+  horaColeta: string; resultado: string; horaResultadoLab: string;
+}
+
+export interface BlocoInvestigacao extends ResponsavelBloco {
+  lsnUnidade: string;
+  coleta0h: ColetaTroponina;
+  coleta3h: ColetaTroponina;
+  coleta3hDeltaPct: string;
+  coleta6h: ColetaTroponina;
+  troponinaInterpretacao: 'rule_in' | 'rule_out' | 'inconclusivo' | '';
+  heartH: number; heartE: number; heartA: number; heartR: number; heartT: number;
+  heartTotal: number;
+  heartFaixaRisco: 'baixo' | 'intermediario' | 'alto' | '';
+  condutaHeart: 'alta_segura' | 'observacao' | 'internacao' | '';
+  diagnosticos: {
+    dissecaoAorta: boolean; dissecaoAortaAddRs: string;
+    tep: boolean; tepWells: string;
+    pericardite: boolean; takotsubo: boolean; pneumotorax: boolean; tamponamento: boolean;
+  };
+}
+
+export type DestinoPaciente =
+  | 'alta_ambulatorial' | 'observacao' | 'internacao_uti'
+  | 'transferencia_icp' | 'transferencia_uti_referencia' | 'obito' | '';
+
+export interface BlocoDesfecho extends ResponsavelBloco {
+  trombolitiseElegivel: boolean;
+  trombolitiseMotivoNao: string;
+  inicioFibrinolitico: string;
+  tempoPortaAgulhaMin: string;
+  criteriosReperfusao: { resolucaoSt50: boolean; eva3: boolean; arritmiaReperfusao: boolean };
+  eficaciaTrombolise: 'sucesso' | 'falha' | '';
+  medidasAdmissao: { aas: boolean; p2y12: boolean; anticoagulante: boolean; monitorizacao: boolean; o2: boolean };
+  prescricoesAlta: { aas: boolean; p2y12: boolean; estatina: boolean; betabloqueador: boolean; iecaBra: boolean };
+  destino: DestinoPaciente;
+  obitoData: string;
+  obitoHora: string;
+  solicitacaoRegulacaoHora: string;
+  confirmacaoVagaHora: string;
+  saidaEfetivaHora: string;
+  altaSeguraCriterios: {
+    heart3TropNeg: boolean; ecgSemIsquemia: boolean; semInstabilidade: boolean;
+    daaTepAfastados: boolean; seguimentoAgendado: boolean; orientacoesEntregues: boolean;
+  };
+  enfermeiroNomeCoren: string;
+  medicoNomeCrm: string;
+}
+
+export interface Protocolo {
+  id: string;
+  tenantId: string;
+  protocolType: string;
+  slug: string;
+  createdByUserId: string | null;
+  pacienteNome: string;
+  numeroProntuario: string;
+  dataNascimento: string;
+  idade: string;
+  sexo: string;
+  dataAtendimento: string;
+  horaChegada: string;
+  currentStage: ProtocoloStage;
+  triagem: BlocoTriagem | null;
+  investigacao: BlocoInvestigacao | null;
+  desfecho: BlocoDesfecho | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProtocoloDto {
+  pacienteNome: string;
+  numeroProntuario?: string;
+  dataNascimento?: string;
+  idade?: string;
+  sexo?: string;
+  dataAtendimento?: string;
+  horaChegada?: string;
+}
+
+export interface ProtocoloIndicador {
+  numerador: number;
+  denominador: number;
+  percentual: number;
+  meta: number;
+}
+
+export interface ProtocoloMetrics {
+  total: number;
+  abertos: number;
+  concluidos: number;
+  porEtapa: Record<ProtocoloStage, number>;
+  porVia: { via_i: number; via_ii: number; via_iii: number; naoInformado: number };
+  porRiscoHeart: { baixo: number; intermediario: number; alto: number; naoInformado: number };
+  indicadores: {
+    portaTriagem5: ProtocoloIndicador;
+    triagemEcg5: ProtocoloIndicador;
+    ecgInterpretacao5: ProtocoloIndicador;
+    portaEcg10: ProtocoloIndicador;
+    portaAgulha30: ProtocoloIndicador;
+    eficaciaTrombolise: ProtocoloIndicador;
+    transferenciaMeta: ProtocoloIndicador;
+    completude: ProtocoloIndicador;
+  };
+  tendenciaMensal: { mes: string; total: number }[];
+}
+
+export interface ProtocoloUser {
+  id: string;
+  email: string;
+  username: string | null;
+  nome: string;
+  role: string;
+  tenantId: string | null;
+  ativo: boolean;
+  tenantSlug: string | null;
+  tenantNome: string | null;
 }

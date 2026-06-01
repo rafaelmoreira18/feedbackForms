@@ -35,15 +35,13 @@ import AdminUsuarios from "@/pages/admin/admin-usuarios";
 import PesquisaCorporativaPublica from "@/pages/rh/pesquisa-corporativa";
 import AvaliacaoDesempenhoPublica from "@/pages/rh/avaliacao-desempenho";
 import AvaliacaoPlayground from "@/pages/dev/avaliacao-playground";
+import ProtocolosHome from "@/pages/protocolos";
+import ProtocoloForm from "@/pages/protocolos/form";
+import ProtocolosDashboard from "@/pages/protocolos/dashboard";
+import ProtocolosUsuarios from "@/pages/protocolos/usuarios";
+import ProtocolosConcluidos from "@/pages/protocolos/concluidos";
 
 const MOCK_PERF = import.meta.env.VITE_MOCK_PERF === "true";
-
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, user } = useAuth();
-  if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
-  if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
-  return <>{children}</>;
-}
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth();
@@ -59,6 +57,40 @@ function HoldingAdminRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
   if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
   if (user?.role !== 'holding_admin') return <Navigate to={ROUTES.home} replace />;
+  return <>{children}</>;
+}
+
+const PROTOCOLO_ROLES = [
+  'protocolo_operador',
+  'protocolo_admin',
+  'protocolo_admin_global',
+  'holding_admin',
+] as const;
+
+function ProtocoloRoute({ children, adminOnly }: { children: React.ReactNode; adminOnly?: boolean }) {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
+  if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
+  const role = user?.role;
+  if (!role || !(PROTOCOLO_ROLES as readonly string[]).includes(role)) {
+    return <Navigate to={ROUTES.login} replace />;
+  }
+  // Operador não acessa dashboard nem gestão de usuários
+  if (adminOnly && role === 'protocolo_operador') {
+    return <Navigate to={ROUTES.protocolos(user?.tenantSlug ?? undefined)} replace />;
+  }
+  return <>{children}</>;
+}
+
+// Pesquisas de satisfação não devem ser vistas por perfis de protocolo
+function PesquisaRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
+  if (user?.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
+  const role = user?.role;
+  if (role && (PROTOCOLO_ROLES as readonly string[]).includes(role) && role !== 'holding_admin') {
+    return <Navigate to={ROUTES.protocolos(user?.tenantSlug ?? undefined)} replace />;
+  }
   return <>{children}</>;
 }
 
@@ -83,9 +115,9 @@ function AppRoutes() {
       <Route path="/rh-hub" element={<RhRoute><RhHub /></RhRoute>} />
       <Route path="/:tenantSlug/rh-hub" element={<RhRoute><RhHub /></RhRoute>} />
 
-      {/* Protected — nurse operates these */}
-      <Route path="/:tenantSlug/pesquisa" element={<ProtectedRoute><Pesquisa /></ProtectedRoute>} />
-      <Route path="/:tenantSlug/:formSlug" element={<ProtectedRoute><SurveyForm3 /></ProtectedRoute>} />
+      {/* Protected — nurse operates these (perfis de protocolo são barrados) */}
+      <Route path="/:tenantSlug/pesquisa" element={<PesquisaRoute><Pesquisa /></PesquisaRoute>} />
+      <Route path="/:tenantSlug/:formSlug" element={<PesquisaRoute><SurveyForm3 /></PesquisaRoute>} />
 
       {/* Training — public survey link only; management is via rh-hub */}
       <Route path="/:tenantSlug/treinamento/:sessionSlug" element={<TrainingSurvey />} />
@@ -100,6 +132,17 @@ function AppRoutes() {
       {MOCK_PERF && (
         <Route path="/dev/avaliacoes" element={<AvaliacaoPlayground />} />
       )}
+
+      {/* Protocolos (Protocolo de Dor Torácica) — aba gateada por papel */}
+      <Route path="/protocolos" element={<ProtocoloRoute><ProtocolosHome /></ProtocoloRoute>} />
+      <Route path="/:tenantSlug/protocolos" element={<ProtocoloRoute><ProtocolosHome /></ProtocoloRoute>} />
+      <Route path="/:tenantSlug/protocolos/:slug" element={<ProtocoloRoute><ProtocoloForm /></ProtocoloRoute>} />
+      <Route path="/protocolos-dashboard" element={<ProtocoloRoute adminOnly><ProtocolosDashboard /></ProtocoloRoute>} />
+      <Route path="/:tenantSlug/protocolos-dashboard" element={<ProtocoloRoute adminOnly><ProtocolosDashboard /></ProtocoloRoute>} />
+      <Route path="/protocolos-usuarios" element={<ProtocoloRoute adminOnly><ProtocolosUsuarios /></ProtocoloRoute>} />
+      <Route path="/:tenantSlug/protocolos-usuarios" element={<ProtocoloRoute adminOnly><ProtocolosUsuarios /></ProtocoloRoute>} />
+      <Route path="/protocolos-concluidos" element={<ProtocoloRoute adminOnly><ProtocolosConcluidos /></ProtocoloRoute>} />
+      <Route path="/:tenantSlug/protocolos-concluidos" element={<ProtocoloRoute adminOnly><ProtocolosConcluidos /></ProtocoloRoute>} />
 
       {/* RH Users — only global rh_admin (no tenantId) */}
       <Route path="/rh/usuarios" element={<RhRoute requireGlobal><RhUsuarios /></RhRoute>} />
@@ -137,7 +180,8 @@ function AppShell() {
     !path.includes("/responses/") &&
     !path.includes("/treinamento/") &&
     !path.includes("/pesquisa-corporativa/") &&
-    !path.includes("/avaliacao-desempenho/");
+    !path.includes("/avaliacao-desempenho/") &&
+    !path.includes("/protocolos");
 
   return (
     <div

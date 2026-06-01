@@ -27,7 +27,7 @@ export class TenantController {
   /** Protected: list all active tenants (including sede/matriz) — for training sessions selector */
   @Get('all-active')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('holding_admin', 'rh_admin')
+  @Roles('holding_admin', 'rh_admin', 'protocolo_admin_global')
   findAllActive() {
     return this.tenantService.findAllForTraining();
   }

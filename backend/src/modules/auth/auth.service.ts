@@ -13,6 +13,10 @@ const ROLE_MAP: Record<string, string> = {
   operator_forms: 'operator_forms',
   operator: 'viewer',       // legado — operator sem sufixo cai em viewer (sem acesso a formulários protegidos)
   rh: 'rh_admin',
+  // Protocolos (Protocolo de Dor Torácica)
+  protocolo_admin_global: 'protocolo_admin_global',
+  protocolo_admin: 'protocolo_admin',
+  protocolo_operador: 'protocolo_operador',
 };
 
 interface ExternalUser {

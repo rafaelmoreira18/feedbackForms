@@ -9,10 +9,11 @@ function isoFromCursorDay(y: number, m: number, day: number) {
 }
 
 export default function DateInput({
-  label, value, onChange, required, minDate, maxDate, allowFuture, error,
+  label, value, onChange, required, minDate, maxDate, allowFuture, error, size = "md",
 }: {
   label: string; value: string; onChange: (iso: string) => void;
   required?: boolean; minDate?: string; maxDate?: string; allowFuture?: boolean; error?: string;
+  size?: "md" | "lg";
 }) {
   const today = new Date();
   today.setHours(12, 0, 0, 0);
@@ -75,7 +76,9 @@ export default function DateInput({
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border font-sans text-sm transition-all duration-200 bg-white ${
+        className={`w-full flex items-center justify-between rounded-lg border font-sans transition-all duration-200 bg-white ${
+          size === "lg" ? "px-4 py-3 text-base" : "px-3 py-2 text-sm"
+        } ${
           error
             ? "border-brand-red ring-2 ring-brand-red/10"
             : open
