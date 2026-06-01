@@ -65,7 +65,8 @@ export class PerformanceEvaluationsController extends BaseTenantController {
   @ApiOperation({ summary: 'Lista avaliações de desempenho (protegido — cada admin vê as suas)' })
   @ApiBearerAuth('access-token')
   @Get()
-  @UseGuards(JwtAuthGuard, SistemaGuard)
+  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
+  @Roles('rh_admin', 'hospital_admin', 'holding_admin')
   async findAll(@Param('tenantSlug') tenantSlug: string, @Req() req: Request) {
     await this.resolveAndAssertTenant(tenantSlug, req);
     const user = req.user as { id: string; role: string; tenantId: string | null };

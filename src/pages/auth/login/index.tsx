@@ -20,8 +20,11 @@ export default function Login() {
   if (isAuthenticated && user) {
     if (user.mustChangePassword) return <Navigate to={ROUTES.changePassword} replace />;
     const slug = user.tenantSlug ?? '';
+    const isProtocolo =
+      user.role === 'protocolo_operador' || user.role === 'protocolo_admin' || user.role === 'protocolo_admin_global';
     const dest =
       (user.role === 'viewer' || user.role === 'operator_forms') ? ROUTES.pesquisa(slug) :
+      isProtocolo ? ROUTES.protocolos(slug || undefined) :
       user.role === 'rh_admin' ? (slug ? ROUTES.rhHub(slug) : ROUTES.rhHubGlobal) :
       user.role === 'holding_admin' ? (activeTenantSlug ? ROUTES.pesquisa(activeTenantSlug) : ROUTES.dashboard) :
       ROUTES.dashboard;
@@ -32,6 +35,11 @@ export default function Login() {
     if (!loggedUser) return ROUTES.login;
     const slug = loggedUser.tenantSlug ?? '';
     if (loggedUser.role === 'viewer' || loggedUser.role === 'operator_forms') return ROUTES.pesquisa(slug);
+    if (
+      loggedUser.role === 'protocolo_operador' ||
+      loggedUser.role === 'protocolo_admin' ||
+      loggedUser.role === 'protocolo_admin_global'
+    ) return ROUTES.protocolos(slug || undefined);
     if (loggedUser.role === 'rh_admin') return slug ? ROUTES.rhHub(slug) : ROUTES.rhHubGlobal;
     if (loggedUser.role === 'holding_admin') return activeSlug ? ROUTES.pesquisa(activeSlug) : ROUTES.dashboard;
     return ROUTES.dashboard;

@@ -68,7 +68,8 @@ export class TrainingResponsesController extends BaseTenantController {
   @ApiOperation({ summary: 'Get aggregated metrics (protected)' })
   @ApiBearerAuth('access-token')
   @Get('metrics')
-  @UseGuards(JwtAuthGuard, SistemaGuard)
+  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
+  @Roles('rh_admin', 'hospital_admin', 'holding_admin')
   async getMetrics(
     @Param('tenantSlug') tenantSlug: string,
     @Query('session') session?: string,
@@ -83,7 +84,8 @@ export class TrainingResponsesController extends BaseTenantController {
   @ApiOperation({ summary: 'List training responses (protected)' })
   @ApiBearerAuth('access-token')
   @Get()
-  @UseGuards(JwtAuthGuard, SistemaGuard)
+  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
+  @Roles('rh_admin', 'hospital_admin', 'holding_admin')
   async findAll(
     @Param('tenantSlug') tenantSlug: string,
     @Query('session') session?: string,
@@ -98,7 +100,8 @@ export class TrainingResponsesController extends BaseTenantController {
   @ApiOperation({ summary: 'Get a single training response by ID (protected)' })
   @ApiBearerAuth('access-token')
   @Get(':id')
-  @UseGuards(JwtAuthGuard, SistemaGuard)
+  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
+  @Roles('rh_admin', 'hospital_admin', 'holding_admin')
   async findById(
     @Param('tenantSlug') tenantSlug: string,
     @Param('id') id: string,

@@ -75,7 +75,8 @@ export class Form3Controller extends BaseTenantController {
   @ApiOperation({ summary: 'Get aggregated metrics for analytics (all roles)' })
   @ApiBearerAuth('access-token')
   @Get('metrics')
-  @UseGuards(JwtAuthGuard, SistemaGuard)
+  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
+  @Roles('holding_admin', 'hospital_admin', 'operator_forms', 'viewer', 'rh_admin')
   async getMetrics(
     @Param('tenantSlug') tenantSlug: string,
     @Query() filters: FilterForm3Dto,
@@ -88,7 +89,8 @@ export class Form3Controller extends BaseTenantController {
   @ApiOperation({ summary: 'List paginated responses with optional filters (all roles)' })
   @ApiBearerAuth('access-token')
   @Get()
-  @UseGuards(JwtAuthGuard, SistemaGuard)
+  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
+  @Roles('holding_admin', 'hospital_admin', 'operator_forms', 'viewer', 'rh_admin')
   async findAll(
     @Param('tenantSlug') tenantSlug: string,
     @Query() filters: FilterForm3Dto,
@@ -143,7 +145,8 @@ export class Form3Controller extends BaseTenantController {
   @ApiOperation({ summary: 'Get a single response by ID (all roles)' })
   @ApiBearerAuth('access-token')
   @Get(':id')
-  @UseGuards(JwtAuthGuard, SistemaGuard)
+  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
+  @Roles('holding_admin', 'hospital_admin', 'operator_forms', 'viewer', 'rh_admin')
   async findById(
     @Param('tenantSlug') tenantSlug: string,
     @Param('id') id: string,
