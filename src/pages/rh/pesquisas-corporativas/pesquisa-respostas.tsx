@@ -170,7 +170,7 @@ export function ResponsesPanel({ tenantSlug, pesquisa, onClose: _onClose }: {
   const canExport = !!metricas && respostas.length > 0
   const handleExport = () => {
     if (!metricas) return
-    generatePesquisaCorporativaReport(pesquisa, metricas, respostas)
+    generatePesquisaCorporativaReport(pesquisa, metricas)
   }
 
   return (
