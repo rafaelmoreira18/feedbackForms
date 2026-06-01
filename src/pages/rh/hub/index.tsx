@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/auth-context'
 import { trainingService } from '@/services/training-service'
 import { pesquisasCorporativasService } from '@/services/pesquisas-corporativas.service'
+import { performanceEvaluationService } from '@/services/performance-evaluation-service'
 import { tenantService } from '@/services/tenant-service'
-import type { PesquisaCorporativa } from '@/types'
+import type { PesquisaCorporativa, PerformanceEvaluation } from '@/types'
 import { ROUTES } from '@/routes'
 import { groupSessions, PairedSessionCard } from '@/pages/rh/treinamentos/session-table'
 import type { SessionGroup } from '@/pages/rh/treinamentos/session-table'
@@ -14,6 +15,8 @@ import { ResponsesPanel as CorporativaResponsesPanel } from '@/pages/rh/pesquisa
 import { PesquisaCard } from '@/pages/rh/pesquisas-corporativas/pesquisa-table'
 import { Breadcrumb, ItemRow, FolderRow } from '@/pages/rh/hub/hub-icons'
 import { SessionForm } from '@/pages/rh/treinamentos/session-form-modal'
+import { AvaliacaoForm } from '@/pages/rh/avaliacao-desempenho/avaliacao-form-modal'
+import { AvaliacaoPanel } from '@/pages/rh/avaliacao-desempenho/avaliacao-panel'
 import Text from '@/components/ui/text'
 import Card from '@/components/ui/card'
 import Select from '@/components/ui/select'
@@ -33,12 +36,15 @@ export default function RhHub() {
   // tree state
   const [openTreinamentos, setOpenTreinamentos] = useState(false)
   const [openCorporativas, setOpenCorporativas] = useState(false)
+  const [openAvaliacoes, setOpenAvaliacoes] = useState(false)
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
 
   // selection state
   const [selectedGroup, setSelectedGroup] = useState<SessionGroup | null>(null)
   const [selectedSession, setSelectedSession] = useState<SessionGroup['reacao'] | null>(null)
   const [selectedPesquisa, setSelectedPesquisa] = useState<PesquisaCorporativa | null>(null)
+  const [selectedAvaliacao, setSelectedAvaliacao] = useState<PerformanceEvaluation | null>(null)
+  const [showCreateAvaliacao, setShowCreateAvaliacao] = useState(false)
 
   // copy link — single state tracks whichever slug was last copied
   const [copied, setCopied] = useState<string | null>(null)
@@ -93,6 +99,12 @@ export default function RhHub() {
     enabled: !!tenantSlug,
   })
 
+  const { data: avaliacoes = [], isLoading: loadingAvaliacoes } = useQuery({
+    queryKey: ['performance-evaluations', tenantSlug],
+    queryFn: () => performanceEvaluationService.getAll(tenantSlug),
+    enabled: !!tenantSlug,
+  })
+
   // ao trocar unidade com pesquisa aberta, detecta a mudança e salva referência
   if (prevTenantSlug.current !== tenantSlug && selectedPesquisa) {
     pendingPesquisa.current = selectedPesquisa
@@ -131,7 +143,7 @@ export default function RhHub() {
     ...allTenants.map(t => ({ value: t.slug, label: t.name })),
   ]
 
-  const isLoading = loadingSessions || loadingPesquisas
+  const isLoading = loadingSessions || loadingPesquisas || loadingAvaliacoes
 
   const canCreate = user?.role === 'rh_admin' || user?.role === 'holding_admin'
   const canDelete = user?.role === 'holding_admin'
@@ -244,8 +256,35 @@ export default function RhHub() {
             />
           </>
 
+        ) : selectedAvaliacao ? (
+          <>
+            <Breadcrumb
+              parts={[
+                allTenants.find(t => t.slug === tenantSlug)?.name ?? tenantSlug,
+                'Avaliações de Desempenho',
+                selectedAvaliacao.colaboradorNome,
+              ]}
+              onClose={() => setSelectedAvaliacao(null)}
+            />
+            <AvaliacaoPanel
+              tenantSlug={tenantSlug}
+              evaluation={avaliacoes.find(a => a.slug === selectedAvaliacao.slug) ?? selectedAvaliacao}
+              canManage={canManage}
+              canDelete={canDelete}
+              onClose={() => setSelectedAvaliacao(null)}
+              onDeleted={() => setSelectedAvaliacao(null)}
+            />
+          </>
+
         ) : (
           <>
+          {showCreateAvaliacao && (
+            <AvaliacaoForm
+              tenantSlug={tenantSlug}
+              onClose={() => setShowCreateAvaliacao(false)}
+              onSaved={() => setShowCreateAvaliacao(false)}
+            />
+          )}
           {showCreateTreinamento && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
               <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
@@ -314,6 +353,29 @@ export default function RhHub() {
                       </div>
                     )
                   })
+            )}
+
+            <div className="border-t border-gray-100 my-1" />
+
+            <FolderRow
+              label="Avaliações de Desempenho"
+              count={avaliacoes.length}
+              open={openAvaliacoes}
+              depth={0}
+              onToggle={() => setOpenAvaliacoes(v => !v)}
+              action={canCreate && tenantSlug ? { label: '+ Novo', onClick: () => setShowCreateAvaliacao(true) } : undefined}
+            />
+            {openAvaliacoes && (
+              avaliacoes.length === 0
+                ? <ItemRow label="Nenhuma avaliação criada" depth={1} onClick={() => {}} />
+                : avaliacoes.map((a) => (
+                    <ItemRow
+                      key={a.id}
+                      label={a.colaboradorNome}
+                      depth={1}
+                      onClick={() => setSelectedAvaliacao(a)}
+                    />
+                  ))
             )}
           </Card>
           </>

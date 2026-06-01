@@ -4,8 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { ROUTES } from "@/routes";
 import { form3Service } from "@/services/form3-service";
-import { generateDashboardReport, type CategoryFilter } from "@/services/report-service";
-import type { Form3Filters } from "@/types";
+import { generateDashboardReport } from "@/services/report-service";
+import { generateExcelReport } from "@/services/excel-service";
+import type { Form3Filters, MetricsView } from "@/types";
 import Text from "@/components/ui/text";
 import Select from "@/components/ui/select";
 import Button from "@/components/ui/button";
@@ -18,8 +19,24 @@ import { ModalPdfCpf } from "@/components/ui/modal/modal-pdf-cpf";
 
 const PAGE_SIZE = 50;
 
-function isCategoryFilter(v: string | null): v is CategoryFilter {
-  return v === "both" || v === "satisfaction" || v === "experience";
+const METRICS_VIEW_OPTIONS: { value: MetricsView; label: string }[] = [
+  { value: "satisfacao", label: "Satisfação" },
+  { value: "avaliacao", label: "Avaliação" },
+  { value: "ambos",     label: "Ambos" },
+];
+
+function patchSearchParams(
+  current: URLSearchParams,
+  patch: Record<string, string | undefined>,
+  resetPage = false,
+): URLSearchParams {
+  const next = new URLSearchParams(current);
+  Object.entries(patch).forEach(([k, v]) => {
+    if (v) next.set(k, v);
+    else next.delete(k);
+  });
+  if (resetPage) next.set("page", "1");
+  return next;
 }
 
 export default function Dashboard() {
@@ -28,51 +45,29 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [form3DeptFilter, setForm3DeptFilter] = useState<string>("");
   const [isExporting, setIsExporting] = useState(false);
-  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [exportModal, setExportModal] = useState<'pdf' | 'excel' | null>(null);
+  const [metricsView, setMetricsView] = useState<MetricsView>("ambos");
 
   const isHoldingAdmin = user?.role === 'holding_admin';
   const isGlobalRhAdmin = user?.role === 'rh_admin' && !user?.tenantId;
   const isGlobal = isHoldingAdmin || isGlobalRhAdmin;
-
-  // global roles use activeTenantSlug from context (persisted); fixed roles use their own
   const tenantSlug = isGlobal ? activeTenantSlug : (user?.tenantSlug ?? "");
 
   const startDate = searchParams.get("startDate") || "";
   const endDate = searchParams.get("endDate") || "";
   const sortSatisfaction = (searchParams.get("sortSatisfaction") as "asc" | "desc") || undefined;
   const currentPage = Number(searchParams.get("page") || "1");
-  const rawCategory = searchParams.get("category");
-  const categoryFilter: CategoryFilter = isCategoryFilter(rawCategory) ? rawCategory : "both";
 
   const setFilters = useCallback(
-    (patch: Partial<{ startDate: string; endDate: string; sortSatisfaction: string }>) => {
-      const next = new URLSearchParams(searchParams);
-      Object.entries(patch).forEach(([k, v]) => {
-        if (v) next.set(k, v);
-        else next.delete(k);
-      });
-      // Reset to page 1 whenever filters change
-      next.set("page", "1");
-      setSearchParams(next, { replace: true });
+    (patch: Record<string, string | undefined>) => {
+      setSearchParams(patchSearchParams(searchParams, patch, true), { replace: true });
     },
     [searchParams, setSearchParams],
   );
 
   const setPage = useCallback(
     (page: number) => {
-      const next = new URLSearchParams(searchParams);
-      next.set("page", String(page));
-      setSearchParams(next, { replace: true });
-    },
-    [searchParams, setSearchParams],
-  );
-
-  const setCategoryFilter = useCallback(
-    (value: CategoryFilter) => {
-      const next = new URLSearchParams(searchParams);
-      if (value === "both") next.delete("category");
-      else next.set("category", value);
-      setSearchParams(next, { replace: true });
+      setSearchParams(patchSearchParams(searchParams, { page: String(page) }), { replace: true });
     },
     [searchParams, setSearchParams],
   );
@@ -106,20 +101,20 @@ export default function Dashboard() {
   const filteredForms = filteredPage?.data ?? [];
   const totalFiltered = filteredPage?.total ?? 0;
   const totalPages = Math.ceil(totalFiltered / PAGE_SIZE);
-  const hasActiveFilters = !!(startDate || endDate || sortSatisfaction || form3DeptFilter || categoryFilter !== "both");
+  const hasActiveFilters = !!(startDate || endDate || sortSatisfaction || form3DeptFilter);
 
   const clearFilters = () => {
     setSearchParams({ page: "1" }, { replace: true });
     setForm3DeptFilter("");
   };
 
-  const handleExportPdf = () => {
+  const handleExport = (type: 'pdf' | 'excel') => {
     if (!metrics) return;
-    setShowPdfModal(true);
+    setExportModal(type);
   };
 
-  const handlePdfConfirm = async (includeCpf: boolean) => {
-    if (!metrics) return;
+  const handleExportConfirm = async (includeCpf: boolean) => {
+    if (!metrics || !exportModal) return;
     setIsExporting(true);
     try {
       const allFiltered = await form3Service.getAllForReport(tenantSlug, {
@@ -129,7 +124,11 @@ export default function Dashboard() {
         formType: form3DeptFilter || undefined,
         includeCpf,
       });
-      generateDashboardReport(allFiltered, metrics, filteredFilters, allForms.length, categoryFilter);
+      if (exportModal === 'pdf') {
+        generateDashboardReport(allFiltered, metrics, filteredFilters, allForms.length, metricsView);
+      } else {
+        generateExcelReport(allFiltered, metrics, filteredFilters, metricsView);
+      }
     } finally {
       setIsExporting(false);
     }
@@ -139,6 +138,46 @@ export default function Dashboard() {
     { value: "", label: "Todos os setores" },
     ...Array.from(new Set(allForms.map((f) => f.formType))).map((d) => ({ value: d, label: d })),
   ];
+
+  // Metric cards driven by metricsView — add/remove entries to change what's shown
+  const metricCards = [
+    {
+      show: true,
+      title: "Total de Respostas",
+      value: metrics?.totalResponses ?? 0,
+      subtitle: hasActiveFilters ? `${allForms.length} no total` : undefined,
+    },
+    {
+      show: true,
+      title: "Recomendariam",
+      value: `${metrics?.averageNps ?? 0}%`,
+      subtitle: hasActiveFilters ? "Baseado nos filtros ativos" : undefined,
+    },
+    {
+      show: true,
+      title: "Respostas Este Mês",
+      value: metrics?.responsesThisMonth ?? 0,
+      subtitle: `${metrics?.responsesLastMonth ?? 0} no mês anterior`,
+    },
+    {
+      show: metricsView === "satisfacao" || metricsView === "ambos",
+      title: "Média Satisfação (1–4)",
+      value: `${metrics?.averageSatisfactionOnly ?? 0}/4`,
+      subtitle: "Infraestrutura e ambiente",
+    },
+    {
+      show: metricsView === "avaliacao" || metricsView === "ambos",
+      title: "Média Avaliação (1–4)",
+      value: `${metrics?.averageExperience ?? 0}/4`,
+      subtitle: "Atendimento e cuidado assistencial",
+    },
+    {
+      show: metricsView === "ambos",
+      title: "Média Geral (1–4)",
+      value: `${metrics?.averageSatisfaction ?? 0}/4`,
+      subtitle: "Satisfação + Avaliação",
+    },
+  ].filter((c) => c.show);
 
   return (
     <div className="min-h-screen">
@@ -152,10 +191,18 @@ export default function Dashboard() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExportPdf}
+            onClick={() => handleExport('pdf')}
             disabled={isExporting || !metrics || totalFiltered === 0}
           >
-            {isExporting ? "Gerando PDF..." : "Exportar PDF"}
+            {isExporting && exportModal === 'pdf' ? "Gerando PDF..." : "Exportar PDF"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport('excel')}
+            disabled={isExporting || !metrics || totalFiltered === 0}
+          >
+            {isExporting && exportModal === 'excel' ? "Gerando Excel..." : "Exportar Excel"}
           </Button>
           <Button variant="secondary" size="sm" onClick={logout}>Sair</Button>
         </div>
@@ -164,79 +211,44 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-col gap-8">
 
-          {/* Empty state for global roles with no tenant selected */}
           {isGlobal && !tenantSlug ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
               <Text variant="heading-sm" className="text-gray-300">Selecione uma unidade no menu superior para visualizar as pesquisas</Text>
             </div>
           ) : (
             <>
-              {/* Category segmented control */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <Text variant="body-sm" className="text-gray-300">Exibir:</Text>
-                <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-                  {([
-                    { value: "both", label: "Ambas" },
-                    { value: "satisfaction", label: "Satisfação" },
-                    { value: "experience", label: "Experiência" },
-                  ] as const).map((opt) => {
-                    const active = categoryFilter === opt.value;
-                    return (
+              {/* Metrics View Selector + Cards */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Text variant="body-sm" className="text-gray-400 font-medium">Exibir métricas:</Text>
+                  <div className="flex gap-2">
+                    {METRICS_VIEW_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
                         type="button"
-                        onClick={() => setCategoryFilter(opt.value)}
-                        className={`px-4 py-2 text-sm font-semibold transition-colors ${
-                          active
-                            ? "bg-teal-base text-white"
-                            : "bg-white text-gray-400 hover:bg-gray-50"
+                        onClick={() => setMetricsView(opt.value)}
+                        className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                          metricsView === opt.value
+                            ? "bg-blue-600 border-blue-600 text-white"
+                            : "bg-white border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600"
                         }`}
                       >
                         {opt.label}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
-                <MetricCard
-                  title="Total de Respostas"
-                  value={metrics?.totalResponses ?? 0}
-                  subtitle={hasActiveFilters ? `${allForms.length} no total` : undefined}
-                />
-                <MetricCard
-                  title="Recomendariam"
-                  value={`${metrics?.averageNps ?? 0}%`}
-                  subtitle={hasActiveFilters ? "Baseado nos filtros ativos" : undefined}
-                />
-                <MetricCard
-                  title="Respostas Este Mês"
-                  value={metrics?.responsesThisMonth ?? 0}
-                  subtitle={`${metrics?.responsesLastMonth ?? 0} no mês anterior`}
-                />
-                {(categoryFilter === "both" || categoryFilter === "satisfaction") && (
-                  <MetricCard
-                    title="Média Satisfação (1–4)"
-                    value={`${metrics?.averageSatisfactionOnly ?? 0}/4`}
-                    subtitle="Infraestrutura e ambiente"
-                  />
-                )}
-                {(categoryFilter === "both" || categoryFilter === "experience") && (
-                  <MetricCard
-                    title="Média Experiência (1–4)"
-                    value={`${metrics?.averageExperience ?? 0}/4`}
-                    subtitle="Atendimento e cuidado assistencial"
-                  />
-                )}
-                {categoryFilter === "both" && (
-                  <MetricCard
-                    title="Média Geral (1–4)"
-                    value={`${metrics?.averageSatisfaction ?? 0}/4`}
-                    subtitle="Satisfação + Experiência"
-                  />
-                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
+                  {metricCards.map((card) => (
+                    <MetricCard
+                      key={card.title}
+                      title={card.title}
+                      value={card.value}
+                      subtitle={card.subtitle}
+                    />
+                  ))}
+                </div>
               </div>
 
               {/* Filters */}
@@ -278,7 +290,6 @@ export default function Dashboard() {
                 onRowClick={(id) => navigate(ROUTES.response(tenantSlug, id))}
               />
 
-              {/* Pagination */}
               {totalPages > 1 && (
                 <Pagination
                   currentPage={currentPage}
@@ -293,9 +304,10 @@ export default function Dashboard() {
       </div>
 
       <ModalPdfCpf
-        open={showPdfModal}
-        onClose={() => setShowPdfModal(false)}
-        onConfirm={handlePdfConfirm}
+        open={exportModal !== null}
+        exportType={exportModal ?? 'pdf'}
+        onClose={() => setExportModal(null)}
+        onConfirm={handleExportConfirm}
       />
     </div>
   );

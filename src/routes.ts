@@ -18,4 +18,6 @@ export const ROUTES = {
   adminUsuarios: '/admin/usuarios',
   // Pesquisas Corporativas — public form only
   pesquisaCorporativaPublica: (tenantSlug: string, pesquisaSlug: string) => `/${tenantSlug}/pesquisa-corporativa/${pesquisaSlug}`,
+  // Avaliação de Desempenho — public link (form do gestor → form do colaborador → relatório)
+  avaliacaoDesempenho: (tenantSlug: string, slug: string) => `/${tenantSlug}/avaliacao-desempenho/${slug}`,
 } as const;

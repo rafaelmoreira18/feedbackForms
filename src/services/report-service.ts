@@ -1,15 +1,7 @@
 import jsPDF from "jspdf";
 import { getScaleAverage } from "./analytics3-service";
-import { formatDate, formatRating } from "@/utils/format";
-import type { Form3Response, Form3Filters, Form3Metrics } from "@/types";
-
-export type CategoryFilter = "both" | "satisfaction" | "experience";
-
-const CATEGORY_LABEL: Record<CategoryFilter, string> = {
-  both: "Satisfacao + Experiencia",
-  satisfaction: "Apenas Satisfacao",
-  experience: "Apenas Experiencia",
-};
+import { formatDate, formatRating, metricsViewLabel } from "@/utils/format";
+import type { Form3Response, Form3Filters, Form3Metrics, MetricsView } from "@/types";
 
 const COLORS = {
   primary: [41, 98, 255] as const,
@@ -17,7 +9,6 @@ const COLORS = {
   gray: [100, 100, 100] as const,
   lightGray: [200, 200, 200] as const,
   white: [255, 255, 255] as const,
-  headerBg: [41, 98, 255] as const,
   rowAlt: [245, 247, 250] as const,
 };
 
@@ -25,7 +16,7 @@ const PAGE_MARGIN = 20;
 const PAGE_WIDTH = 210;
 const CONTENT_WIDTH = PAGE_WIDTH - PAGE_MARGIN * 2;
 
-function buildFilterDescription(filters: Form3Filters): string {
+function buildFilterDescription(filters: Form3Filters, metricsView: MetricsView): string {
   const parts: string[] = [];
   if (filters.startDate) parts.push(`De: ${formatDate(filters.startDate)}`);
   if (filters.endDate) parts.push(`Ate: ${formatDate(filters.endDate)}`);
@@ -34,6 +25,7 @@ function buildFilterDescription(filters: Form3Filters): string {
     const label = filters.sortSatisfaction === "desc" ? "Maior para Menor" : "Menor para Maior";
     parts.push(`Ordenacao: ${label}`);
   }
+  parts.push(`Exibindo: ${metricsViewLabel(metricsView)}`);
   return parts.length > 0 ? parts.join(" | ") : "Sem filtros aplicados";
 }
 
@@ -45,60 +37,55 @@ function checkPageBreak(doc: jsPDF, y: number, needed: number): number {
   return y;
 }
 
-function drawMetricCards(
-  doc: jsPDF,
-  metrics: Form3Metrics,
-  y: number,
-  category: CategoryFilter,
-): number {
-  const cards: { title: string; value: string }[] = [
+function drawCard(doc: jsPDF, x: number, y: number, width: number, height: number, title: string, value: string) {
+  doc.setFillColor(...COLORS.primary);
+  doc.roundedRect(x, y, width, height, 2, 2, "F");
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text(title, x + width / 2, y + 10, { align: "center" });
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text(value, x + width / 2, y + 22, { align: "center" });
+}
+
+function drawMetricCards(doc: jsPDF, metrics: Form3Metrics, metricsView: MetricsView, y: number): number {
+  const cardHeight = 28;
+  const gap = 3;
+
+  // Row 1: always show Total + selected metric(s) + Recomendariam
+  const row1Cards: { title: string; value: string }[] = [
     { title: "Total de Respostas", value: String(metrics.totalResponses) },
-    { title: "Recomendariam (NPS)", value: `${metrics.averageNps}%` },
   ];
 
-  if (category === "both" || category === "satisfaction") {
-    cards.push({
-      title: "Media Satisfacao (1-4)",
-      value: `${formatRating(metrics.averageSatisfactionOnly)}/4`,
-    });
+  if (metricsView === 'satisfacao' || metricsView === 'ambos') {
+    row1Cards.push({ title: "Satisfacao Media (1-4)", value: formatRating(metrics.averageSatisfactionOnly) });
   }
-  if (category === "both" || category === "experience") {
-    cards.push({
-      title: "Media Experiencia (1-4)",
-      value: `${formatRating(metrics.averageExperience)}/4`,
-    });
+  if (metricsView === 'avaliacao' || metricsView === 'ambos') {
+    row1Cards.push({ title: "Avaliacao Media (1-4)", value: formatRating(metrics.averageExperience) });
   }
-  if (category === "both") {
-    cards.push({
-      title: "Media Geral (1-4)",
-      value: `${formatRating(metrics.averageSatisfaction)}/4`,
-    });
+  if (metricsView === 'ambos') {
+    row1Cards.push({ title: "Media Geral (1-4)", value: formatRating(metrics.averageSatisfaction) });
+  }
+  row1Cards.push({ title: "Recomendariam", value: `${metrics.averageNps}%` });
+
+  // Lay out in rows of 3
+  const chunkSize = 3;
+  const rows: typeof row1Cards[] = [];
+  for (let i = 0; i < row1Cards.length; i += chunkSize) {
+    rows.push(row1Cards.slice(i, i + chunkSize));
   }
 
-  const perRow = 3;
-  const gap = 3;
-  const cardWidth = (CONTENT_WIDTH - gap * (perRow - 1)) / perRow;
-  const cardHeight = 28;
-  const rowGap = 4;
+  for (const row of rows) {
+    const cardWidth = (CONTENT_WIDTH - gap * (row.length - 1)) / row.length;
+    row.forEach((card, i) => {
+      const x = PAGE_MARGIN + i * (cardWidth + gap);
+      drawCard(doc, x, y, cardWidth, cardHeight, card.title, card.value);
+    });
+    y += cardHeight + 6;
+  }
 
-  cards.forEach((card, i) => {
-    const row = Math.floor(i / perRow);
-    const col = i % perRow;
-    const x = PAGE_MARGIN + col * (cardWidth + gap);
-    const cy = y + row * (cardHeight + rowGap);
-    doc.setFillColor(...COLORS.headerBg);
-    doc.roundedRect(x, cy, cardWidth, cardHeight, 2, 2, "F");
-    doc.setTextColor(...COLORS.white);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.text(card.title, x + cardWidth / 2, cy + 10, { align: "center" });
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text(card.value, x + cardWidth / 2, cy + 22, { align: "center" });
-  });
-
-  const totalRows = Math.ceil(cards.length / perRow);
-  return y + totalRows * cardHeight + (totalRows - 1) * rowGap + 10;
+  return y + 4;
 }
 
 function drawResponsesTable(
@@ -117,11 +104,11 @@ function drawResponsesTable(
   doc.text(`${forms.length} de ${totalCount} respostas no total`, PAGE_MARGIN, y + 5);
   y += 12;
 
-  const colWidths = [44, 36, 32, 32, 26];
-  const headers = ["Nome do Paciente", "Setor Avaliado", "CPF", "Media Satisf. Geral", "Data"];
+  const colWidths = [44, 40, 32, 28, 26];
+  const headers = ["Nome do Paciente", "Setor Avaliado", "CPF", "Media", "Data"];
   const rowHeight = 8;
 
-  doc.setFillColor(...COLORS.headerBg);
+  doc.setFillColor(...COLORS.primary);
   doc.rect(PAGE_MARGIN, y, CONTENT_WIDTH, rowHeight, "F");
   doc.setFontSize(7);
   doc.setFont("helvetica", "bold");
@@ -150,7 +137,7 @@ function drawResponsesTable(
     const row = [
       String(form.patientName ?? "").substring(0, 22),
       String(form.formType ?? "").substring(0, 16),
-      form.patientCpf ?? "Não informado",
+      form.patientCpf ?? "Nao informado",
       formatRating(Math.round(avg * 10) / 10),
       formatDate(form.createdAt),
     ];
@@ -171,7 +158,7 @@ export function generateDashboardReport(
   metrics: Form3Metrics,
   filters: Form3Filters,
   totalFormsCount: number,
-  category: CategoryFilter = "both",
+  metricsView: MetricsView = 'ambos',
 ): void {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const generatedAt = new Date().toLocaleString("pt-BR");
@@ -189,18 +176,17 @@ export function generateDashboardReport(
   doc.text(`Gerado em: ${generatedAt}`, PAGE_MARGIN, 32);
 
   // Filter info
-  const filterText = buildFilterDescription(filters);
+  const filterText = buildFilterDescription(filters, metricsView);
   doc.setFontSize(9);
   doc.setTextColor(...COLORS.gray);
   doc.text(`Filtros: ${filterText}`, PAGE_MARGIN, 38);
-  doc.text(`Categoria: ${CATEGORY_LABEL[category]}`, PAGE_MARGIN, 43);
 
   // Separator
   doc.setDrawColor(...COLORS.lightGray);
-  doc.line(PAGE_MARGIN, 47, PAGE_WIDTH - PAGE_MARGIN, 47);
+  doc.line(PAGE_MARGIN, 42, PAGE_WIDTH - PAGE_MARGIN, 42);
 
   // Metric cards
-  let y = drawMetricCards(doc, metrics, 53, category);
+  let y = drawMetricCards(doc, metrics, metricsView, 48);
 
   // Separator
   doc.setDrawColor(...COLORS.lightGray);
