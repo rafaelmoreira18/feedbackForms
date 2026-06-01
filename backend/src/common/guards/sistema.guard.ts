@@ -41,6 +41,13 @@ export class SistemaGuard implements CanActivate {
     if (!user) throw new ForbiddenException('Não autenticado');
     if (user.role === 'holding_admin') return true;
 
+    // Protocolo roles are feedbackforms-only — implicitly allowed without the sistemas array
+    const isProtocoloRole =
+      user.role === 'protocolo_operador' ||
+      user.role === 'protocolo_admin' ||
+      user.role === 'protocolo_admin_global';
+    if (isProtocoloRole && sistema === 'feedbackforms') return true;
+
     if (!user.sistemas.includes(sistema)) {
       throw new ForbiddenException(`Sistema '${sistema}' não habilitado para este usuário`);
     }
@@ -55,6 +62,11 @@ export class SistemaGuard implements CanActivate {
  */
 export function assertSistemaJWT(user: AuthedUser, sistema: string): void {
   if (user.role === 'holding_admin') return;
+  const isProtocoloRole =
+    user.role === 'protocolo_operador' ||
+    user.role === 'protocolo_admin' ||
+    user.role === 'protocolo_admin_global';
+  if (isProtocoloRole && sistema === 'feedbackforms') return;
   if (!user.sistemas.includes(sistema)) {
     throw new ForbiddenException(`Sistema '${sistema}' não habilitado para este usuário`);
   }
