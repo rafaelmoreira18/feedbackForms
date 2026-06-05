@@ -28,7 +28,12 @@ export type AuditAction =
   | 'PROTOCOLO_BLOCO_TRIAGEM_SUBMITTED'
   | 'PROTOCOLO_BLOCO_INVESTIGACAO_SUBMITTED'
   | 'PROTOCOLO_BLOCO_DESFECHO_SUBMITTED'
-  | 'PROTOCOLO_DELETED';
+  | 'PROTOCOLO_DELETED'
+  | 'PDI_CREATED'
+  | 'PDI_UPDATED'
+  | 'PDI_DELETED'
+  | 'PDI_MANAGER_SUBMITTED'
+  | 'PDI_COLABORADOR_SUBMITTED';
 
 /**
  * Trilha de auditoria — registra quem fez o que, em qual registro, quando e de qual IP.

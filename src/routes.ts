@@ -20,6 +20,8 @@ export const ROUTES = {
   pesquisaCorporativaPublica: (tenantSlug: string, pesquisaSlug: string) => `/${tenantSlug}/pesquisa-corporativa/${pesquisaSlug}`,
   // Avaliação de Desempenho — public link (form do gestor → form do colaborador → relatório)
   avaliacaoDesempenho: (tenantSlug: string, slug: string) => `/${tenantSlug}/avaliacao-desempenho/${slug}`,
+  // PDI — Plano de Desenvolvimento Individual — public link (gestor → colaborador → relatório)
+  pdiDesenvolvimento: (tenantSlug: string, slug: string) => `/${tenantSlug}/pdi-desenvolvimento/${slug}`,
   // Protocolos (Protocolo de Dor Torácica) — aba do feedbackforms gateada por papel
   protocolos: (tenantSlug?: string) => (tenantSlug ? `/${tenantSlug}/protocolos` : '/protocolos'),
   protocoloForm: (tenantSlug: string, slug: string) => `/${tenantSlug}/protocolos/${slug}`,

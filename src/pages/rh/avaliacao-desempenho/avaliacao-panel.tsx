@@ -1,12 +1,21 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import type { PerformanceEvaluation, PerformanceEvaluationStatus } from "@/types";
+import toast from "react-hot-toast";
+import type { PerformanceEvaluation, PerformanceEvaluationStatus, Pdi } from "@/types";
 import { performanceEvaluationService } from "@/services/performance-evaluation-service";
+import { pdiService } from "@/services/pdi-service";
+import { generatePdiReport } from "@/services/pdi-report-service";
 import { ROUTES } from "@/routes";
 import Text from "@/components/ui/text";
 import Button from "@/components/ui/button";
 import { AvaliacaoReport } from "./avaliacao-report";
+
+const PDI_STATUS_LABEL: Record<Pdi["status"], string> = {
+  pendente: "Aguardando gestor",
+  aguardando_colaborador: "Aguardando colaborador",
+  concluida: "Concluído",
+};
 
 const STATUS_BADGE: Record<PerformanceEvaluationStatus, { label: string; cls: string }> = {
   pendente: { label: "Aguardando gestor", cls: "bg-yellow-base/10 text-yellow-600" },
@@ -61,6 +70,33 @@ export function AvaliacaoPanel({
       queryClient.invalidateQueries({ queryKey: ["performance-evaluations", tenantSlug] });
       onDeleted();
     },
+  });
+
+  // PDI vinculado a esta avaliação (existe no máximo um por avaliação)
+  const { data: pdis = [] } = useQuery({
+    queryKey: ["pdis", tenantSlug],
+    queryFn: () => pdiService.getAll(tenantSlug),
+    enabled: !!tenantSlug && evaluation.status === "concluida",
+  });
+  const pdi = pdis.find((p) => p.evaluationId === evaluation.id) ?? null;
+
+  const [pdiCopied, setPdiCopied] = useState(false);
+  const copyPdiLink = (slug: string) => {
+    const url = `${window.location.origin}${ROUTES.pdiDesenvolvimento(tenantSlug, slug)}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setPdiCopied(true);
+      setTimeout(() => setPdiCopied(false), 2000);
+    });
+  };
+
+  const createPdi = useMutation({
+    mutationFn: () => pdiService.create(tenantSlug, { evaluationSlug: evaluation.slug }),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["pdis", tenantSlug] });
+      copyPdiLink(created.slug);
+      toast.success("PDI criado! Link copiado — encaminhe ao gestor.");
+    },
+    onError: () => toast.error("Não foi possível criar o PDI. Tente novamente."),
   });
 
   return (
@@ -119,7 +155,63 @@ export function AvaliacaoPanel({
 
         {/* Corpo */}
         {evaluation.status === "concluida" ? (
-          <AvaliacaoReport evaluation={evaluation} />
+          <div className="flex flex-col gap-4">
+            <AvaliacaoReport evaluation={evaluation} />
+
+            {/* PDI — Plano de Desenvolvimento Individual */}
+            <div className="rounded-xl border border-gray-100 bg-white p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Text variant="body-sm" className="font-semibold text-gray-400">
+                    PDI — Plano de Desenvolvimento Individual
+                  </Text>
+                  {pdi && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-teal-base/10 text-teal-dark">
+                      {PDI_STATUS_LABEL[pdi.status]}
+                    </span>
+                  )}
+                </div>
+
+                {!pdi ? (
+                  <Button
+                    size="sm"
+                    disabled={createPdi.isPending}
+                    onClick={() => createPdi.mutate()}
+                  >
+                    {createPdi.isPending ? "Criando..." : "Criar PDI"}
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={() => copyPdiLink(pdi.slug)}>
+                      {pdiCopied ? "Copiado!" : "Copiar link"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(ROUTES.pdiDesenvolvimento(tenantSlug, pdi.slug))}
+                    >
+                      Abrir link
+                    </Button>
+                    {pdi.status === "concluida" && (
+                      <Button variant="secondary" size="sm" onClick={() => generatePdiReport(pdi)}>
+                        Baixar PDF
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-gray-300">
+                {!pdi
+                  ? "Crie o PDI e encaminhe o link ao gestor. Ele preenche as ações e o feedback, depois repassa ao colaborador para validar."
+                  : pdi.status === "pendente"
+                  ? "Aguardando o gestor preencher o PDI. Compartilhe o link com o gestor."
+                  : pdi.status === "aguardando_colaborador"
+                  ? "Gestor já preencheu. Compartilhe o link com o colaborador para validar."
+                  : "PDI concluído. Você pode baixar o PDF."}
+              </p>
+            </div>
+          </div>
         ) : (
           <div className="rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-400 flex flex-col gap-2">
             <p className="font-semibold">Avaliação em andamento</p>

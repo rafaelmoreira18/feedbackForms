@@ -34,6 +34,7 @@ import RhUsuarios from "@/pages/rh/rh-usuarios";
 import AdminUsuarios from "@/pages/admin/admin-usuarios";
 import PesquisaCorporativaPublica from "@/pages/rh/pesquisa-corporativa";
 import AvaliacaoDesempenhoPublica from "@/pages/rh/avaliacao-desempenho";
+import PdiDesenvolvimentoPublica from "@/pages/rh/pdi-desenvolvimento";
 import AvaliacaoPlayground from "@/pages/dev/avaliacao-playground";
 import ProtocolosHome from "@/pages/protocolos";
 import ProtocoloForm from "@/pages/protocolos/form";
@@ -128,6 +129,9 @@ function AppRoutes() {
       {/* Avaliação de Desempenho — public link only; management is via rh-hub */}
       <Route path="/:tenantSlug/avaliacao-desempenho/:slug" element={<AvaliacaoDesempenhoPublica />} />
 
+      {/* PDI — Plano de Desenvolvimento Individual — public link only; management is via rh-hub */}
+      <Route path="/:tenantSlug/pdi-desenvolvimento/:slug" element={<PdiDesenvolvimentoPublica />} />
+
       {/* Dev playground — só com VITE_MOCK_PERF=true (testa o fluxo sem backend) */}
       {MOCK_PERF && (
         <Route path="/dev/avaliacoes" element={<AvaliacaoPlayground />} />
@@ -181,6 +185,7 @@ function AppShell() {
     !path.includes("/treinamento/") &&
     !path.includes("/pesquisa-corporativa/") &&
     !path.includes("/avaliacao-desempenho/") &&
+    !path.includes("/pdi-desenvolvimento/") &&
     !path.includes("/protocolos");
 
   return (
