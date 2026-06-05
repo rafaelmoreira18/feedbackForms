@@ -156,8 +156,6 @@ export function AvaliacaoPanel({
         {/* Corpo */}
         {evaluation.status === "concluida" ? (
           <div className="flex flex-col gap-4">
-            <AvaliacaoReport evaluation={evaluation} />
-
             {/* PDI — Plano de Desenvolvimento Individual */}
             <div className="rounded-xl border border-gray-100 bg-white p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -211,6 +209,8 @@ export function AvaliacaoPanel({
                   : "PDI concluído. Você pode baixar o PDF."}
               </p>
             </div>
+
+            <AvaliacaoReport evaluation={evaluation} />
           </div>
         ) : (
           <div className="rounded-xl border border-gray-100 bg-white p-4 text-sm text-gray-400 flex flex-col gap-2">
