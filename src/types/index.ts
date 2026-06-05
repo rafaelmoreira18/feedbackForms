@@ -229,6 +229,66 @@ export interface CreatePerformanceEvaluationDto {
   projeto?: string;
 }
 
+// ─── PDI — Plano de Desenvolvimento Individual ──────────────────────────────────
+
+/**
+ * pendente               — criado; aguardando o gestor preencher as ações
+ * aguardando_colaborador — gestor preencheu; aguardando a validação do colaborador
+ * concluida              — colaborador validou; PDF disponível
+ */
+export type PdiStatus = 'pendente' | 'aguardando_colaborador' | 'concluida';
+
+export type PdiResponsabilidade = 'colaborador' | 'empresa';
+
+export interface PdiAction {
+  /** Ação a ser realizada (curso, formação, palestra, livro, filme, reunião de acompanhamento) */
+  acao: string;
+  responsabilidade: PdiResponsabilidade;
+  /** id da competência vinculada (ver competencies.ts) */
+  competenciaId: string;
+  /** ISO date string: "2026-08-30" */
+  prazo: string;
+}
+
+export interface Pdi {
+  id: string;
+  tenantId: string;
+  createdByUserId: string | null;
+  slug: string;
+  evaluationId: string;
+  evaluationSlug: string;
+  colaboradorNome: string;
+  setor: string;
+  cargo: string;
+  gestorArea: string;
+  projeto: string;
+  avaliador: string;
+  dataAvaliacao: string;
+  status: PdiStatus;
+  actions: PdiAction[] | null;
+  managerFeedback: string | null;
+  managerSubmittedAt: string | null;
+  colaboradorNomeValidacao: string | null;
+  colaboradorComentario: string | null;
+  colaboradorSubmittedAt: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface CreatePdiDto {
+  evaluationSlug: string;
+}
+
+export interface SubmitPdiManagerDto {
+  actions: PdiAction[];
+  managerFeedback?: string;
+}
+
+export interface SubmitPdiColaboradorDto {
+  colaboradorNome: string;
+  comentario?: string;
+}
+
 // ─── Pesquisas Corporativas ────────────────────────────────────────────────────
 
 export type PesquisaEscala = 'likert5' | 'likert3' | 'nps' | 'aberta' | 'opcoes' | 'multipla' | 'booleano';

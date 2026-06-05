@@ -28,6 +28,8 @@ import { PesquisaCorporativaEntity } from './modules/pesquisas-corporativas/enti
 import { PesquisaRespostaEntity } from './modules/pesquisas-corporativas/entities/pesquisa-resposta.entity';
 import { PerformanceEvaluationsModule } from './modules/performance-evaluations/performance-evaluations.module';
 import { PerformanceEvaluationEntity } from './modules/performance-evaluations/entities/performance-evaluation.entity';
+import { PerformanceDevelopmentPlansModule } from './modules/performance-development-plans/performance-development-plans.module';
+import { PerformanceDevelopmentPlanEntity } from './modules/performance-development-plans/entities/performance-development-plan.entity';
 import { ProtocolosModule } from './modules/protocolos/protocolos.module';
 import { ProtocoloEntity } from './modules/protocolos/entities/protocolo.entity';
 import { ProtocoloUsersModule } from './modules/protocolo-users/protocolo-users.module';
@@ -72,6 +74,7 @@ import { ProtocoloUsersModule } from './modules/protocolo-users/protocolo-users.
           PesquisaCorporativaEntity,
           PesquisaRespostaEntity,
           PerformanceEvaluationEntity,
+          PerformanceDevelopmentPlanEntity,
           ProtocoloEntity,
         ],
         synchronize: config.get<string>('DB_SYNCHRONIZE', 'false') === 'true',
@@ -99,6 +102,7 @@ import { ProtocoloUsersModule } from './modules/protocolo-users/protocolo-users.
     AuditLogModule,
     PesquisasCorporativasModule,
     PerformanceEvaluationsModule,
+    PerformanceDevelopmentPlansModule,
     ProtocolosModule,
     ProtocoloUsersModule,
   ],
