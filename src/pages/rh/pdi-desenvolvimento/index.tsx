@@ -57,6 +57,10 @@ function ManagerForm({
       setError("Defina o prazo de todas as ações preenchidas.");
       return;
     }
+    if (feedback.trim().length === 0) {
+      setError("Preencha o feedback final do gestor.");
+      return;
+    }
     setError("");
     onSubmit(cleaned, feedback.trim());
   };
@@ -139,7 +143,7 @@ function ManagerForm({
       </button>
 
       <Textarea
-        label="Feedback final do gestor"
+        label="Feedback final do gestor *"
         placeholder="Espaço para fortalecer os pontos fortes e os pontos a melhorar do colaborador."
         value={feedback}
         onChange={(e) => setFeedback(e.target.value)}
@@ -181,6 +185,10 @@ function ColaboradorForm({
       setError("Informe seu nome completo.");
       return;
     }
+    if (comentario.trim().length === 0) {
+      setError("Preencha o comentário sobre o seu PDI.");
+      return;
+    }
     setError("");
     onSubmit(nome.trim(), comentario.trim());
   };
@@ -189,7 +197,7 @@ function ColaboradorForm({
     <div className="p-5 sm:p-8 flex flex-col gap-6">
       <p className="text-sm text-gray-300 font-sans">
         Revise o plano de desenvolvimento elaborado pelo seu gestor. Ao final, confirme
-        sua ciência informando seu nome completo. O comentário é opcional.
+        sua ciência informando seu nome completo e deixando um comentário sobre o seu PDI.
       </p>
 
       <PdiReport pdi={pdi} />
@@ -204,8 +212,8 @@ function ColaboradorForm({
           required
         />
         <Textarea
-          label="Comentário (opcional)"
-          placeholder="Se quiser, deixe um comentário sobre o seu PDI."
+          label="Comentário *"
+          placeholder="Deixe um comentário sobre o seu PDI."
           value={comentario}
           onChange={(e) => setComentario(e.target.value)}
           rows={4}

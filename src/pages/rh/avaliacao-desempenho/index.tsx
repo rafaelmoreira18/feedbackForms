@@ -70,6 +70,15 @@ function CompetencyQuestionnaire({
       setError(`Preencha a nota de todas as competências (faltam ${faltando.length}).`);
       return;
     }
+    const semJustificativa = COMPETENCIES.filter(
+      (c) => (justificativas[c.id] ?? "").trim().length === 0,
+    );
+    if (semJustificativa.length > 0) {
+      setError(
+        `Preencha a justificativa de todas as competências (faltam ${semJustificativa.length}).`,
+      );
+      return;
+    }
     setError("");
     const answers: PerformanceAnswer[] = COMPETENCIES.map((c) => ({
       competenciaId: c.id,
@@ -81,8 +90,8 @@ function CompetencyQuestionnaire({
 
   const intro =
     role === "gestor"
-      ? "Avalie cada competência de 0 a 10. Não deixe nenhuma nota em branco."
-      : "Faça sua autoavaliação: atribua uma nota de 0 a 10 para cada competência.";
+      ? "Avalie cada competência de 0 a 10 e justifique cada nota. Não deixe nenhum campo em branco."
+      : "Faça sua autoavaliação: atribua uma nota de 0 a 10 e justifique cada competência.";
 
   return (
     <form onSubmit={handleSubmit} className="p-5 sm:p-8 flex flex-col gap-8">
@@ -99,7 +108,7 @@ function CompetencyQuestionnaire({
               <p className="text-xs text-gray-300 font-sans -mt-1">{c.descricao}</p>
               <ScoreScale value={notas[c.id] ?? null} onChange={(v) => setNota(c.id, v)} />
               <Textarea
-                placeholder="Justifique (opcional)"
+                placeholder="Justifique a nota *"
                 value={justificativas[c.id] ?? ""}
                 onChange={(e) => setJust(c.id, e.target.value)}
               />
