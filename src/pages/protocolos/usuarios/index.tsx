@@ -14,9 +14,13 @@ import { Plus, KeyRound, Power } from "lucide-react";
 
 const ROLE_LABEL: Record<string, string> = {
   protocolo_operador: "Operador",
+  protocolo_medico: "Médico",
   protocolo_admin: "Admin da unidade",
   protocolo_admin_global: "Admin global",
 };
+
+/** Perfis que preenchem etapas — exigem registro profissional (CRM/COREN). */
+const ROLES_COM_REGISTRO = ["protocolo_operador", "protocolo_medico"];
 
 export default function ProtocolosUsuarios() {
   const { user } = useAuth();
@@ -66,6 +70,7 @@ export default function ProtocolosUsuarios() {
                     </Text>
                     <Text variant="caption" className="text-gray-300">
                       {u.username ?? u.email} · {ROLE_LABEL[u.role] ?? u.role}
+                      {u.registroProfissional ? ` · ${u.registroProfissional}` : ""}
                       {u.tenantNome ? ` · ${u.tenantNome}` : isGlobal && u.role === "protocolo_admin_global" ? " · Todas as unidades" : ""}
                     </Text>
                   </div>
@@ -111,8 +116,11 @@ function CreateUserModal({ isGlobal, onClose }: { isGlobal: boolean; onClose: ()
   const [username, setUsername] = useState("");
   const [senha, setSenha] = useState("");
   const [role, setRole] = useState<CreateProtocoloUserPayload["role"]>("protocolo_operador");
+  const [registroProfissional, setRegistroProfissional] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [error, setError] = useState("");
+
+  const exigeRegistro = ROLES_COM_REGISTRO.includes(role);
 
   const { data: tenants = [] } = useQuery({
     queryKey: ["protocolo-usuarios-tenants"],
@@ -127,6 +135,7 @@ function CreateUserModal({ isGlobal, onClose }: { isGlobal: boolean; onClose: ()
         username: username.trim(),
         senha,
         role,
+        registroProfissional: exigeRegistro ? registroProfissional.trim() : undefined,
         tenantId: role === "protocolo_admin_global" ? undefined : tenantId || undefined,
       }),
     onSuccess: () => {
@@ -146,6 +155,10 @@ function CreateUserModal({ isGlobal, onClose }: { isGlobal: boolean; onClose: ()
       setError("Preencha nome, usuário e senha (mín. 8 caracteres).");
       return;
     }
+    if (exigeRegistro && !registroProfissional.trim()) {
+      setError("Informe o registro profissional (CRM para médico, COREN para operador).");
+      return;
+    }
     if (role !== "protocolo_admin_global" && isGlobal && !tenantId) {
       setError("Selecione a unidade.");
       return;
@@ -163,16 +176,31 @@ function CreateUserModal({ isGlobal, onClose }: { isGlobal: boolean; onClose: ()
           <Input label="Usuário (login) *" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="ex.: maria.protocolo" />
           <Input label="Senha temporária *" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} />
 
-          {isGlobal && (
-            <Select
-              label="Perfil"
-              options={[
-                { value: "protocolo_operador", label: "Operador" },
-                { value: "protocolo_admin", label: "Admin da unidade" },
-                { value: "protocolo_admin_global", label: "Admin global" },
-              ]}
-              value={role}
-              onChange={(e) => setRole(e.target.value as CreateProtocoloUserPayload["role"])}
+          <Select
+            label="Perfil"
+            options={
+              isGlobal
+                ? [
+                    { value: "protocolo_operador", label: "Operador" },
+                    { value: "protocolo_medico", label: "Médico" },
+                    { value: "protocolo_admin", label: "Admin da unidade" },
+                    { value: "protocolo_admin_global", label: "Admin global" },
+                  ]
+                : [
+                    { value: "protocolo_operador", label: "Operador" },
+                    { value: "protocolo_medico", label: "Médico" },
+                  ]
+            }
+            value={role}
+            onChange={(e) => setRole(e.target.value as CreateProtocoloUserPayload["role"])}
+          />
+
+          {exigeRegistro && (
+            <Input
+              label={`Registro profissional (${role === "protocolo_medico" ? "CRM" : "COREN"}) *`}
+              value={registroProfissional}
+              onChange={(e) => setRegistroProfissional(e.target.value)}
+              placeholder={role === "protocolo_medico" ? "ex.: CRM/GO 12345" : "ex.: COREN/GO 123456"}
             />
           )}
 
@@ -186,7 +214,7 @@ function CreateUserModal({ isGlobal, onClose }: { isGlobal: boolean; onClose: ()
           )}
 
           {!isGlobal && (
-            <Text variant="caption" className="text-gray-300">Será criado um operador na sua unidade.</Text>
+            <Text variant="caption" className="text-gray-300">O usuário será criado na sua unidade.</Text>
           )}
 
           {error && <Text variant="body-sm" className="text-red-base">{error}</Text>}

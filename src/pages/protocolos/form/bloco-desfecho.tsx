@@ -1,16 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { BlocoDesfecho, DestinoPaciente } from "@/types";
 import type { SubmitDesfechoPayload } from "@/services/protocolo-service";
 import Input from "@/components/ui/input";
 import TimeInput from "@/components/ui/time-input";
-import { SectionTitle, CheckRow, RadioPill, DateField, EtapaFechadaInfo, FecharEtapaBar, NumericInput } from "./form-ui";
+import { SectionTitle, CheckRow, RadioPill, DateField, EtapaFechadaInfo, FecharEtapaBar, NumericInput, PendenciasBox, REQ } from "./form-ui";
 
 interface Props {
   initial: BlocoDesfecho | null;
+  rascunho?: Partial<BlocoDesfecho> | null;
   readOnly: boolean;
   submitting: boolean;
   onSubmit: (payload: SubmitDesfechoPayload) => void;
+  onDraftChange?: (dados: Record<string, unknown>) => void;
   responsavel: { nome: string; registro: string };
+  submitLabel?: string;
 }
 
 const DESTINOS: { value: DestinoPaciente; label: string }[] = [
@@ -22,7 +25,8 @@ const DESTINOS: { value: DestinoPaciente; label: string }[] = [
   { value: "obito", label: "Óbito" },
 ];
 
-function fromInitial(i: BlocoDesfecho | null) {
+function fromInitial(init: BlocoDesfecho | null, rasc?: Partial<BlocoDesfecho> | null) {
+  const i = init ?? (rasc as BlocoDesfecho | null);
   return {
     trombolitiseElegivel: i?.trombolitiseElegivel ?? false,
     trombolitiseMotivoNao: i?.trombolitiseMotivoNao ?? "",
@@ -47,17 +51,45 @@ function fromInitial(i: BlocoDesfecho | null) {
   };
 }
 
-export default function BlocoDesfechoForm({ initial, readOnly, submitting, onSubmit, responsavel }: Props) {
-  const [s, setS] = useState(() => fromInitial(initial));
+export default function BlocoDesfechoForm({ initial, rascunho, readOnly, submitting, onSubmit, onDraftChange, responsavel, submitLabel }: Props) {
+  const [s, setS] = useState(() => fromInitial(initial, rascunho));
   const set = <K extends keyof typeof s>(k: K, v: (typeof s)[K]) => setS((p) => ({ ...p, [k]: v }));
   const ro = readOnly;
+
+  useEffect(() => {
+    if (ro || !onDraftChange) return;
+    onDraftChange({ ...s });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s]);
 
   const toggle = <
     G extends "criteriosReperfusao" | "medidasAdmissao" | "prescricoesAlta" | "altaSeguraCriterios",
   >(group: G, key: keyof (typeof s)[G], v: boolean) =>
     setS((p) => ({ ...p, [group]: { ...p[group], [key]: v } }));
 
+  const [mostrarPend, setMostrarPend] = useState(false);
+
+  // Obrigatórios com exceções: regulação/confirmação/saída são opcionais; campos condicionais
+  // (trombólise, óbito) só obrigam quando aplicáveis.
+  const pendencias: string[] = [];
+  if (s.trombolitiseElegivel) {
+    if (!s.inicioFibrinolitico) pendencias.push("Início do fibrinolítico");
+    if (!s.tempoPortaAgulhaMin) pendencias.push("Tempo porta-agulha");
+    if (!s.eficaciaTrombolise) pendencias.push("Eficácia da trombólise");
+  } else if (!s.trombolitiseMotivoNao.trim()) {
+    pendencias.push("Motivo da não trombólise");
+  }
+  if (!s.destino) pendencias.push("Destino do paciente");
+  if (s.destino === "obito") {
+    if (!s.obitoData) pendencias.push("Óbito — data");
+    if (!s.obitoHora) pendencias.push("Óbito — hora");
+  }
+
   const handleSubmit = () => {
+    if (pendencias.length > 0) {
+      setMostrarPend(true);
+      return;
+    }
     onSubmit({
       ...s,
       responsavelNome: responsavel.nome,
@@ -72,8 +104,8 @@ export default function BlocoDesfechoForm({ initial, readOnly, submitting, onSub
       {s.trombolitiseElegivel ? (
         <>
           <div className="grid grid-cols-2 gap-3 items-start">
-            <TimeInput label="Início do fibrinolítico" value={s.inicioFibrinolitico} readOnly={ro} onChange={(v) => set("inicioFibrinolitico", v)} />
-            <NumericInput label="Tempo porta-agulha (min)" mode="int" value={s.tempoPortaAgulhaMin} readOnly={ro} onChange={(v) => set("tempoPortaAgulhaMin", v)} />
+            <TimeInput label={`Início do fibrinolítico${REQ}`} value={s.inicioFibrinolitico} readOnly={ro} onChange={(v) => set("inicioFibrinolitico", v)} />
+            <NumericInput label={`Tempo porta-agulha (min)${REQ}`} placeholder="30" mode="int" min={0} max={1440} value={s.tempoPortaAgulhaMin} readOnly={ro} onChange={(v) => set("tempoPortaAgulhaMin", v)} hint="meta ≤ 30" />
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">Critérios de reperfusão (60–90 min)</span>
@@ -82,7 +114,7 @@ export default function BlocoDesfechoForm({ initial, readOnly, submitting, onSub
             <CheckRow label="Arritmia de reperfusão (RIVA)" checked={s.criteriosReperfusao.arritmiaReperfusao} disabled={ro} onChange={(v) => toggle("criteriosReperfusao", "arritmiaReperfusao", v)} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">Eficácia</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">Eficácia{REQ}</span>
             <div className="grid grid-cols-2 gap-2">
               <RadioPill label="Sucesso (≥ 2 critérios)" selected={s.eficaciaTrombolise === "sucesso"} disabled={ro} onClick={() => set("eficaciaTrombolise", "sucesso")} />
               <RadioPill label="Falha → ICP resgate" selected={s.eficaciaTrombolise === "falha"} disabled={ro} onClick={() => set("eficaciaTrombolise", "falha")} />
@@ -90,7 +122,7 @@ export default function BlocoDesfechoForm({ initial, readOnly, submitting, onSub
           </div>
         </>
       ) : (
-        <Input label="Motivo da não trombólise" value={s.trombolitiseMotivoNao} readOnly={ro} onChange={(e) => set("trombolitiseMotivoNao", e.target.value)} />
+        <Input label={`Motivo da não trombólise${REQ}`} value={s.trombolitiseMotivoNao} readOnly={ro} onChange={(e) => set("trombolitiseMotivoNao", e.target.value)} />
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -114,7 +146,7 @@ export default function BlocoDesfechoForm({ initial, readOnly, submitting, onSub
 
       <SectionTitle>Etapa 6 — Encaminhamento final</SectionTitle>
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">Destino do paciente</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">Destino do paciente{REQ}</span>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {DESTINOS.map((d) => (
             <RadioPill key={d.value} label={d.label} selected={s.destino === d.value} disabled={ro} onClick={() => set("destino", d.value)} />
@@ -123,8 +155,8 @@ export default function BlocoDesfechoForm({ initial, readOnly, submitting, onSub
       </div>
       {s.destino === "obito" && (
         <div className="grid grid-cols-2 gap-3 items-start">
-          <DateField label="Óbito — data" value={s.obitoData} readOnly={ro} onChange={(v) => set("obitoData", v)} />
-          <TimeInput label="Óbito — hora" value={s.obitoHora} readOnly={ro} onChange={(v) => set("obitoHora", v)} />
+          <DateField label={`Óbito — data${REQ}`} value={s.obitoData} readOnly={ro} onChange={(v) => set("obitoData", v)} />
+          <TimeInput label={`Óbito — hora${REQ}`} value={s.obitoHora} readOnly={ro} onChange={(v) => set("obitoHora", v)} />
         </div>
       )}
       <div className="flex flex-col gap-1.5">
@@ -145,10 +177,12 @@ export default function BlocoDesfechoForm({ initial, readOnly, submitting, onSub
         <CheckRow label="Orientações de retorno entregues" checked={s.altaSeguraCriterios.orientacoesEntregues} disabled={ro} onChange={(v) => toggle("altaSeguraCriterios", "orientacoesEntregues", v)} />
       </div>
 
+      {!ro && mostrarPend && <PendenciasBox pendencias={pendencias} />}
+
       {ro ? (
         <EtapaFechadaInfo nome={initial?.responsavelNome ?? ""} registro={initial?.registroProfissional ?? ""} fechadoEm={initial?.fechadoEm} />
       ) : (
-        <FecharEtapaBar submitting={submitting} onSubmit={handleSubmit} label="Concluir protocolo →" />
+        <FecharEtapaBar submitting={submitting} onSubmit={handleSubmit} label={submitLabel ?? "Concluir protocolo →"} />
       )}
     </div>
   );

@@ -4,8 +4,10 @@ import type {
   ProtocoloMetrics,
   ProtocoloStage,
   BlocoTriagem,
+  BlocoEcg,
   BlocoInvestigacao,
   BlocoDesfecho,
+  MotivoEncerramento,
 } from '@/types'
 import { api } from './api'
 
@@ -16,8 +18,12 @@ function buildQs(params: Record<string, string | undefined>): string {
   return s ? `?${s}` : ''
 }
 
-/** Payload de fechamento de um bloco (sem os campos de responsável que são preenchidos no form). */
+/** Payload de fechamento de um bloco. Responsável é preenchido a partir do usuário logado. */
 export type SubmitTriagemPayload = Partial<Omit<BlocoTriagem, 'fechadoEm'>> & {
+  responsavelNome: string
+  registroProfissional: string
+}
+export type SubmitEcgPayload = Partial<Omit<BlocoEcg, 'fechadoEm'>> & {
   responsavelNome: string
   registroProfissional: string
 }
@@ -26,6 +32,15 @@ export type SubmitInvestigacaoPayload = Partial<Omit<BlocoInvestigacao, 'fechado
   registroProfissional: string
 }
 export type SubmitDesfechoPayload = Partial<Omit<BlocoDesfecho, 'fechadoEm'>> & {
+  responsavelNome: string
+  registroProfissional: string
+}
+
+export type RascunhoBloco = 'triagem' | 'ecg' | 'investigacao' | 'desfecho'
+
+export interface EncerrarPayload {
+  motivo: Exclude<MotivoEncerramento, ''>
+  observacao: string
   responsavelNome: string
   registroProfissional: string
 }
@@ -64,6 +79,15 @@ export const protocoloService = {
     return res.data
   },
 
+  submitEcg: async (
+    tenantSlug: string,
+    slug: string,
+    payload: SubmitEcgPayload,
+  ): Promise<Protocolo> => {
+    const res = await api.patch<Protocolo>(`tenants/${tenantSlug}/protocolos/${slug}/ecg`, payload)
+    return res.data
+  },
+
   submitInvestigacao: async (
     tenantSlug: string,
     slug: string,
@@ -82,6 +106,35 @@ export const protocoloService = {
     payload: SubmitDesfechoPayload,
   ): Promise<Protocolo> => {
     const res = await api.patch<Protocolo>(`tenants/${tenantSlug}/protocolos/${slug}/desfecho`, payload)
+    return res.data
+  },
+
+  /** Edita uma etapa já concluída (registra autor/hora/campos no histórico). */
+  editarBloco: async (
+    tenantSlug: string,
+    slug: string,
+    bloco: RascunhoBloco,
+    payload: Record<string, unknown> & { responsavelNome: string; registroProfissional: string },
+  ): Promise<Protocolo> => {
+    const res = await api.patch<Protocolo>(`tenants/${tenantSlug}/protocolos/${slug}/${bloco}/editar`, payload)
+    return res.data
+  },
+
+  saveRascunho: async (
+    tenantSlug: string,
+    slug: string,
+    bloco: RascunhoBloco,
+    dados: Record<string, unknown>,
+  ): Promise<void> => {
+    await api.patch(`tenants/${tenantSlug}/protocolos/${slug}/${bloco}/rascunho`, { dados })
+  },
+
+  encerrar: async (
+    tenantSlug: string,
+    slug: string,
+    payload: EncerrarPayload,
+  ): Promise<Protocolo> => {
+    const res = await api.patch<Protocolo>(`tenants/${tenantSlug}/protocolos/${slug}/encerrar`, payload)
     return res.data
   },
 

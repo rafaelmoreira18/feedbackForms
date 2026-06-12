@@ -20,10 +20,23 @@ CREATE TABLE IF NOT EXISTS protocolos (
   "horaChegada"       VARCHAR NOT NULL DEFAULT '',
 
   -- Estado / blocos (JSONB, null ate o bloco ser fechado)
+  -- Sequencia: triagem -> ecg -> investigacao -> desfecho -> concluido
   "currentStage"      VARCHAR(20) NOT NULL DEFAULT 'triagem',
   triagem             JSONB DEFAULT NULL,
+  ecg                 JSONB DEFAULT NULL,
   investigacao        JSONB DEFAULT NULL,
   desfecho            JSONB DEFAULT NULL,
+
+  -- Rascunhos (stand-by): estado parcial salvo sem fechar a etapa
+  "triagemRascunho"       JSONB DEFAULT NULL,
+  "ecgRascunho"           JSONB DEFAULT NULL,
+  "investigacaoRascunho"  JSONB DEFAULT NULL,
+  "desfechoRascunho"      JSONB DEFAULT NULL,
+
+  -- Encerramento antecipado (medico) + historico de alteracoes campo-a-campo
+  encerramento        JSONB DEFAULT NULL,
+  "historicoAlteracoes" JSONB NOT NULL DEFAULT '[]'::jsonb,
+  "historicoAcoes"      JSONB NOT NULL DEFAULT '[]'::jsonb,
 
   active              BOOLEAN NOT NULL DEFAULT TRUE,
   "createdAt"         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),

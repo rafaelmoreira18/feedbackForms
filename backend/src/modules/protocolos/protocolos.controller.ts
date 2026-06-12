@@ -9,14 +9,18 @@ import {
   Body,
   UseGuards,
   Req,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ProtocolosService } from './protocolos.service';
 import { CreateProtocoloDto } from './dto/create-protocolo.dto';
 import { SubmitBlocoTriagemDto } from './dto/submit-bloco-triagem.dto';
+import { SubmitBlocoEcgDto } from './dto/submit-bloco-ecg.dto';
 import { SubmitBlocoInvestigacaoDto } from './dto/submit-bloco-investigacao.dto';
 import { SubmitBlocoDesfechoDto } from './dto/submit-bloco-desfecho.dto';
+import { EncerrarProtocoloDto } from './dto/encerrar-protocolo.dto';
+import { SaveRascunhoDto } from './dto/save-rascunho.dto';
 import { FilterProtocoloDto } from './dto/filter-protocolo.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -25,6 +29,7 @@ import { SistemaGuard, Sistema } from '../../common/guards/sistema.guard';
 import { TenantService } from '../tenants/tenant.service';
 import { BaseTenantController } from '../../common/base/base-tenant.controller';
 import { AuditContext } from '../audit-log/audit-log.service';
+import { OPERA_ROLES, ENCERRA_ROLES, ADMIN_ROLES, GLOBAL_ROLES } from './protocolo-roles';
 
 function auditCtx(req: Request, tenantId: string): AuditContext {
   const user = req.user as { id?: string; email?: string } | undefined;
@@ -35,17 +40,6 @@ function auditCtx(req: Request, tenantId: string): AuditContext {
   return { tenantId, userId: user?.id ?? null, userEmail: user?.email ?? null, ipAddress: ip };
 }
 
-// Perfis que operam o protocolo (preenchem etapas e visualizam)
-const OPERA_ROLES = [
-  'protocolo_operador',
-  'protocolo_admin',
-  'protocolo_admin_global',
-  'holding_admin',
-] as const;
-// Perfis com acesso ao dashboard/indicadores (operador NÃO vê dashboard)
-const ADMIN_ROLES = ['protocolo_admin', 'protocolo_admin_global', 'holding_admin'] as const;
-// Perfis com acesso global (excluir registros)
-const GLOBAL_ROLES = ['protocolo_admin_global', 'holding_admin'] as const;
 
 /**
  * GET    /tenants/:tenantSlug/protocolos                      — lista (operador/admin)
@@ -146,6 +140,20 @@ export class ProtocolosController extends BaseTenantController {
     return this.service.submitBloco(tenantSlug, slug, 'triagem', dto, auditCtx(req, tenantId));
   }
 
+  @ApiOperation({ summary: 'Fecha o bloco ECG (ETAPA 2) e libera a Investigação' })
+  @Patch(':slug/ecg')
+  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
+  @Roles(...OPERA_ROLES)
+  async submitEcg(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('slug') slug: string,
+    @Body() dto: SubmitBlocoEcgDto,
+    @Req() req: Request,
+  ) {
+    const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
+    return this.service.submitBloco(tenantSlug, slug, 'ecg', dto, auditCtx(req, tenantId));
+  }
+
   @ApiOperation({ summary: 'Fecha o bloco Investigação (Troponina + HEART + Dx) e libera o Desfecho' })
   @Patch(':slug/investigacao')
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
@@ -172,6 +180,68 @@ export class ProtocolosController extends BaseTenantController {
   ) {
     const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
     return this.service.submitBloco(tenantSlug, slug, 'desfecho', dto, auditCtx(req, tenantId));
+  }
+
+  @ApiOperation({ summary: 'Edita uma etapa já concluída (registra autor/hora/campos)' })
+  @Patch(':slug/:bloco/editar')
+  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
+  @Roles(...OPERA_ROLES)
+  async editarBloco(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('slug') slug: string,
+    @Param('bloco') bloco: string,
+    // Body sem classe: a validação por etapa acontece no fechamento; aqui só fazemos o diff.
+    @Body() dto: Record<string, unknown>,
+    @Req() req: Request,
+  ) {
+    const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
+    if (!['triagem', 'ecg', 'investigacao', 'desfecho'].includes(bloco)) {
+      throw new BadRequestException('Bloco inválido');
+    }
+    return this.service.editarBloco(
+      tenantSlug,
+      slug,
+      bloco as 'triagem' | 'ecg' | 'investigacao' | 'desfecho',
+      dto as never,
+      auditCtx(req, tenantId),
+    );
+  }
+
+  @ApiOperation({ summary: 'Salva o rascunho (stand-by) de uma etapa sem fechá-la' })
+  @Patch(':slug/:bloco/rascunho')
+  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
+  @Roles(...OPERA_ROLES)
+  async saveRascunho(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('slug') slug: string,
+    @Param('bloco') bloco: string,
+    @Body() dto: SaveRascunhoDto,
+    @Req() req: Request,
+  ) {
+    await this.resolveAndAssertTenant(tenantSlug, req);
+    if (!['triagem', 'ecg', 'investigacao', 'desfecho'].includes(bloco)) {
+      throw new BadRequestException('Bloco inválido');
+    }
+    return this.service.saveRascunho(
+      tenantSlug,
+      slug,
+      bloco as 'triagem' | 'ecg' | 'investigacao' | 'desfecho',
+      dto.dados,
+    );
+  }
+
+  @ApiOperation({ summary: 'Encerra o protocolo antecipadamente — somente médico/admin' })
+  @Patch(':slug/encerrar')
+  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
+  @Roles(...ENCERRA_ROLES)
+  async encerrar(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('slug') slug: string,
+    @Body() dto: EncerrarProtocoloDto,
+    @Req() req: Request,
+  ) {
+    const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
+    return this.service.encerrar(tenantSlug, slug, dto, auditCtx(req, tenantId));
   }
 
   @ApiOperation({ summary: 'Exclui (soft delete) um protocolo — somente admin global' })

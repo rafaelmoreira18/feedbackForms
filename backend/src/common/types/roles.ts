@@ -8,7 +8,8 @@
  *   rh                      → rh_admin
  *   protocolo_admin_global  → protocolo_admin_global  (Protocolos — admin global)
  *   protocolo_admin         → protocolo_admin         (Protocolos — admin da unidade)
- *   protocolo_operador      → protocolo_operador      (Protocolos — preenche etapas)
+ *   protocolo_operador      → protocolo_operador      (Protocolos — preenche etapas; enfermagem)
+ *   protocolo_medico        → protocolo_medico        (Protocolos — médico; pode encerrar protocolo)
  */
 export type UserRole =
   | 'holding_admin'
@@ -18,4 +19,5 @@ export type UserRole =
   | 'rh_admin'
   | 'protocolo_admin_global'
   | 'protocolo_admin'
-  | 'protocolo_operador';
+  | 'protocolo_operador'
+  | 'protocolo_medico';

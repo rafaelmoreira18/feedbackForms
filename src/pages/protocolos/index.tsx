@@ -11,23 +11,8 @@ import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
 import Select from "@/components/ui/select";
 import { Users, Plus, ClipboardPlus } from "lucide-react";
+import { STAGE_LABEL, STAGE_STYLE } from "./constants";
 import NovoPacienteModal from "./novo-paciente-modal";
-
-const STAGE_LABEL: Record<ProtocoloStage, string> = {
-  triagem: "Triagem",
-  investigacao: "Investigação",
-  desfecho: "Desfecho",
-  concluido: "Concluído",
-};
-
-// Cores fortes e visualmente distintas por etapa (sem laranja/vermelho):
-// magenta · violeta · verde-água · verde — fundo sólido + texto branco.
-const STAGE_STYLE: Record<ProtocoloStage, string> = {
-  triagem: "bg-purple-base text-white",
-  investigacao: "bg-violet-base text-white",
-  desfecho: "bg-aqua-base text-white",
-  concluido: "bg-green-base text-white",
-};
 
 export function StageBadge({ stage }: { stage: ProtocoloStage }) {
   return (

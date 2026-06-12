@@ -1,6 +1,5 @@
 import {
   IsString,
-  IsNotEmpty,
   IsOptional,
   IsBoolean,
   IsIn,
@@ -26,23 +25,10 @@ class QueixaPrincipalDto {
   @IsOptional() @IsBoolean() dorIrradiada: boolean = false;
 }
 
-class DerivacoesExtrasDto {
-  @IsOptional() @IsBoolean() v3rV4r: boolean = false;
-  @IsOptional() @IsBoolean() v7v9: boolean = false;
-  @IsOptional() @IsBoolean() ecgSeriado: boolean = false;
-}
-
 export class SubmitBlocoTriagemDto {
-  // Responsável pela etapa (obrigatório)
-  @IsString()
-  @IsNotEmpty({ message: 'Nome do responsável é obrigatório' })
-  @MaxLength(160)
-  responsavelNome: string;
-
-  @IsString()
-  @IsNotEmpty({ message: 'Registro profissional (COREN/CRM) é obrigatório' })
-  @MaxLength(40)
-  registroProfissional: string;
+  // Responsável pela etapa — preenchido a partir do usuário logado (operador/médico).
+  @IsOptional() @IsString() @MaxLength(160) responsavelNome?: string;
+  @IsOptional() @IsString() @MaxLength(40) registroProfissional?: string;
 
   // ETAPA 1 — Triagem
   @IsOptional() @IsString() @MaxLength(5) inicioTriagem: string = '';
@@ -63,14 +49,4 @@ export class SubmitBlocoTriagemDto {
   @IsOptional() @IsBoolean() alergias: boolean = false;
   @IsOptional() @IsString() @MaxLength(300) alergiasDescricao: string = '';
   @IsOptional() @IsBoolean() instabilidade: boolean = false;
-
-  // ETAPA 2 — ECG
-  @IsOptional() @IsString() @MaxLength(5) primeiroEcgHora: string = '';
-  @IsOptional() @IsString() @MaxLength(5) interpretacaoMedicaHora: string = '';
-  @IsOptional() @IsIn(['via_i', 'via_ii', 'via_iii', '']) resultadoEcg: string = '';
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => DerivacoesExtrasDto)
-  derivacoesExtras?: DerivacoesExtrasDto;
 }

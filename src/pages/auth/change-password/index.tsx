@@ -50,6 +50,7 @@ export default function ChangePassword() {
       const slug = user?.tenantSlug ?? "";
       const isProtocolo =
         user?.role === "protocolo_operador" ||
+        user?.role === "protocolo_medico" ||
         user?.role === "protocolo_admin" ||
         user?.role === "protocolo_admin_global";
       const dest =

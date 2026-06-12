@@ -5,7 +5,13 @@ export interface CreateProtocoloUserPayload {
   nome: string
   username: string
   senha: string
-  role: 'protocolo_operador' | 'protocolo_admin' | 'protocolo_admin_global'
+  role:
+    | 'protocolo_operador'
+    | 'protocolo_medico'
+    | 'protocolo_admin'
+    | 'protocolo_admin_global'
+  /** CRM (médico) ou COREN (operador). Obrigatório para operador/médico. */
+  registroProfissional?: string
   tenantId?: string
 }
 

@@ -6,13 +6,16 @@ export type UserRole =
   | 'rh_admin'
   | 'protocolo_admin_global'
   | 'protocolo_admin'
-  | 'protocolo_operador';
+  | 'protocolo_operador'
+  | 'protocolo_medico';
 
 export interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  /** Protocolos: registro do conselho (CRM/COREN). Vazio para usuários de outros sistemas. */
+  registroProfissional?: string;
   tenantId: string | null;
   tenantSlug: string | null;
   mustChangePassword?: boolean;
@@ -356,7 +359,12 @@ export interface PesquisaMetricas {
 
 // ─── Protocolos (Protocolo de Dor Torácica — FORMMED027) ────────────────────────
 
-export type ProtocoloStage = 'triagem' | 'investigacao' | 'desfecho' | 'concluido';
+export type ProtocoloStage =
+  | 'triagem'
+  | 'ecg'
+  | 'investigacao'
+  | 'desfecho'
+  | 'concluido';
 
 export interface ResponsavelBloco {
   responsavelNome: string;
@@ -378,6 +386,10 @@ export interface BlocoTriagem extends ResponsavelBloco {
   alergias: boolean;
   alergiasDescricao: string;
   instabilidade: boolean;
+}
+
+// ETAPA 2 — ECG (realizada em horário separado da triagem)
+export interface BlocoEcg extends ResponsavelBloco {
   primeiroEcgHora: string;
   interpretacaoMedicaHora: string;
   resultadoEcg: 'via_i' | 'via_ii' | 'via_iii' | '';
@@ -400,6 +412,7 @@ export interface BlocoInvestigacao extends ResponsavelBloco {
   heartFaixaRisco: 'baixo' | 'intermediario' | 'alto' | '';
   condutaHeart: 'alta_segura' | 'observacao' | 'internacao' | '';
   diagnosticos: {
+    naoSeAplica: boolean;
     dissecaoAorta: boolean; dissecaoAortaAddRs: string;
     tep: boolean; tepWells: string;
     pericardite: boolean; takotsubo: boolean; pneumotorax: boolean; tamponamento: boolean;
@@ -433,6 +446,38 @@ export interface BlocoDesfecho extends ResponsavelBloco {
   medicoNomeCrm: string;
 }
 
+export type MotivoEncerramento = 'nao_continuidade' | 'nao_indicacao' | '';
+
+export interface EncerramentoProtocolo {
+  motivo: MotivoEncerramento;
+  observacao: string;
+  etapaNoEncerramento: ProtocoloStage;
+  encerradoPorNome: string;
+  encerradoPorRegistro: string;
+  encerradoPorUserId: string | null;
+  encerradoEm: string;
+}
+
+export interface AlteracaoCampo {
+  bloco: 'triagem' | 'ecg' | 'investigacao' | 'desfecho';
+  campo: string;
+  de: string;
+  para: string;
+  porUserId: string | null;
+  porNome: string;
+  em: string;
+}
+
+export interface RegistroAcao {
+  tipo: 'fechamento' | 'edicao';
+  bloco: 'triagem' | 'ecg' | 'investigacao' | 'desfecho';
+  porNome: string;
+  porRegistro: string;
+  porUserId: string | null;
+  em: string;
+  campos: { campo: string; de: string; para: string }[];
+}
+
 export interface Protocolo {
   id: string;
   tenantId: string;
@@ -448,8 +493,16 @@ export interface Protocolo {
   horaChegada: string;
   currentStage: ProtocoloStage;
   triagem: BlocoTriagem | null;
+  ecg: BlocoEcg | null;
   investigacao: BlocoInvestigacao | null;
   desfecho: BlocoDesfecho | null;
+  triagemRascunho: Partial<BlocoTriagem> | null;
+  ecgRascunho: Partial<BlocoEcg> | null;
+  investigacaoRascunho: Partial<BlocoInvestigacao> | null;
+  desfechoRascunho: Partial<BlocoDesfecho> | null;
+  encerramento: EncerramentoProtocolo | null;
+  historicoAlteracoes: AlteracaoCampo[];
+  historicoAcoes: RegistroAcao[];
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -498,6 +551,7 @@ export interface ProtocoloUser {
   username: string | null;
   nome: string;
   role: string;
+  registroProfissional: string;
   tenantId: string | null;
   ativo: boolean;
   tenantSlug: string | null;

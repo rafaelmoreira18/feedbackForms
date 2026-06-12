@@ -80,13 +80,30 @@ export function CheckRow({
 // ── Campo numérico: bloqueia letras na digitação ────────────────────────────
 export type NumericMode = "int" | "decimal" | "bp";
 
-/** Remove caracteres inválidos conforme o modo (int = só dígitos; decimal = dígitos + 1 separador + sinal; bp = "120/80"). */
-export function cleanNumeric(mode: NumericMode, raw: string): string {
+/**
+ * Remove caracteres inválidos conforme o modo (int = só dígitos; decimal = dígitos +
+ * 1 separador + sinal; bp = máscara "sist/diast" com no máx. 3 dígitos por lado e
+ * inserção automática da barra após o 3º dígito).
+ *
+ * @param decimals  no modo "decimal", nº máximo de casas após o separador (ex.: 2 → "0.04").
+ */
+export function cleanNumeric(mode: NumericMode, raw: string, decimals?: number): string {
   if (mode === "bp") {
-    let v = raw.replace(/[^\d/]/g, "");
-    const i = v.indexOf("/");
-    if (i !== -1) v = v.slice(0, i + 1) + v.slice(i + 1).replace(/\//g, "");
-    return v;
+    // Respeita uma barra digitada explicitamente (ex.: "90/60"); senão, separa em 3+3.
+    const temBarra = raw.includes("/");
+    const digitos = raw.replace(/\D/g, "").slice(0, 6);
+    let sist: string, diast: string;
+    if (temBarra) {
+      const [a = "", b = ""] = raw.split("/");
+      sist = a.replace(/\D/g, "").slice(0, 3);
+      diast = b.replace(/\D/g, "").slice(0, 3);
+    } else {
+      sist = digitos.slice(0, 3);
+      diast = digitos.slice(3, 6);
+    }
+    // Insere a barra automaticamente assim que há 3 dígitos de sistólica (ou já digitada).
+    if (diast || temBarra || sist.length === 3) return `${sist}/${diast}`;
+    return sist;
   }
   if (mode === "int") return raw.replace(/[^\d]/g, "");
   // decimal (aceita vírgula ou ponto, um único separador, e sinal negativo opcional)
@@ -95,14 +112,41 @@ export function cleanNumeric(mode: NumericMode, raw: string): string {
   v = v.replace(/-/g, "");
   const sep = v.match(/[.,]/);
   if (sep) {
-    const idx = v.indexOf(sep[0]);
-    v = v.slice(0, idx + 1) + v.slice(idx + 1).replace(/[.,]/g, "");
+    const sepChar = sep[0];
+    const idx = v.indexOf(sepChar);
+    const inteira = v.slice(0, idx);
+    let frac = v.slice(idx + 1).replace(/[.,]/g, "");
+    // Limita as casas decimais (ex.: troponina ng/mL → 2 casas).
+    if (decimals !== undefined) frac = frac.slice(0, decimals);
+    v = inteira + sepChar + frac;
   }
   return (neg ? "-" : "") + v;
 }
 
+/** Limita um número (int/decimal) à faixa [min,max]; "bp" não é limitado aqui. */
+function clampToRange(mode: NumericMode, raw: string, min?: number, max?: number): string {
+  if (mode === "bp" || raw === "" || raw === "-") return raw;
+  const n = Number(raw.replace(",", "."));
+  if (Number.isNaN(n)) return raw;
+  if (min !== undefined && n < min) return String(min);
+  if (max !== undefined && n > max) return String(max);
+  return raw;
+}
+
+/**
+ * Limita apenas o teto (max) durante a digitação — impede que o campo aceite
+ * valores acima do máximo a cada tecla (ex.: 12222222 num campo max=1000 → 1000).
+ * O piso (min) é aplicado só ao sair do campo, para não atrapalhar a digitação parcial.
+ */
+function clampMaxWhileTyping(mode: NumericMode, raw: string, max?: number): string {
+  if (mode === "bp" || max === undefined || raw === "" || raw === "-") return raw;
+  const n = Number(raw.replace(",", "."));
+  if (Number.isNaN(n)) return raw;
+  return n > max ? String(max) : raw;
+}
+
 export function NumericInput({
-  label, value, onChange, readOnly, mode = "int", placeholder, className,
+  label, value, onChange, readOnly, mode = "int", placeholder, className, min, max, hint, decimals,
 }: {
   label: string;
   value: string;
@@ -111,28 +155,80 @@ export function NumericInput({
   mode?: NumericMode;
   placeholder?: string;
   className?: string;
+  /** Faixa válida (clamp ao sair do campo). Para PA, valide cada componente fora daqui. */
+  min?: number;
+  max?: number;
+  /** Texto-guia exibido abaixo do campo (ex.: faixa de referência). */
+  hint?: string;
+  /** Modo decimal: nº máximo de casas após o separador (ex.: 2 para ng/mL). */
+  decimals?: number;
 }) {
+  // Comprimento máximo do campo: PA = "300/200" (7); demais derivam do `max`
+  // (nº de dígitos do teto + casas decimais + separador + sinal negativo).
+  const casasDec = decimals ?? 2; // padrão de 2 casas quando não especificado
+  const maxLen =
+    mode === "bp"
+      ? 7
+      : max !== undefined
+        ? String(Math.trunc(Math.abs(max))).length +
+          (mode === "decimal" ? casasDec + 1 : 0) + // +1 do separador
+          (min !== undefined && min < 0 ? 1 : 0)
+        : undefined;
   return (
-    <Input
-      label={label}
-      value={value}
-      readOnly={readOnly}
-      placeholder={placeholder}
-      className={className}
-      inputMode={mode === "decimal" ? "decimal" : "numeric"}
-      onChange={(e) => onChange(cleanNumeric(mode, e.target.value))}
-    />
+    <div className={`flex flex-col gap-0.5 ${className ?? ""}`}>
+      <Input
+        label={label}
+        value={value}
+        readOnly={readOnly}
+        placeholder={placeholder}
+        inputMode={mode === "decimal" ? "decimal" : "numeric"}
+        maxLength={maxLen}
+        onChange={(e) => onChange(clampMaxWhileTyping(mode, cleanNumeric(mode, e.target.value, decimals), max))}
+        onBlur={(e) => {
+          if (readOnly) return;
+          const clamped = clampToRange(mode, e.target.value, min, max);
+          if (clamped !== value) onChange(clamped);
+        }}
+      />
+      {hint && !readOnly && (
+        <span className="text-[11px] text-gray-300 font-sans pl-0.5">{hint}</span>
+      )}
+    </div>
   );
 }
 
-export type BlocoKey = "triagem" | "investigacao" | "desfecho";
+// ── Pressão arterial: valida "sist/diast" dentro de faixas fisiológicas ──────
+const BP_SIST = { min: 50, max: 300 };
+const BP_DIAST = { min: 20, max: 200 };
 
-/** Metadados de cada etapa: título, equipe responsável e rótulo do registro profissional. */
-export const STAGE_META: Record<BlocoKey, { titulo: string; equipe: string; registroLabel: string }> = {
-  triagem: { titulo: "Triagem", equipe: "Equipe de Enfermagem", registroLabel: "COREN" },
-  investigacao: { titulo: "Investigação", equipe: "Enfermagem / Médico", registroLabel: "COREN / CRM" },
-  desfecho: { titulo: "Desfecho", equipe: "Médico", registroLabel: "CRM" },
-};
+/** true se "120/80" tem ambos os componentes dentro da faixa; "" é considerado válido (vazio). */
+export function isBpValido(bp: string): boolean {
+  if (!bp.trim()) return true;
+  const m = /^(\d{1,3})\/(\d{1,3})$/.exec(bp.trim());
+  if (!m) return false;
+  const s = +m[1], d = +m[2];
+  return s >= BP_SIST.min && s <= BP_SIST.max && d >= BP_DIAST.min && d <= BP_DIAST.max && s > d;
+}
+
+/** Marcador de campo obrigatório (asterisco) para reuso nos rótulos. */
+export const REQ = " *";
+
+/** Caixa que lista os campos obrigatórios ainda pendentes, exibida ao tentar fechar. */
+export function PendenciasBox({ pendencias }: { pendencias: string[] }) {
+  if (pendencias.length === 0) return null;
+  return (
+    <div className="rounded-xl bg-red-base/10 border border-red-base/30 px-4 py-3">
+      <Text variant="body-sm-bold" className="text-red-base">
+        Preencha os campos obrigatórios para fechar a etapa:
+      </Text>
+      <ul className="mt-1 list-disc list-inside">
+        {pendencias.map((p) => (
+          <li key={p} className="text-sm text-red-base font-sans">{p}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 /** Linha de leitura exibida quando a etapa já foi fechada. */
 export function EtapaFechadaInfo({

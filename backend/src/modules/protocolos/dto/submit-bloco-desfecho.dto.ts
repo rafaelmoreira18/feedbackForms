@@ -1,6 +1,5 @@
 import {
   IsString,
-  IsNotEmpty,
   IsOptional,
   IsBoolean,
   IsIn,
@@ -41,15 +40,9 @@ class AltaSeguraCriteriosDto {
 }
 
 export class SubmitBlocoDesfechoDto {
-  @IsString()
-  @IsNotEmpty({ message: 'Nome do responsável é obrigatório' })
-  @MaxLength(160)
-  responsavelNome: string;
-
-  @IsString()
-  @IsNotEmpty({ message: 'Registro profissional (CRM) é obrigatório' })
-  @MaxLength(40)
-  registroProfissional: string;
+  // Responsável — preenchido a partir do usuário logado (médico).
+  @IsOptional() @IsString() @MaxLength(160) responsavelNome?: string;
+  @IsOptional() @IsString() @MaxLength(40) registroProfissional?: string;
 
   // ETAPA 5 — Trombólise (VIA I)
   @IsOptional() @IsBoolean() trombolitiseElegivel: boolean = false;

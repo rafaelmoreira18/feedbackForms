@@ -1,16 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { BlocoInvestigacao } from "@/types";
 import type { SubmitInvestigacaoPayload } from "@/services/protocolo-service";
 import TimeInput from "@/components/ui/time-input";
 import Text from "@/components/ui/text";
-import { SectionTitle, CheckRow, RadioPill, EtapaFechadaInfo, FecharEtapaBar, NumericInput } from "./form-ui";
+import { SectionTitle, CheckRow, RadioPill, EtapaFechadaInfo, FecharEtapaBar, NumericInput, PendenciasBox, REQ } from "./form-ui";
 
 interface Props {
   initial: BlocoInvestigacao | null;
+  rascunho?: Partial<BlocoInvestigacao> | null;
   readOnly: boolean;
   submitting: boolean;
   onSubmit: (payload: SubmitInvestigacaoPayload) => void;
+  onDraftChange?: (dados: Record<string, unknown>) => void;
   responsavel: { nome: string; registro: string };
+  submitLabel?: string;
 }
 
 const emptyColeta = { horaColeta: "", resultado: "", horaResultadoLab: "" };
@@ -39,31 +42,57 @@ const FAIXA_LABEL: Record<string, string> = {
   alto: "7–10 ALTO RISCO",
 };
 
-function fromInitial(i: BlocoInvestigacao | null) {
+const emptyDx = {
+  naoSeAplica: false,
+  dissecaoAorta: false, dissecaoAortaAddRs: "", tep: false, tepWells: "",
+  pericardite: false, takotsubo: false, pneumotorax: false, tamponamento: false,
+};
+
+function fromInitial(i: BlocoInvestigacao | null, r?: Partial<BlocoInvestigacao> | null) {
+  const src = i ?? (r as BlocoInvestigacao | null);
   return {
-    lsnUnidade: i?.lsnUnidade ?? "",
-    coleta0h: i?.coleta0h ?? { ...emptyColeta },
-    coleta3h: i?.coleta3h ?? { ...emptyColeta },
-    coleta3hDeltaPct: i?.coleta3hDeltaPct ?? "",
-    coleta6h: i?.coleta6h ?? { ...emptyColeta },
-    troponinaInterpretacao: i?.troponinaInterpretacao ?? "",
-    heartH: i?.heartH ?? 0, heartE: i?.heartE ?? 0, heartA: i?.heartA ?? 0,
-    heartR: i?.heartR ?? 0, heartT: i?.heartT ?? 0,
-    condutaHeart: i?.condutaHeart ?? "",
-    diagnosticos: i?.diagnosticos ?? {
-      dissecaoAorta: false, dissecaoAortaAddRs: "", tep: false, tepWells: "",
-      pericardite: false, takotsubo: false, pneumotorax: false, tamponamento: false,
-    },
+    lsnUnidade: src?.lsnUnidade ?? "",
+    coleta0h: src?.coleta0h ?? { ...emptyColeta },
+    coleta3h: src?.coleta3h ?? { ...emptyColeta },
+    coleta3hDeltaPct: src?.coleta3hDeltaPct ?? "",
+    coleta6h: src?.coleta6h ?? { ...emptyColeta },
+    troponinaInterpretacao: src?.troponinaInterpretacao ?? "",
+    heartH: src?.heartH ?? 0, heartE: src?.heartE ?? 0, heartA: src?.heartA ?? 0,
+    heartR: src?.heartR ?? 0, heartT: src?.heartT ?? 0,
+    condutaHeart: src?.condutaHeart ?? "",
+    diagnosticos: { ...emptyDx, ...(src?.diagnosticos ?? {}) },
   };
 }
 
-export default function BlocoInvestigacaoForm({ initial, readOnly, submitting, onSubmit, responsavel }: Props) {
-  const [s, setS] = useState(() => fromInitial(initial));
+function toPayloadBase(s: ReturnType<typeof fromInitial>, heartTotal: number, faixa: BlocoInvestigacao["heartFaixaRisco"]) {
+  return {
+    lsnUnidade: s.lsnUnidade,
+    coleta0h: s.coleta0h,
+    coleta3h: s.coleta3h,
+    coleta3hDeltaPct: s.coleta3hDeltaPct,
+    coleta6h: s.coleta6h,
+    troponinaInterpretacao: s.troponinaInterpretacao,
+    heartH: s.heartH, heartE: s.heartE, heartA: s.heartA, heartR: s.heartR, heartT: s.heartT,
+    heartTotal,
+    heartFaixaRisco: faixa,
+    condutaHeart: s.condutaHeart,
+    diagnosticos: s.diagnosticos,
+  };
+}
+
+export default function BlocoInvestigacaoForm({ initial, rascunho, readOnly, submitting, onSubmit, onDraftChange, responsavel, submitLabel }: Props) {
+  const [s, setS] = useState(() => fromInitial(initial, rascunho));
   const set = <K extends keyof typeof s>(k: K, v: (typeof s)[K]) => setS((p) => ({ ...p, [k]: v }));
   const ro = readOnly;
 
   const heartTotal = s.heartH + s.heartE + s.heartA + s.heartR + s.heartT;
   const faixa = faixaFromTotal(heartTotal);
+
+  useEffect(() => {
+    if (ro || !onDraftChange) return;
+    onDraftChange(toPayloadBase(s, heartTotal, faixa));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s]);
 
   const setColeta = (
     key: "coleta0h" | "coleta3h" | "coleta6h",
@@ -74,19 +103,34 @@ export default function BlocoInvestigacaoForm({ initial, readOnly, submitting, o
   const setDx = <K extends keyof typeof s.diagnosticos>(k: K, v: (typeof s.diagnosticos)[K]) =>
     setS((p) => ({ ...p, diagnosticos: { ...p.diagnosticos, [k]: v } }));
 
+  // N/A exclui os demais diagnósticos; marcar qualquer Dx limpa o N/A.
+  const setNaoSeAplica = (v: boolean) =>
+    setS((p) => ({
+      ...p,
+      diagnosticos: v ? { ...emptyDx, naoSeAplica: true } : { ...p.diagnosticos, naoSeAplica: false },
+    }));
+  const dxDisabled = ro || s.diagnosticos.naoSeAplica;
+
+  const [mostrarPend, setMostrarPend] = useState(false);
+
+  // Obrigatórios com exceções: coleta 3h/6h são condicionais; Dx resolve-se via N/A ou ≥1 marcado.
+  const algumDx = s.diagnosticos.naoSeAplica || s.diagnosticos.dissecaoAorta || s.diagnosticos.tep ||
+    s.diagnosticos.pericardite || s.diagnosticos.takotsubo || s.diagnosticos.pneumotorax || s.diagnosticos.tamponamento;
+  const pendencias: string[] = [];
+  if (!s.lsnUnidade) pendencias.push("LSN da unidade");
+  if (!s.coleta0h.horaColeta) pendencias.push("Coleta 0h — hora");
+  if (!s.coleta0h.resultado) pendencias.push("Coleta 0h — resultado");
+  if (!s.troponinaInterpretacao) pendencias.push("Interpretação da troponina");
+  if (!s.condutaHeart) pendencias.push("Conduta orientada pelo HEART");
+  if (!algumDx) pendencias.push("Diagnósticos diferenciais (marque ao menos 1 ou N/A)");
+
   const handleSubmit = () => {
+    if (pendencias.length > 0) {
+      setMostrarPend(true);
+      return;
+    }
     onSubmit({
-      lsnUnidade: s.lsnUnidade,
-      coleta0h: s.coleta0h,
-      coleta3h: s.coleta3h,
-      coleta3hDeltaPct: s.coleta3hDeltaPct,
-      coleta6h: s.coleta6h,
-      troponinaInterpretacao: s.troponinaInterpretacao,
-      heartH: s.heartH, heartE: s.heartE, heartA: s.heartA, heartR: s.heartR, heartT: s.heartT,
-      heartTotal,
-      heartFaixaRisco: faixa,
-      condutaHeart: s.condutaHeart,
-      diagnosticos: s.diagnosticos,
+      ...toPayloadBase(s, heartTotal, faixa),
       responsavelNome: responsavel.nome,
       registroProfissional: responsavel.registro,
     });
@@ -95,24 +139,24 @@ export default function BlocoInvestigacaoForm({ initial, readOnly, submitting, o
   return (
     <div className="flex flex-col gap-4">
       <SectionTitle>Etapa 3 — Marcadores (Troponina 0-3-6h)</SectionTitle>
-      <NumericInput label="LSN da unidade (ng/mL)" mode="decimal" value={s.lsnUnidade} readOnly={ro} onChange={(v) => set("lsnUnidade", v)} />
+      <NumericInput label={`LSN da unidade (ng/mL)${REQ}`} placeholder="0,04" mode="decimal" decimals={2} min={0} max={10} value={s.lsnUnidade} readOnly={ro} onChange={(v) => set("lsnUnidade", v)} hint="ng/mL · ex.: 0,04" />
       {(["coleta0h", "coleta3h", "coleta6h"] as const).map((key, idx) => (
         <div key={key} className="rounded-xl border border-gray-100 p-3 flex flex-col gap-2">
           <Text variant="body-sm-bold" className="text-gray-400">
             {idx === 0 ? "Coleta 0h" : idx === 1 ? "Coleta 3h" : "Coleta 6h (se indicada)"}
           </Text>
           <div className="grid grid-cols-3 gap-2 items-start">
-            <TimeInput label="Hora coleta" value={s[key].horaColeta} readOnly={ro} onChange={(v) => setColeta(key, "horaColeta", v)} />
-            <NumericInput label="Resultado (ng/mL)" mode="decimal" value={s[key].resultado} readOnly={ro} onChange={(v) => setColeta(key, "resultado", v)} />
+            <TimeInput label={`Hora coleta${idx === 0 ? REQ : ""}`} value={s[key].horaColeta} readOnly={ro} onChange={(v) => setColeta(key, "horaColeta", v)} />
+            <NumericInput label={`Resultado (ng/mL)${idx === 0 ? REQ : ""}`} placeholder="0,00" mode="decimal" decimals={2} min={0} max={1000} value={s[key].resultado} readOnly={ro} onChange={(v) => setColeta(key, "resultado", v)} hint="ng/mL" />
             <TimeInput label="Hora result. lab" value={s[key].horaResultadoLab} readOnly={ro} onChange={(v) => setColeta(key, "horaResultadoLab", v)} />
           </div>
           {idx === 1 && (
-            <NumericInput label="Delta (3h−0h)/0h × 100 (%)" mode="decimal" value={s.coleta3hDeltaPct} readOnly={ro} onChange={(v) => set("coleta3hDeltaPct", v)} />
+            <NumericInput label="Delta (3h−0h)/0h × 100 (%)" mode="decimal" min={-100} max={5000} value={s.coleta3hDeltaPct} readOnly={ro} onChange={(v) => set("coleta3hDeltaPct", v)} hint="variação %" />
           )}
         </div>
       ))}
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">Interpretação</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">Interpretação{REQ}</span>
         <div className="grid grid-cols-3 gap-2">
           <RadioPill label="Rule-in" selected={s.troponinaInterpretacao === "rule_in"} disabled={ro} onClick={() => set("troponinaInterpretacao", "rule_in")} />
           <RadioPill label="Rule-out" selected={s.troponinaInterpretacao === "rule_out"} disabled={ro} onClick={() => set("troponinaInterpretacao", "rule_out")} />
@@ -138,7 +182,7 @@ export default function BlocoInvestigacaoForm({ initial, readOnly, submitting, o
         }`}>{FAIXA_LABEL[faixa]}</span>
       </div>
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">Conduta orientada pelo HEART</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">Conduta orientada pelo HEART{REQ}</span>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <RadioPill label="Alta segura" selected={s.condutaHeart === "alta_segura"} disabled={ro} onClick={() => set("condutaHeart", "alta_segura")} />
           <RadioPill label="Observação / investigação" selected={s.condutaHeart === "observacao"} disabled={ro} onClick={() => set("condutaHeart", "observacao")} />
@@ -146,30 +190,38 @@ export default function BlocoInvestigacaoForm({ initial, readOnly, submitting, o
         </div>
       </div>
 
-      <SectionTitle>Diagnósticos diferenciais</SectionTitle>
-      <div className="flex flex-col gap-1">
+      <SectionTitle>Diagnósticos diferenciais{REQ}</SectionTitle>
+      <CheckRow
+        label="N/A — não se aplica a este paciente"
+        checked={s.diagnosticos.naoSeAplica}
+        disabled={ro}
+        onChange={setNaoSeAplica}
+      />
+      <div className={`flex flex-col gap-1 ${s.diagnosticos.naoSeAplica ? "opacity-40" : ""}`}>
         <div className="flex items-center gap-3 flex-wrap">
-          <CheckRow label="Dissecção Aguda de Aorta" checked={s.diagnosticos.dissecaoAorta} disabled={ro} onChange={(v) => setDx("dissecaoAorta", v)} />
+          <CheckRow label="Dissecção Aguda de Aorta" checked={s.diagnosticos.dissecaoAorta} disabled={dxDisabled} onChange={(v) => setDx("dissecaoAorta", v)} />
           {s.diagnosticos.dissecaoAorta && (
-            <NumericInput label="ADD-RS" className="max-w-32" mode="int" value={s.diagnosticos.dissecaoAortaAddRs} readOnly={ro} onChange={(v) => setDx("dissecaoAortaAddRs", v)} />
+            <NumericInput label="ADD-RS" className="max-w-32" mode="int" min={0} max={3} value={s.diagnosticos.dissecaoAortaAddRs} readOnly={dxDisabled} onChange={(v) => setDx("dissecaoAortaAddRs", v)} hint="0–3" />
           )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <CheckRow label="TEP" checked={s.diagnosticos.tep} disabled={ro} onChange={(v) => setDx("tep", v)} />
+          <CheckRow label="TEP" checked={s.diagnosticos.tep} disabled={dxDisabled} onChange={(v) => setDx("tep", v)} />
           {s.diagnosticos.tep && (
-            <NumericInput label="Wells" className="max-w-32" mode="decimal" value={s.diagnosticos.tepWells} readOnly={ro} onChange={(v) => setDx("tepWells", v)} />
+            <NumericInput label="Wells" className="max-w-32" mode="decimal" decimals={1} min={0} max={12.5} value={s.diagnosticos.tepWells} readOnly={dxDisabled} onChange={(v) => setDx("tepWells", v)} hint="0–12,5" />
           )}
         </div>
-        <CheckRow label="Pericardite" checked={s.diagnosticos.pericardite} disabled={ro} onChange={(v) => setDx("pericardite", v)} />
-        <CheckRow label="Takotsubo" checked={s.diagnosticos.takotsubo} disabled={ro} onChange={(v) => setDx("takotsubo", v)} />
-        <CheckRow label="Pneumotórax" checked={s.diagnosticos.pneumotorax} disabled={ro} onChange={(v) => setDx("pneumotorax", v)} />
-        <CheckRow label="Tamponamento" checked={s.diagnosticos.tamponamento} disabled={ro} onChange={(v) => setDx("tamponamento", v)} />
+        <CheckRow label="Pericardite" checked={s.diagnosticos.pericardite} disabled={dxDisabled} onChange={(v) => setDx("pericardite", v)} />
+        <CheckRow label="Takotsubo" checked={s.diagnosticos.takotsubo} disabled={dxDisabled} onChange={(v) => setDx("takotsubo", v)} />
+        <CheckRow label="Pneumotórax" checked={s.diagnosticos.pneumotorax} disabled={dxDisabled} onChange={(v) => setDx("pneumotorax", v)} />
+        <CheckRow label="Tamponamento" checked={s.diagnosticos.tamponamento} disabled={dxDisabled} onChange={(v) => setDx("tamponamento", v)} />
       </div>
+
+      {!ro && mostrarPend && <PendenciasBox pendencias={pendencias} />}
 
       {ro ? (
         <EtapaFechadaInfo nome={initial?.responsavelNome ?? ""} registro={initial?.registroProfissional ?? ""} fechadoEm={initial?.fechadoEm} />
       ) : (
-        <FecharEtapaBar submitting={submitting} onSubmit={handleSubmit} />
+        <FecharEtapaBar submitting={submitting} onSubmit={handleSubmit} label={submitLabel} />
       )}
     </div>
   );

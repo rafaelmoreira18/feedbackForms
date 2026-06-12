@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  BadRequestException,
   Inject,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
@@ -9,8 +10,7 @@ import { Pool } from 'pg';
 import { CreateProtocoloUserDto } from './dto/create-protocolo-user.dto';
 import { TenantService } from '../tenants/tenant.service';
 import { AUTH_DB_POOL } from '../auth-db/auth-db.module';
-
-const PROTOCOLO_ROLES = ['protocolo_operador', 'protocolo_admin', 'protocolo_admin_global'];
+import { PROTOCOLO_ROLES, ROLES_COM_REGISTRO } from '../protocolos/protocolo-roles';
 
 export interface ProtocoloUserRow {
   id: string;
@@ -18,6 +18,7 @@ export interface ProtocoloUserRow {
   username: string | null;
   nome: string;
   role: string;
+  registroProfissional: string;
   tenantId: string | null;
   ativo: boolean;
   tenantSlug: string | null;
@@ -46,7 +47,9 @@ export class ProtocoloUsersService {
       where += ` AND u."tenantId" = $2`;
     }
     const result = await this.pool.query<ProtocoloUserRow>(
-      `SELECT u.id, u.email, u.username, u.nome, u.role, u."tenantId", u.ativo,
+      `SELECT u.id, u.email, u.username, u.nome, u.role,
+              COALESCE(u."registroProfissional", '') AS "registroProfissional",
+              u."tenantId", u.ativo,
               t.slug AS "tenantSlug", t.nome AS "tenantNome"
        FROM usuarios u
        LEFT JOIN tenants t ON t.id = u."tenantId"
@@ -59,6 +62,14 @@ export class ProtocoloUsersService {
 
   async create(dto: CreateProtocoloUserDto): Promise<ProtocoloUserRow> {
     const email = `${dto.username}@sistema.local`;
+
+    // Médico e operador preenchem/fecham etapas → registro profissional é obrigatório.
+    const registroProfissional = (dto.registroProfissional ?? '').trim();
+    if ((ROLES_COM_REGISTRO as readonly string[]).includes(dto.role) && !registroProfissional) {
+      throw new BadRequestException(
+        'Registro profissional (CRM/COREN) é obrigatório para operador e médico.',
+      );
+    }
 
     const existing = await this.pool.query(
       `SELECT id FROM usuarios WHERE email = $1 OR username = $2 LIMIT 1`,
@@ -73,10 +84,10 @@ export class ProtocoloUsersService {
 
     const result = await this.pool.query<{ id: string }>(
       `INSERT INTO usuarios
-         (id, email, username, nome, "senhaHash", role, "tenantId", ativo, "mustChangePassword", sistemas, "criadoEm", "atualizadoEm")
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, true, true, ARRAY['feedbackforms']::text[], NOW(), NOW())
+         (id, email, username, nome, "senhaHash", role, "registroProfissional", "tenantId", ativo, "mustChangePassword", sistemas, "criadoEm", "atualizadoEm")
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, true, true, ARRAY['feedbackforms']::text[], NOW(), NOW())
        RETURNING id`,
-      [email, dto.username, dto.nome, senhaHash, dto.role, tenantId],
+      [email, dto.username, dto.nome, senhaHash, dto.role, registroProfissional, tenantId],
     );
 
     const id = result.rows[0].id;
@@ -98,6 +109,7 @@ export class ProtocoloUsersService {
       username: dto.username,
       nome: dto.nome,
       role: dto.role,
+      registroProfissional,
       tenantId,
       ativo: true,
       tenantSlug,

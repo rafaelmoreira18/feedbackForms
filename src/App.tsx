@@ -63,6 +63,7 @@ function HoldingAdminRoute({ children }: { children: React.ReactNode }) {
 
 const PROTOCOLO_ROLES = [
   'protocolo_operador',
+  'protocolo_medico',
   'protocolo_admin',
   'protocolo_admin_global',
   'holding_admin',
@@ -76,8 +77,8 @@ function ProtocoloRoute({ children, adminOnly }: { children: React.ReactNode; ad
   if (!role || !(PROTOCOLO_ROLES as readonly string[]).includes(role)) {
     return <Navigate to={ROUTES.login} replace />;
   }
-  // Operador não acessa dashboard nem gestão de usuários
-  if (adminOnly && role === 'protocolo_operador') {
+  // Operador e médico não acessam dashboard nem gestão de usuários (só preenchem etapas)
+  if (adminOnly && (role === 'protocolo_operador' || role === 'protocolo_medico')) {
     return <Navigate to={ROUTES.protocolos(user?.tenantSlug ?? undefined)} replace />;
   }
   return <>{children}</>;

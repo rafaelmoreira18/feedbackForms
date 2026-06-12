@@ -53,9 +53,9 @@ export class ProtocoloUsersController {
   @Post()
   async create(@Body() dto: CreateProtocoloUserDto, @Req() req: AuthedRequest) {
     if (!isGlobal(req)) {
-      // Admin de unidade só cria OPERADOR na própria unidade
-      if (dto.role !== 'protocolo_operador') {
-        throw new ForbiddenException('Você só pode criar operadores');
+      // Admin de unidade cria apenas operador/médico na própria unidade
+      if (dto.role !== 'protocolo_operador' && dto.role !== 'protocolo_medico') {
+        throw new ForbiddenException('Você só pode criar operadores e médicos');
       }
       dto.tenantId = req.user.tenantId ?? undefined;
     }

@@ -17,6 +17,7 @@ const ROLE_MAP: Record<string, string> = {
   protocolo_admin_global: 'protocolo_admin_global',
   protocolo_admin: 'protocolo_admin',
   protocolo_operador: 'protocolo_operador',
+  protocolo_medico: 'protocolo_medico',
 };
 
 interface ExternalUser {
@@ -25,6 +26,7 @@ interface ExternalUser {
   nome: string;
   senhaHash: string;
   role: string;
+  registroProfissional: string;
   tenantId: string | null;
   ativo: boolean;
   mustChangePassword: boolean;
@@ -43,7 +45,7 @@ export class AuthService {
 
   private async findUserByLogin(login: string): Promise<ExternalUser | null> {
     const result = await this.pool.query<ExternalUser>(
-      `SELECT id, email, nome, "senhaHash", role, "tenantId", ativo, COALESCE("mustChangePassword", false) AS "mustChangePassword", COALESCE(sistemas, ARRAY[]::text[]) AS sistemas
+      `SELECT id, email, nome, "senhaHash", role, COALESCE("registroProfissional", '') AS "registroProfissional", "tenantId", ativo, COALESCE("mustChangePassword", false) AS "mustChangePassword", COALESCE(sistemas, ARRAY[]::text[]) AS sistemas
        FROM usuarios
        WHERE email = $1 OR username = $1
        LIMIT 1`,
@@ -98,6 +100,7 @@ export class AuthService {
         email: user.email,
         name: user.nome,
         role,
+        registroProfissional: user.registroProfissional ?? '',
         tenantId: user.tenantId ?? null,
         tenantSlug,
         mustChangePassword: user.mustChangePassword,

@@ -19,6 +19,7 @@ class ColetaTroponinaDto {
 }
 
 class DiagnosticosDiferenciaisDto {
+  @IsOptional() @IsBoolean() naoSeAplica: boolean = false;
   @IsOptional() @IsBoolean() dissecaoAorta: boolean = false;
   @IsOptional() @IsString() @MaxLength(20) dissecaoAortaAddRs: string = '';
   @IsOptional() @IsBoolean() tep: boolean = false;
@@ -30,15 +31,8 @@ class DiagnosticosDiferenciaisDto {
 }
 
 export class SubmitBlocoInvestigacaoDto {
-  @IsString()
-  @IsNotEmpty({ message: 'Nome do responsável é obrigatório' })
-  @MaxLength(160)
-  responsavelNome: string;
-
-  @IsString()
-  @IsNotEmpty({ message: 'Registro profissional (COREN/CRM) é obrigatório' })
-  @MaxLength(40)
-  registroProfissional: string;
+  @IsOptional() @IsString() @MaxLength(160) responsavelNome?: string;
+  @IsOptional() @IsString() @MaxLength(40) registroProfissional?: string;
 
   // Troponina convencional 0-3-6h
   @IsOptional() @IsString() @MaxLength(20) lsnUnidade: string = '';

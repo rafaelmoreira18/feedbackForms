@@ -26,8 +26,26 @@ export class CreateProtocoloUserDto {
   @MinLength(8, { message: 'A senha deve ter no mínimo 8 caracteres' })
   senha: string;
 
-  @IsIn(['protocolo_operador', 'protocolo_admin', 'protocolo_admin_global'])
-  role: 'protocolo_operador' | 'protocolo_admin' | 'protocolo_admin_global';
+  @IsIn([
+    'protocolo_operador',
+    'protocolo_medico',
+    'protocolo_admin',
+    'protocolo_admin_global',
+  ])
+  role:
+    | 'protocolo_operador'
+    | 'protocolo_medico'
+    | 'protocolo_admin'
+    | 'protocolo_admin_global';
+
+  /**
+   * Registro profissional (CRM para médico, COREN para enfermagem). Obrigatório para
+   * quem preenche/fecha etapas (operador e médico); opcional para perfis administrativos.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  registroProfissional?: string;
 
   /** Unidade do usuário. Obrigatória para operador/admin de unidade; nula para admin global. */
   @IsOptional()

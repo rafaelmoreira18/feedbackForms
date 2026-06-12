@@ -22,6 +22,14 @@ interface AuthedUser {
   sistemas: string[];
 }
 
+/** Perfis do módulo Protocolos — feedbackforms-only, liberados sem depender do array `sistemas`. */
+const PROTOCOLO_ROLES = [
+  'protocolo_operador',
+  'protocolo_medico',
+  'protocolo_admin',
+  'protocolo_admin_global',
+];
+
 @Injectable()
 export class SistemaGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
@@ -42,11 +50,7 @@ export class SistemaGuard implements CanActivate {
     if (user.role === 'holding_admin') return true;
 
     // Protocolo roles are feedbackforms-only — implicitly allowed without the sistemas array
-    const isProtocoloRole =
-      user.role === 'protocolo_operador' ||
-      user.role === 'protocolo_admin' ||
-      user.role === 'protocolo_admin_global';
-    if (isProtocoloRole && sistema === 'feedbackforms') return true;
+    if (PROTOCOLO_ROLES.includes(user.role) && sistema === 'feedbackforms') return true;
 
     if (!user.sistemas.includes(sistema)) {
       throw new ForbiddenException(`Sistema '${sistema}' não habilitado para este usuário`);
@@ -62,11 +66,7 @@ export class SistemaGuard implements CanActivate {
  */
 export function assertSistemaJWT(user: AuthedUser, sistema: string): void {
   if (user.role === 'holding_admin') return;
-  const isProtocoloRole =
-    user.role === 'protocolo_operador' ||
-    user.role === 'protocolo_admin' ||
-    user.role === 'protocolo_admin_global';
-  if (isProtocoloRole && sistema === 'feedbackforms') return;
+  if (PROTOCOLO_ROLES.includes(user.role) && sistema === 'feedbackforms') return;
   if (!user.sistemas.includes(sistema)) {
     throw new ForbiddenException(`Sistema '${sistema}' não habilitado para este usuário`);
   }

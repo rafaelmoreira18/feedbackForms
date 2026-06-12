@@ -8,64 +8,33 @@ import { Repository, Not } from 'typeorm';
 import {
   ProtocoloEntity,
   ProtocoloStage,
+  BlocoKey,
   BlocoTriagem,
+  BlocoEcg,
   BlocoInvestigacao,
   BlocoDesfecho,
+  EncerramentoProtocolo,
 } from './entities/protocolo.entity';
 import { TenantService } from '../tenants/tenant.service';
 import { AuditLogService, AuditContext } from '../audit-log/audit-log.service';
 import { CreateProtocoloDto } from './dto/create-protocolo.dto';
 import { SubmitBlocoTriagemDto } from './dto/submit-bloco-triagem.dto';
+import { SubmitBlocoEcgDto } from './dto/submit-bloco-ecg.dto';
 import { SubmitBlocoInvestigacaoDto } from './dto/submit-bloco-investigacao.dto';
 import { SubmitBlocoDesfechoDto } from './dto/submit-bloco-desfecho.dto';
+import { EncerrarProtocoloDto } from './dto/encerrar-protocolo.dto';
 import { FilterProtocoloDto } from './dto/filter-protocolo.dto';
+import { toSlug, deltaMin } from './utils/slug-time.util';
+import { mergeBloco, diffCampos } from './utils/bloco-diff.util';
+import { indicador, type Indicador } from './utils/indicador.util';
 
-function toSlug(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60);
-}
-
-/** "HH:mm" → minutos desde a meia-noite, ou null se inválido. */
-function hhmmToMinutes(value?: string): number | null {
-  if (!value) return null;
-  const m = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
-  if (!m) return null;
-  const h = Number(m[1]);
-  const min = Number(m[2]);
-  if (h > 23 || min > 59) return null;
-  return h * 60 + min;
-}
-
-/** Diferença em minutos entre dois horários "HH:mm" no mesmo dia (cruza meia-noite se end < start). */
-function deltaMin(startHHmm?: string, endHHmm?: string): number | null {
-  const s = hhmmToMinutes(startHHmm);
-  const e = hhmmToMinutes(endHHmm);
-  if (s === null || e === null) return null;
-  let d = e - s;
-  if (d < 0) d += 24 * 60; // virada de dia
-  return d;
-}
-
-interface Indicador {
-  numerador: number;
-  denominador: number;
-  percentual: number;
-  meta: number;
-}
-
-function indicador(numerador: number, denominador: number, meta: number): Indicador {
-  return {
-    numerador,
-    denominador,
-    percentual: denominador > 0 ? Math.round((numerador / denominador) * 1000) / 10 : 0,
-    meta,
-  };
-}
+/** Próxima etapa após fechar cada bloco. */
+const NEXT_STAGE: Record<BlocoKey, ProtocoloStage> = {
+  triagem: 'ecg',
+  ecg: 'investigacao',
+  investigacao: 'desfecho',
+  desfecho: 'concluido',
+};
 
 export interface ProtocoloMetrics {
   total: number;
@@ -167,16 +136,43 @@ export class ProtocolosService {
     return protocolo;
   }
 
+  /** Salva o rascunho (stand-by) de uma etapa sem fechá-la. */
+  async saveRascunho(
+    tenantSlug: string,
+    slug: string,
+    bloco: BlocoKey,
+    dados: Record<string, unknown>,
+  ): Promise<{ ok: true }> {
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
+    const protocolo = await this.repo.findOne({ where: { tenantId, slug } });
+    if (!protocolo) throw new NotFoundException('Protocolo não encontrado');
+    if (protocolo.currentStage === 'concluido') {
+      throw new BadRequestException('Protocolo já concluído');
+    }
+    const col = `${bloco}Rascunho` as
+      | 'triagemRascunho'
+      | 'ecgRascunho'
+      | 'investigacaoRascunho'
+      | 'desfechoRascunho';
+    (protocolo as unknown as Record<string, unknown>)[col] = dados;
+    await this.repo.save(protocolo);
+    return { ok: true };
+  }
+
   /**
-   * Fecha um bloco (triagem | investigacao | desfecho). Valida a ordem sequencial:
-   * só é possível fechar o bloco correspondente ao `currentStage`. Ao fechar, avança
-   * o estágio. Fechar `desfecho` conclui o protocolo.
+   * Fecha um bloco (triagem | ecg | investigacao | desfecho). Valida a ordem
+   * sequencial: só é possível fechar o bloco correspondente ao `currentStage`. Ao
+   * fechar, avança o estágio. Fechar `desfecho` conclui o protocolo.
    */
   async submitBloco(
     tenantSlug: string,
     slug: string,
-    bloco: 'triagem' | 'investigacao' | 'desfecho',
-    dto: SubmitBlocoTriagemDto | SubmitBlocoInvestigacaoDto | SubmitBlocoDesfechoDto,
+    bloco: BlocoKey,
+    dto:
+      | SubmitBlocoTriagemDto
+      | SubmitBlocoEcgDto
+      | SubmitBlocoInvestigacaoDto
+      | SubmitBlocoDesfechoDto,
     ctx?: AuditContext,
   ): Promise<ProtocoloEntity> {
     const tenantId = await this.tenantService.resolveId(tenantSlug);
@@ -192,41 +188,213 @@ export class ProtocolosService {
       );
     }
 
+    // Queixa principal: ao menos 1 marcada no fechamento da triagem.
+    if (bloco === 'triagem') {
+      const q = (dto as SubmitBlocoTriagemDto).queixaPrincipal;
+      const algumaQueixa =
+        !!q && (q.dorToracica || q.dispneiaSubita || q.sudoreseNauseaSincope || q.dorIrradiada);
+      if (!algumaQueixa) {
+        throw new BadRequestException(
+          'Marque ao menos uma queixa principal antes de fechar a triagem.',
+        );
+      }
+    }
+
     const fechadoEm = new Date().toISOString();
     const responsavel = {
-      responsavelNome: dto.responsavelNome,
-      registroProfissional: dto.registroProfissional,
+      responsavelNome: dto.responsavelNome ?? '',
+      registroProfissional: dto.registroProfissional ?? '',
       fechadoEm,
     };
+    const autor = { userId: ctx?.userId ?? null, nome: responsavel.responsavelNome };
 
     let action:
       | 'PROTOCOLO_BLOCO_TRIAGEM_SUBMITTED'
+      | 'PROTOCOLO_BLOCO_ECG_SUBMITTED'
       | 'PROTOCOLO_BLOCO_INVESTIGACAO_SUBMITTED'
       | 'PROTOCOLO_BLOCO_DESFECHO_SUBMITTED';
 
+    const anterior = protocolo[bloco];
+
     if (bloco === 'triagem') {
       protocolo.triagem = { ...(dto as SubmitBlocoTriagemDto), ...responsavel } as BlocoTriagem;
-      protocolo.currentStage = 'investigacao';
+      protocolo.triagemRascunho = null;
       action = 'PROTOCOLO_BLOCO_TRIAGEM_SUBMITTED';
+    } else if (bloco === 'ecg') {
+      protocolo.ecg = { ...(dto as SubmitBlocoEcgDto), ...responsavel } as BlocoEcg;
+      protocolo.ecgRascunho = null;
+      action = 'PROTOCOLO_BLOCO_ECG_SUBMITTED';
     } else if (bloco === 'investigacao') {
       protocolo.investigacao = {
         ...(dto as SubmitBlocoInvestigacaoDto),
         ...responsavel,
       } as BlocoInvestigacao;
-      protocolo.currentStage = 'desfecho';
+      protocolo.investigacaoRascunho = null;
       action = 'PROTOCOLO_BLOCO_INVESTIGACAO_SUBMITTED';
     } else {
       protocolo.desfecho = { ...(dto as SubmitBlocoDesfechoDto), ...responsavel } as BlocoDesfecho;
-      protocolo.currentStage = 'concluido';
+      protocolo.desfechoRascunho = null;
       action = 'PROTOCOLO_BLOCO_DESFECHO_SUBMITTED';
     }
+
+    protocolo.currentStage = NEXT_STAGE[bloco];
+
+    // Histórico campo-a-campo (só campos que mudaram).
+    const novas = diffCampos(bloco, anterior, protocolo[bloco], autor, fechadoEm);
+    if (novas.length > 0) {
+      protocolo.historicoAlteracoes = [...(protocolo.historicoAlteracoes ?? []), ...novas];
+    }
+    // Histórico por ação — fechamento da etapa (sempre registrado).
+    protocolo.historicoAcoes = [
+      ...(protocolo.historicoAcoes ?? []),
+      {
+        tipo: 'fechamento',
+        bloco,
+        porNome: responsavel.responsavelNome,
+        porRegistro: responsavel.registroProfissional,
+        porUserId: ctx?.userId ?? null,
+        em: fechadoEm,
+        campos: novas.map((c) => ({ campo: c.campo, de: c.de, para: c.para })),
+      },
+    ];
 
     const saved = await this.repo.save(protocolo);
 
     await this.auditLog.record(ctx ?? { tenantId }, action, 'protocolo', saved.id, {
-      responsavelNome: dto.responsavelNome,
-      registroProfissional: dto.registroProfissional,
+      responsavelNome: responsavel.responsavelNome,
+      registroProfissional: responsavel.registroProfissional,
+      camposAlterados: novas.length,
     });
+
+    return saved;
+  }
+
+  /**
+   * Edita uma etapa JÁ FECHADA (sem alterar o currentStage). Registra a alteração
+   * campo-a-campo e uma ação de tipo 'edicao' no histórico, com autor/registro/hora.
+   * Permitido a operador e médico.
+   */
+  async editarBloco(
+    tenantSlug: string,
+    slug: string,
+    bloco: BlocoKey,
+    dto:
+      | SubmitBlocoTriagemDto
+      | SubmitBlocoEcgDto
+      | SubmitBlocoInvestigacaoDto
+      | SubmitBlocoDesfechoDto,
+    ctx?: AuditContext,
+  ): Promise<ProtocoloEntity> {
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
+    const protocolo = await this.repo.findOne({ where: { tenantId, slug } });
+    if (!protocolo) throw new NotFoundException('Protocolo não encontrado');
+
+    const anterior = protocolo[bloco];
+    if (!anterior) {
+      throw new BadRequestException('Esta etapa ainda não foi preenchida.');
+    }
+
+    // Queixa principal continua obrigatória (≥1) ao editar a triagem.
+    if (bloco === 'triagem') {
+      const q = (dto as SubmitBlocoTriagemDto).queixaPrincipal;
+      const algumaQueixa =
+        !!q && (q.dorToracica || q.dispneiaSubita || q.sudoreseNauseaSincope || q.dorIrradiada);
+      if (!algumaQueixa) {
+        throw new BadRequestException('Marque ao menos uma queixa principal.');
+      }
+    }
+
+    const em = new Date().toISOString();
+    // Preserva o responsável/fechamento original; a edição é creditada à parte.
+    const orig = anterior as unknown as {
+      responsavelNome: string;
+      registroProfissional: string;
+      fechadoEm: string;
+    };
+    // Merge profundo (1 nível) sobre o estado anterior: evita apagar campos que o
+    // cliente não enviou. Objetos aninhados (sinaisVitais, diagnosticos, etc.) são mesclados.
+    const atualizado = mergeBloco(anterior, dto as unknown as Record<string, unknown>);
+    atualizado.responsavelNome = orig.responsavelNome;
+    atualizado.registroProfissional = orig.registroProfissional;
+    atualizado.fechadoEm = orig.fechadoEm;
+
+    const autorNome = dto.responsavelNome ?? '';
+    const novas = diffCampos(bloco, anterior, atualizado, { userId: ctx?.userId ?? null, nome: autorNome }, em);
+    if (novas.length === 0) {
+      // Nada mudou — não registra ação nem salva.
+      return protocolo;
+    }
+
+    (protocolo as unknown as Record<string, unknown>)[bloco] = atualizado;
+    protocolo.historicoAlteracoes = [...(protocolo.historicoAlteracoes ?? []), ...novas];
+    protocolo.historicoAcoes = [
+      ...(protocolo.historicoAcoes ?? []),
+      {
+        tipo: 'edicao',
+        bloco,
+        porNome: autorNome,
+        porRegistro: dto.registroProfissional ?? '',
+        porUserId: ctx?.userId ?? null,
+        em,
+        campos: novas.map((c) => ({ campo: c.campo, de: c.de, para: c.para })),
+      },
+    ];
+
+    const saved = await this.repo.save(protocolo);
+
+    await this.auditLog.record(ctx ?? { tenantId }, 'PROTOCOLO_BLOCO_EDITADO', 'protocolo', saved.id, {
+      bloco,
+      responsavelNome: autorNome,
+      registroProfissional: dto.registroProfissional ?? '',
+      camposAlterados: novas.length,
+    });
+
+    return saved;
+  }
+
+  /**
+   * Encerramento antecipado do protocolo pelo médico, em qualquer etapa, por
+   * não-continuidade ou não-indicação. Conclui o protocolo sem percorrer as etapas.
+   */
+  async encerrar(
+    tenantSlug: string,
+    slug: string,
+    dto: EncerrarProtocoloDto,
+    ctx?: AuditContext,
+  ): Promise<ProtocoloEntity> {
+    const tenantId = await this.tenantService.resolveId(tenantSlug);
+    const protocolo = await this.repo.findOne({ where: { tenantId, slug } });
+    if (!protocolo) throw new NotFoundException('Protocolo não encontrado');
+    if (protocolo.currentStage === 'concluido') {
+      throw new BadRequestException('Protocolo já concluído');
+    }
+
+    const encerradoEm = new Date().toISOString();
+    const encerramento: EncerramentoProtocolo = {
+      motivo: dto.motivo,
+      observacao: dto.observacao,
+      etapaNoEncerramento: protocolo.currentStage,
+      encerradoPorNome: dto.responsavelNome ?? '',
+      encerradoPorRegistro: dto.registroProfissional ?? '',
+      encerradoPorUserId: ctx?.userId ?? null,
+      encerradoEm,
+    };
+    protocolo.encerramento = encerramento;
+    protocolo.currentStage = 'concluido';
+
+    const saved = await this.repo.save(protocolo);
+
+    await this.auditLog.record(
+      ctx ?? { tenantId },
+      'PROTOCOLO_ENCERRADO',
+      'protocolo',
+      saved.id,
+      {
+        motivo: dto.motivo,
+        etapaNoEncerramento: encerramento.etapaNoEncerramento,
+        responsavelNome: encerramento.encerradoPorNome,
+      },
+    );
 
     return saved;
   }
@@ -259,6 +427,7 @@ export class ProtocolosService {
 
     const porEtapa: Record<ProtocoloStage, number> = {
       triagem: 0,
+      ecg: 0,
       investigacao: 0,
       desfecho: 0,
       concluido: 0,
@@ -282,11 +451,12 @@ export class ProtocolosService {
       porEtapa[p.currentStage]++;
 
       const tri = p.triagem;
+      const ecg = p.ecg;
       const inv = p.investigacao;
       const des = p.desfecho;
 
       // distribuição por VIA (ECG)
-      const via = tri?.resultadoEcg;
+      const via = ecg?.resultadoEcg;
       if (via === 'via_i') porVia.via_i++;
       else if (via === 'via_ii') porVia.via_ii++;
       else if (via === 'via_iii') porVia.via_iii++;
@@ -311,21 +481,21 @@ export class ProtocolosService {
       }
 
       // 2. Triagem → ECG ≤ 5 min
-      const dTriagemEcg = deltaMin(tri?.inicioTriagem, tri?.primeiroEcgHora);
+      const dTriagemEcg = deltaMin(tri?.inicioTriagem, ecg?.primeiroEcgHora);
       if (dTriagemEcg !== null) {
         te5d++;
         if (dTriagemEcg <= 5) te5n++;
       }
 
       // 3. ECG → Interpretação ≤ 5 min
-      const dEcgInterp = deltaMin(tri?.primeiroEcgHora, tri?.interpretacaoMedicaHora);
+      const dEcgInterp = deltaMin(ecg?.primeiroEcgHora, ecg?.interpretacaoMedicaHora);
       if (dEcgInterp !== null) {
         ei5d++;
         if (dEcgInterp <= 5) ei5n++;
       }
 
       // 4. Porta-ECG total ≤ 10 min (chegada → interpretação)
-      const dPortaEcg = deltaMin(p.horaChegada, tri?.interpretacaoMedicaHora);
+      const dPortaEcg = deltaMin(p.horaChegada, ecg?.interpretacaoMedicaHora);
       const portaEcgOk = dPortaEcg !== null && dPortaEcg <= 10;
       if (dPortaEcg !== null) {
         pe10d++;

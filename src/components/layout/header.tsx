@@ -15,6 +15,7 @@ export default function Header() {
   const isAdminRole = user?.role === 'holding_admin' || user?.role === 'hospital_admin';
   const isProtocolo =
     user?.role === 'protocolo_operador' ||
+    user?.role === 'protocolo_medico' ||
     user?.role === 'protocolo_admin' ||
     user?.role === 'protocolo_admin_global';
   // Admins de protocolo veem o atalho do dashboard de protocolos (operador não)
