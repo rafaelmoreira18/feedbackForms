@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -44,6 +44,7 @@ type BlocoFormCommonProps = {
   responsavel: { nome: string; registro: string };
   rascunho?: unknown;
   onDraftChange?: (d: Record<string, unknown>) => void;
+  draftOnly?: boolean;
 };
 
 export default function ProtocoloForm() {
@@ -54,7 +55,6 @@ export default function ProtocoloForm() {
 
   const [gateOpen, setGateOpen] = useState(false);
   const [editando, setEditando] = useState(false);
-  const [verConcluidas, setVerConcluidas] = useState(false);
   const [encerrarOpen, setEncerrarOpen] = useState(false);
   const [openBlocos, setOpenBlocos] = useState<BlocoKey[]>([]);
   // Etapas concluídas que o usuário abriu para EDITAR.
@@ -70,7 +70,11 @@ export default function ProtocoloForm() {
     enabled: !!tenantSlug && !!slug,
   });
 
+  // Salva rascunhos pendentes antes de sair (definido adiante via ref).
+  const flushRef = useRef<() => void>(() => {});
+
   const backToList = () => {
+    flushRef.current();
     queryClient.invalidateQueries({ queryKey: ["protocolos-abertos", tenantSlug] });
     navigate(ROUTES.protocolos(tenantSlug));
   };
@@ -121,17 +125,40 @@ export default function ProtocoloForm() {
     onError: (e) => toast.error(extractApiError(e, "Erro ao salvar alterações.")),
   });
 
-  // Auto-save de rascunho (debounce) — guarda timers por bloco.
+  // Auto-save de rascunho (debounce) — guarda timers e o último valor por bloco,
+  // para poder "descarregar" (flush) o que ainda não foi salvo ao sair da página.
   const draftTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingDrafts = useRef<Partial<Record<RascunhoBloco, Record<string, unknown>>>>({});
   const saveDraft = useCallback(
     (bloco: RascunhoBloco, dados: Record<string, unknown>) => {
+      pendingDrafts.current[bloco] = dados;
       clearTimeout(draftTimers.current[bloco]);
       draftTimers.current[bloco] = setTimeout(() => {
-        protocoloService.saveRascunho(tenantSlug, slug, bloco, dados).catch(() => {});
+        const d = pendingDrafts.current[bloco];
+        if (!d) return;
+        delete pendingDrafts.current[bloco];
+        protocoloService.saveRascunho(tenantSlug, slug, bloco, d).catch(() => {});
       }, 800);
     },
     [tenantSlug, slug],
   );
+
+  // Salva imediatamente todos os rascunhos pendentes — evita perder os últimos
+  // campos digitados antes do debounce ao voltar para a lista ou desmontar a tela.
+  const flushDrafts = useCallback(() => {
+    (Object.keys(pendingDrafts.current) as RascunhoBloco[]).forEach((bloco) => {
+      const d = pendingDrafts.current[bloco];
+      clearTimeout(draftTimers.current[bloco]);
+      if (d) protocoloService.saveRascunho(tenantSlug, slug, bloco, d).catch(() => {});
+    });
+    pendingDrafts.current = {};
+  }, [tenantSlug, slug]);
+  // Mantém a ref de flush sempre atualizada (sem acessar ref durante o render).
+  useEffect(() => {
+    flushRef.current = flushDrafts;
+  }, [flushDrafts]);
+  // Flush ao desmontar (navegar para fora por qualquer caminho).
+  useEffect(() => () => flushRef.current(), []);
 
   // Histórico ordenado do mais recente ao mais antigo (memoizado).
   const historicoOrdenado = useMemo(
@@ -150,7 +177,6 @@ export default function ProtocoloForm() {
   const currentIndex = ORDER[protocolo.currentStage];
   const concluido = protocolo.currentStage === "concluido";
   const activeKey = concluido ? null : (protocolo.currentStage as BlocoKey);
-  const completedKeys = BLOCOS.filter((b) => ORDER[b] < currentIndex);
   // Operador e médico preenchem etapas; admins/globais só visualizam.
   const canEdit = user?.role === "protocolo_operador" || user?.role === "protocolo_medico";
   // Encerrar antecipadamente: somente médico.
@@ -166,8 +192,9 @@ export default function ProtocoloForm() {
     desfecho: { initial: protocolo.desfecho, rascunho: protocolo.desfechoRascunho, mutate: (p) => mDesfecho.mutate(p), pending: mDesfecho.isPending },
   };
 
-  // mode: "view" = leitura · "fill" = preencher etapa atual · "edit" = editar etapa concluída
-  const renderBlock = (key: BlocoKey, mode: "view" | "fill" | "edit") => {
+  // mode: "view" = leitura · "fill" = preencher etapa atual (fecha) · "edit" = editar etapa
+  // concluída · "draft" = adiantar etapa futura (só rascunho, fecha quando for a vez dela)
+  const renderBlock = (key: BlocoKey, mode: "view" | "fill" | "edit" | "draft") => {
     const cfg = blocoConfig[key];
     const Form = BLOCO_FORM[key] as React.ComponentType<BlocoFormCommonProps>;
     const editando = mode === "edit";
@@ -176,13 +203,14 @@ export default function ProtocoloForm() {
           mEditar.mutate({ bloco: key, dados: { ...dados, responsavelNome: responsavel.nome, registroProfissional: responsavel.registro } })
       : (cfg.mutate as (p: Record<string, unknown>) => void);
     const draftProps =
-      mode === "fill"
+      mode === "fill" || mode === "draft"
         ? { rascunho: cfg.rascunho, onDraftChange: (d: Record<string, unknown>) => saveDraft(key, d) }
         : {};
     return (
       <Form
         initial={cfg.initial}
         readOnly={mode === "view"}
+        draftOnly={mode === "draft"}
         submitLabel={editando ? "Salvar alterações" : undefined}
         submitting={cfg.pending || mEditar.isPending}
         onSubmit={onSubmit}
@@ -254,6 +282,62 @@ export default function ProtocoloForm() {
         </Button>
       </div>
     </Card>
+  );
+
+  // Etapas que não são a atual: concluídas (ver/editar) e futuras (adiantar como rascunho).
+  // Operador/médico podem preencher qualquer uma sem fechar a etapa atual; o fechamento
+  // oficial continua na ordem do fluxo.
+  const nonActiveBlocos = BLOCOS.filter((b) => b !== activeKey);
+  const OutrasEtapas = !concluido && nonActiveBlocos.length > 0 && (
+    <div className="flex flex-col gap-3">
+      <Text variant="body-sm-bold" className="text-gray-300 px-1">Outras etapas</Text>
+      {nonActiveBlocos.map((b) => {
+        const isCompleted = ORDER[b] < currentIndex;
+        const open = openBlocos.includes(b);
+        const temRascunho = !!blocoConfig[b].rascunho;
+        return (
+          <Card key={b} shadow="sm">
+            <button
+              type="button"
+              onClick={() => toggleBloco(b)}
+              className="w-full flex items-center justify-between gap-3 text-left"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                {isCompleted ? (
+                  <Check size={16} className="text-green-base shrink-0" />
+                ) : (
+                  <span className="w-3 h-3 rounded-full border-2 border-gray-200 shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <Text variant="body-md-bold" className="text-gray-400">{STAGE_META[b].titulo}</Text>
+                  <Text variant="caption" className="text-gray-300 block truncate">
+                    {isCompleted
+                      ? "Concluída — toque para ver ou editar"
+                      : canEdit
+                        ? temRascunho
+                          ? "Rascunho salvo — toque para continuar"
+                          : "Adiantar preenchimento (rascunho)"
+                        : "Ainda não iniciada"}
+                  </Text>
+                </div>
+              </div>
+              {open ? <ChevronUp size={18} className="text-gray-300 shrink-0" /> : <ChevronDown size={18} className="text-gray-300 shrink-0" />}
+            </button>
+            {open && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                {isCompleted ? (
+                  ClosedStageBody(b)
+                ) : canEdit ? (
+                  renderBlock(b, "draft")
+                ) : (
+                  <Text variant="body-sm" className="text-gray-300">Etapa ainda não iniciada.</Text>
+                )}
+              </div>
+            )}
+          </Card>
+        );
+      })}
+    </div>
   );
 
   return (
@@ -331,89 +415,57 @@ export default function ProtocoloForm() {
           </>
         )}
 
-        {/* ETAPA EM ABERTO — antes de começar a editar */}
-        {!concluido && activeKey && !editando && (
+        {/* ETAPA EM ABERTO (não concluído): etapa atual + outras etapas (rascunho/edição) */}
+        {!concluido && activeKey && (
           <>
-            <Card shadow="sm" className="border-2 border-teal-light">
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-2">
-                  <Stethoscope size={20} className="text-teal-base" />
-                  <span className="protocolo-open-dot" title="Etapa em andamento" />
-                  <Text variant="body-md-bold" className="text-gray-400">
-                    {canEdit ? "Etapa em andamento" : "Etapa em aberto"}: {STAGE_META[activeKey].titulo}
-                  </Text>
-                </div>
-                <Text variant="body-sm" className="text-gray-300">
-                  Responsável: {STAGE_META[activeKey].equipe}
-                </Text>
-                {canEdit ? (
-                  <>
-                    {!responsavel.registro && (
-                      <Text variant="caption" className="text-amber-600">
-                        Seu cadastro não tem registro profissional. Peça ao administrador para incluí-lo.
-                      </Text>
-                    )}
-                    <Button className="self-start" onClick={() => (responsavel.registro ? setEditando(true) : setGateOpen(true))}>
-                      Continuar etapa {STAGE_META[activeKey].titulo}
-                    </Button>
-                  </>
-                ) : (
-                  <Text variant="body-sm" className="text-gray-300">
-                    O preenchimento desta etapa é feito pelo operador/médico.
-                  </Text>
-                )}
-              </div>
-            </Card>
-
-            {/* Etapas já concluídas (recolhidas) */}
-            {completedKeys.length > 0 && (
-              <Card shadow="sm" padding="sm">
-                <button
-                  type="button"
-                  onClick={() => setVerConcluidas((v) => !v)}
-                  className="w-full flex items-center justify-between gap-2 text-left px-2 py-1"
-                >
-                  <Text variant="body-sm-bold" className="text-gray-300">
-                    Ver etapas concluídas ({completedKeys.length})
-                  </Text>
-                  {verConcluidas ? <ChevronUp size={18} className="text-gray-300" /> : <ChevronDown size={18} className="text-gray-300" />}
-                </button>
-                {verConcluidas && (
-                  <div className="flex flex-col gap-4 mt-3">
-                    {completedKeys.map((b) => (
-                      <div key={b} className="border-t border-gray-100 pt-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Check size={16} className="text-green-base" />
-                          <Text variant="body-md-bold" className="text-gray-400">{STAGE_META[b].titulo}</Text>
-                        </div>
-                        {ClosedStageBody(b)}
-                      </div>
-                    ))}
+            {!editando ? (
+              <Card shadow="sm" className="border-2 border-teal-light">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <Stethoscope size={20} className="text-teal-base" />
+                    <span className="protocolo-open-dot" title="Etapa em andamento" />
+                    <Text variant="body-md-bold" className="text-gray-400">
+                      {canEdit ? "Etapa em andamento" : "Etapa em aberto"}: {STAGE_META[activeKey].titulo}
+                    </Text>
                   </div>
-                )}
-              </Card>
-            )}
-
-            {HistoricoResumo}
-            {EncerrarBar}
-          </>
-        )}
-
-        {/* FORMULÁRIO da etapa (após confirmar) — operador/médico */}
-        {!concluido && activeKey && editando && canEdit && (
-          <>
-            <Card shadow="sm" className="border-2 border-teal-light">
-              <div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-gray-100">
-                <div className="flex items-center gap-2">
-                  <span className="protocolo-open-dot" title="Etapa em andamento" />
-                  <Text variant="body-md-bold" className="text-gray-400">{STAGE_META[activeKey].titulo}</Text>
+                  <Text variant="body-sm" className="text-gray-300">
+                    Responsável: {STAGE_META[activeKey].equipe}
+                  </Text>
+                  {canEdit ? (
+                    <>
+                      {!responsavel.registro && (
+                        <Text variant="caption" className="text-amber-600">
+                          Seu cadastro não tem registro profissional. Peça ao administrador para incluí-lo.
+                        </Text>
+                      )}
+                      <Button className="self-start" onClick={() => (responsavel.registro ? setEditando(true) : setGateOpen(true))}>
+                        Continuar etapa {STAGE_META[activeKey].titulo}
+                      </Button>
+                    </>
+                  ) : (
+                    <Text variant="body-sm" className="text-gray-300">
+                      O preenchimento desta etapa é feito pelo operador/médico.
+                    </Text>
+                  )}
                 </div>
-                <Text variant="caption" className="text-gray-300">
-                  {responsavel.nome}{responsavel.registro ? ` · ${responsavel.registro}` : ""}
-                </Text>
-              </div>
-              {renderBlock(activeKey, "fill")}
-            </Card>
+              </Card>
+            ) : canEdit ? (
+              <Card shadow="sm" className="border-2 border-teal-light">
+                <div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <span className="protocolo-open-dot" title="Etapa em andamento" />
+                    <Text variant="body-md-bold" className="text-gray-400">{STAGE_META[activeKey].titulo}</Text>
+                  </div>
+                  <Text variant="caption" className="text-gray-300">
+                    {responsavel.nome}{responsavel.registro ? ` · ${responsavel.registro}` : ""}
+                  </Text>
+                </div>
+                {renderBlock(activeKey, "fill")}
+              </Card>
+            ) : null}
+
+            {OutrasEtapas}
+
             {HistoricoResumo}
             {EncerrarBar}
           </>

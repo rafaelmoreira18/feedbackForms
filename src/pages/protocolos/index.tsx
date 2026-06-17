@@ -30,8 +30,9 @@ export default function ProtocolosHome() {
   const isGlobal =
     user?.role === "protocolo_admin_global" || user?.role === "holding_admin";
   const isAdmin = isGlobal || user?.role === "protocolo_admin";
-  // Abrir novo protocolo é tarefa do operador; admins/global admin não veem o botão
-  const isOperador = user?.role === "protocolo_operador";
+  // Abrir novo protocolo: operador e médico preenchem etapas; admins/global admin só visualizam.
+  const podeAbrirProtocolo =
+    user?.role === "protocolo_operador" || user?.role === "protocolo_medico";
 
   const [selectedSlug, setSelectedSlug] = useState(user?.tenantSlug ?? "");
   const tenantSlug = slugFromUrl ?? user?.tenantSlug ?? selectedSlug;
@@ -90,7 +91,7 @@ export default function ProtocolosHome() {
           </Card>
         )}
 
-        {tenantSlug && isOperador && (
+        {tenantSlug && podeAbrirProtocolo && (
           <Button onClick={() => setShowNovo(true)} className="self-start">
             <Plus size={20} /> Novo paciente
           </Button>
@@ -116,7 +117,7 @@ export default function ProtocolosHome() {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <ClipboardPlus size={40} className="text-gray-200 mb-3" />
               <Text variant="heading-sm" className="text-gray-400">Nenhum protocolo em aberto</Text>
-              {isOperador && (
+              {podeAbrirProtocolo && (
                 <Text variant="body-sm" className="text-gray-300 mt-1">
                   Clique em "Novo paciente" para abrir um protocolo.
                 </Text>

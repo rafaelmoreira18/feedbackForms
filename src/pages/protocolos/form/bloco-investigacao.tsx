@@ -3,7 +3,7 @@ import type { BlocoInvestigacao } from "@/types";
 import type { SubmitInvestigacaoPayload } from "@/services/protocolo-service";
 import TimeInput from "@/components/ui/time-input";
 import Text from "@/components/ui/text";
-import { SectionTitle, CheckRow, RadioPill, EtapaFechadaInfo, FecharEtapaBar, NumericInput, PendenciasBox, REQ } from "./form-ui";
+import { SectionTitle, CheckRow, RadioPill, EtapaFechadaInfo, FecharEtapaBar, RascunhoNota, NumericInput, PendenciasBox, REQ } from "./form-ui";
 
 interface Props {
   initial: BlocoInvestigacao | null;
@@ -14,6 +14,8 @@ interface Props {
   onDraftChange?: (dados: Record<string, unknown>) => void;
   responsavel: { nome: string; registro: string };
   submitLabel?: string;
+  /** Etapa adiantada (futura): salva rascunho, mas não exibe o botão de fechar. */
+  draftOnly?: boolean;
 }
 
 const emptyColeta = { horaColeta: "", resultado: "", horaResultadoLab: "" };
@@ -51,7 +53,6 @@ const emptyDx = {
 function fromInitial(i: BlocoInvestigacao | null, r?: Partial<BlocoInvestigacao> | null) {
   const src = i ?? (r as BlocoInvestigacao | null);
   return {
-    lsnUnidade: src?.lsnUnidade ?? "",
     coleta0h: src?.coleta0h ?? { ...emptyColeta },
     coleta3h: src?.coleta3h ?? { ...emptyColeta },
     coleta3hDeltaPct: src?.coleta3hDeltaPct ?? "",
@@ -66,7 +67,6 @@ function fromInitial(i: BlocoInvestigacao | null, r?: Partial<BlocoInvestigacao>
 
 function toPayloadBase(s: ReturnType<typeof fromInitial>, heartTotal: number, faixa: BlocoInvestigacao["heartFaixaRisco"]) {
   return {
-    lsnUnidade: s.lsnUnidade,
     coleta0h: s.coleta0h,
     coleta3h: s.coleta3h,
     coleta3hDeltaPct: s.coleta3hDeltaPct,
@@ -80,7 +80,7 @@ function toPayloadBase(s: ReturnType<typeof fromInitial>, heartTotal: number, fa
   };
 }
 
-export default function BlocoInvestigacaoForm({ initial, rascunho, readOnly, submitting, onSubmit, onDraftChange, responsavel, submitLabel }: Props) {
+export default function BlocoInvestigacaoForm({ initial, rascunho, readOnly, submitting, onSubmit, onDraftChange, responsavel, submitLabel, draftOnly }: Props) {
   const [s, setS] = useState(() => fromInitial(initial, rascunho));
   const set = <K extends keyof typeof s>(k: K, v: (typeof s)[K]) => setS((p) => ({ ...p, [k]: v }));
   const ro = readOnly;
@@ -117,7 +117,6 @@ export default function BlocoInvestigacaoForm({ initial, rascunho, readOnly, sub
   const algumDx = s.diagnosticos.naoSeAplica || s.diagnosticos.dissecaoAorta || s.diagnosticos.tep ||
     s.diagnosticos.pericardite || s.diagnosticos.takotsubo || s.diagnosticos.pneumotorax || s.diagnosticos.tamponamento;
   const pendencias: string[] = [];
-  if (!s.lsnUnidade) pendencias.push("LSN da unidade");
   if (!s.coleta0h.horaColeta) pendencias.push("Coleta 0h — hora");
   if (!s.coleta0h.resultado) pendencias.push("Coleta 0h — resultado");
   if (!s.troponinaInterpretacao) pendencias.push("Interpretação da troponina");
@@ -139,7 +138,6 @@ export default function BlocoInvestigacaoForm({ initial, rascunho, readOnly, sub
   return (
     <div className="flex flex-col gap-4">
       <SectionTitle>Etapa 3 — Marcadores (Troponina 0-3-6h)</SectionTitle>
-      <NumericInput label={`LSN da unidade (ng/mL)${REQ}`} placeholder="0,04" mode="decimal" decimals={2} min={0} max={10} value={s.lsnUnidade} readOnly={ro} onChange={(v) => set("lsnUnidade", v)} hint="ng/mL · ex.: 0,04" />
       {(["coleta0h", "coleta3h", "coleta6h"] as const).map((key, idx) => (
         <div key={key} className="rounded-xl border border-gray-100 p-3 flex flex-col gap-2">
           <Text variant="body-sm-bold" className="text-gray-400">
@@ -220,6 +218,8 @@ export default function BlocoInvestigacaoForm({ initial, rascunho, readOnly, sub
 
       {ro ? (
         <EtapaFechadaInfo nome={initial?.responsavelNome ?? ""} registro={initial?.registroProfissional ?? ""} fechadoEm={initial?.fechadoEm} />
+      ) : draftOnly ? (
+        <RascunhoNota />
       ) : (
         <FecharEtapaBar submitting={submitting} onSubmit={handleSubmit} label={submitLabel} />
       )}

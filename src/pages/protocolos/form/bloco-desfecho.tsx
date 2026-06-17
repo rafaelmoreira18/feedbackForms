@@ -3,7 +3,7 @@ import type { BlocoDesfecho, DestinoPaciente } from "@/types";
 import type { SubmitDesfechoPayload } from "@/services/protocolo-service";
 import Input from "@/components/ui/input";
 import TimeInput from "@/components/ui/time-input";
-import { SectionTitle, CheckRow, RadioPill, DateField, EtapaFechadaInfo, FecharEtapaBar, NumericInput, PendenciasBox, REQ } from "./form-ui";
+import { SectionTitle, CheckRow, RadioPill, DateField, EtapaFechadaInfo, FecharEtapaBar, RascunhoNota, NumericInput, PendenciasBox, REQ } from "./form-ui";
 
 interface Props {
   initial: BlocoDesfecho | null;
@@ -14,6 +14,8 @@ interface Props {
   onDraftChange?: (dados: Record<string, unknown>) => void;
   responsavel: { nome: string; registro: string };
   submitLabel?: string;
+  /** Etapa adiantada (futura): salva rascunho, mas não exibe o botão de fechar. */
+  draftOnly?: boolean;
 }
 
 const DESTINOS: { value: DestinoPaciente; label: string }[] = [
@@ -51,7 +53,7 @@ function fromInitial(init: BlocoDesfecho | null, rasc?: Partial<BlocoDesfecho> |
   };
 }
 
-export default function BlocoDesfechoForm({ initial, rascunho, readOnly, submitting, onSubmit, onDraftChange, responsavel, submitLabel }: Props) {
+export default function BlocoDesfechoForm({ initial, rascunho, readOnly, submitting, onSubmit, onDraftChange, responsavel, submitLabel, draftOnly }: Props) {
   const [s, setS] = useState(() => fromInitial(initial, rascunho));
   const set = <K extends keyof typeof s>(k: K, v: (typeof s)[K]) => setS((p) => ({ ...p, [k]: v }));
   const ro = readOnly;
@@ -181,6 +183,8 @@ export default function BlocoDesfechoForm({ initial, rascunho, readOnly, submitt
 
       {ro ? (
         <EtapaFechadaInfo nome={initial?.responsavelNome ?? ""} registro={initial?.registroProfissional ?? ""} fechadoEm={initial?.fechadoEm} />
+      ) : draftOnly ? (
+        <RascunhoNota />
       ) : (
         <FecharEtapaBar submitting={submitting} onSubmit={handleSubmit} label={submitLabel ?? "Concluir protocolo →"} />
       )}

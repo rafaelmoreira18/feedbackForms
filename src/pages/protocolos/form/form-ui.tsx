@@ -245,6 +245,21 @@ export function EtapaFechadaInfo({
   );
 }
 
+/**
+ * Rodapé de uma etapa preenchida em modo rascunho (adiantada antes da sua vez):
+ * os campos ficam salvos automaticamente, mas o fechamento oficial só ocorre quando
+ * a etapa chega a ser a etapa atual do fluxo.
+ */
+export function RascunhoNota() {
+  return (
+    <div className="mt-2 pt-4 border-t border-gray-100">
+      <Text variant="caption" className="text-gray-300">
+        ✓ Rascunho salvo automaticamente — esta etapa será fechada quando chegar a vez dela.
+      </Text>
+    </div>
+  );
+}
+
 /** Barra com o botão de fechar a etapa (responsável já capturado antes de iniciar). */
 export function FecharEtapaBar({
   submitting, onSubmit, label = "Fechar etapa →",
