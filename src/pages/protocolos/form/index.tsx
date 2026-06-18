@@ -3,52 +3,22 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { protocoloService } from "@/services/protocolo-service";
-import type {
-  SubmitTriagemPayload,
-  SubmitEcgPayload,
-  SubmitInvestigacaoPayload,
-  SubmitDesfechoPayload,
-  RascunhoBloco,
-  EncerrarPayload,
-} from "@/services/protocolo-service";
+import type { SubmitBlocoPayload, EncerrarPayload } from "@/services/protocolo-service";
 import { ROUTES } from "@/routes";
 import type { RegistroAcao } from "@/types";
 import Text from "@/components/ui/text";
 import Card from "@/components/ui/card";
 import Button from "@/components/ui/button";
-import { ArrowLeft, Check, ChevronDown, ChevronUp, Stethoscope, Ban, Pencil, History } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronUp, Stethoscope, Ban, Pencil, History, FastForward } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { StageBadge } from "../index";
-import { STAGE_META, ORDER, BLOCOS, BLOCO_TITULO, labelCampo, labelValor, type BlocoKey } from "../constants";
+import { getProtocoloDef, type ProtocoloDef, type BlocoFormCommonProps } from "../registry";
 import { extractApiError, fmtDataHora } from "../utils";
-import BlocoTriagemForm from "./bloco-triagem";
-import BlocoEcgForm from "./bloco-ecg";
-import BlocoInvestigacaoForm from "./bloco-investigacao";
-import BlocoDesfechoForm from "./bloco-desfecho";
-
-/** Componente de formulário por bloco — evita a cadeia de ifs em renderBlock. */
-const BLOCO_FORM = {
-  triagem: BlocoTriagemForm,
-  ecg: BlocoEcgForm,
-  investigacao: BlocoInvestigacaoForm,
-  desfecho: BlocoDesfechoForm,
-} as const;
-
-/** Props comuns aos 4 formulários de bloco (o `initial` varia por bloco). */
-type BlocoFormCommonProps = {
-  initial: unknown;
-  readOnly: boolean;
-  submitLabel?: string;
-  submitting: boolean;
-  onSubmit: (p: Record<string, unknown>) => void;
-  responsavel: { nome: string; registro: string };
-  rascunho?: unknown;
-  onDraftChange?: (d: Record<string, unknown>) => void;
-  draftOnly?: boolean;
-};
 
 export default function ProtocoloForm() {
-  const { tenantSlug = "", slug = "" } = useParams<{ tenantSlug: string; slug: string }>();
+  const { tenantSlug = "", protocolType = "", slug = "" } = useParams<{
+    tenantSlug: string; protocolType: string; slug: string;
+  }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -56,13 +26,19 @@ export default function ProtocoloForm() {
   const [gateOpen, setGateOpen] = useState(false);
   const [editando, setEditando] = useState(false);
   const [encerrarOpen, setEncerrarOpen] = useState(false);
-  const [openBlocos, setOpenBlocos] = useState<BlocoKey[]>([]);
+  const [verConcluidas, setVerConcluidas] = useState(false);
+  const [openBlocos, setOpenBlocos] = useState<string[]>([]);
   // Etapas concluídas que o usuário abriu para EDITAR.
-  const [editBlocos, setEditBlocos] = useState<BlocoKey[]>([]);
-  const toggleBloco = (b: BlocoKey) =>
+  const [editBlocos, setEditBlocos] = useState<string[]>([]);
+  const toggleBloco = (b: string) =>
     setOpenBlocos((prev) => (prev.includes(b) ? prev.filter((k) => k !== b) : [...prev, b]));
-  const toggleEdit = (b: BlocoKey) =>
+  const toggleEdit = (b: string) =>
     setEditBlocos((prev) => (prev.includes(b) ? prev.filter((k) => k !== b) : [...prev, b]));
+  // Próximas etapas abertas para preenchimento adiantado (rascunho), sem fechar a atual.
+  const [verProximas, setVerProximas] = useState(false);
+  const [proximasAbertas, setProximasAbertas] = useState<string[]>([]);
+  const toggleProxima = (b: string) =>
+    setProximasAbertas((prev) => (prev.includes(b) ? prev.filter((k) => k !== b) : [...prev, b]));
 
   const { data: protocolo, isLoading } = useQuery({
     queryKey: ["protocolo", tenantSlug, slug],
@@ -70,14 +46,45 @@ export default function ProtocoloForm() {
     enabled: !!tenantSlug && !!slug,
   });
 
-  // Salva rascunhos pendentes antes de sair (definido adiante via ref).
-  const flushRef = useRef<() => void>(() => {});
+  // Rascunhos com salvamento por debounce — guardamos o último estado pendente por etapa
+  // para poder salvar imediatamente ("flush") ao sair, sem perder alterações não salvas.
+  const draftTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingDrafts = useRef<Record<string, Record<string, unknown>>>({});
 
-  const backToList = () => {
-    flushRef.current();
-    queryClient.invalidateQueries({ queryKey: ["protocolos-abertos", tenantSlug] });
-    navigate(ROUTES.protocolos(tenantSlug));
+  const clearPending = (bloco: string) => {
+    clearTimeout(draftTimers.current[bloco]);
+    delete draftTimers.current[bloco];
+    delete pendingDrafts.current[bloco];
   };
+
+  const flushDrafts = useCallback(async () => {
+    const entries = Object.entries(pendingDrafts.current);
+    pendingDrafts.current = {};
+    Object.values(draftTimers.current).forEach((t) => clearTimeout(t));
+    draftTimers.current = {};
+    await Promise.all(
+      entries.map(([bloco, dados]) =>
+        protocoloService.saveRascunho(tenantSlug, slug, bloco, dados).catch(() => {}),
+      ),
+    );
+  }, [tenantSlug, slug]);
+
+  const backToList = async () => {
+    await flushDrafts();
+    queryClient.invalidateQueries({ queryKey: ["protocolo", tenantSlug, slug] });
+    queryClient.invalidateQueries({ queryKey: ["protocolos-abertos", tenantSlug] });
+    navigate(ROUTES.protocolosLista(tenantSlug, protocolType));
+  };
+
+  // Salva rascunhos pendentes também ao desmontar (header, voltar do navegador, etc.).
+  useEffect(() => {
+    return () => {
+      Object.entries(pendingDrafts.current).forEach(([bloco, dados]) =>
+        protocoloService.saveRascunho(tenantSlug, slug, bloco, dados).catch(() => {}),
+      );
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onStageDone = (msg: string) => {
     queryClient.invalidateQueries({ queryKey: ["protocolo", tenantSlug, slug] });
@@ -87,26 +94,16 @@ export default function ProtocoloForm() {
     backToList();
   };
 
-  const mTriagem = useMutation({
-    mutationFn: (p: SubmitTriagemPayload) => protocoloService.submitTriagem(tenantSlug, slug, p),
-    onSuccess: () => onStageDone("Triagem fechada."),
+  const mSubmit = useMutation({
+    mutationFn: ({ stageKey, payload }: { stageKey: string; payload: SubmitBlocoPayload }) =>
+      protocoloService.submitBloco(tenantSlug, slug, stageKey, payload),
+    onSuccess: (data, vars) => {
+      clearPending(vars.stageKey); // etapa fechada: descarta rascunho pendente dela
+      onStageDone(data.currentStage === "concluido" ? "Protocolo concluído." : "Etapa fechada.");
+    },
     onError: (e) => toast.error(extractApiError(e, "Erro ao fechar a etapa.")),
   });
-  const mEcg = useMutation({
-    mutationFn: (p: SubmitEcgPayload) => protocoloService.submitEcg(tenantSlug, slug, p),
-    onSuccess: () => onStageDone("ECG fechado."),
-    onError: (e) => toast.error(extractApiError(e, "Erro ao fechar a etapa.")),
-  });
-  const mInvestigacao = useMutation({
-    mutationFn: (p: SubmitInvestigacaoPayload) => protocoloService.submitInvestigacao(tenantSlug, slug, p),
-    onSuccess: () => onStageDone("Investigação fechada."),
-    onError: (e) => toast.error(extractApiError(e, "Erro ao fechar a etapa.")),
-  });
-  const mDesfecho = useMutation({
-    mutationFn: (p: SubmitDesfechoPayload) => protocoloService.submitDesfecho(tenantSlug, slug, p),
-    onSuccess: () => onStageDone("Protocolo concluído."),
-    onError: (e) => toast.error(extractApiError(e, "Erro ao concluir o protocolo.")),
-  });
+
   const mEncerrar = useMutation({
     mutationFn: (p: EncerrarPayload) => protocoloService.encerrar(tenantSlug, slug, p),
     onSuccess: () => { setEncerrarOpen(false); onStageDone("Protocolo encerrado."); },
@@ -115,50 +112,30 @@ export default function ProtocoloForm() {
 
   // Edição de etapa já concluída — não muda de etapa, só registra a alteração.
   const mEditar = useMutation({
-    mutationFn: ({ bloco, dados }: { bloco: BlocoKey; dados: Record<string, unknown> & { responsavelNome: string; registroProfissional: string } }) =>
-      protocoloService.editarBloco(tenantSlug, slug, bloco, dados),
+    mutationFn: ({ stageKey, dados }: { stageKey: string; dados: SubmitBlocoPayload }) =>
+      protocoloService.editarBloco(tenantSlug, slug, stageKey, dados),
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ["protocolo", tenantSlug, slug] });
-      setEditBlocos((prev) => prev.filter((k) => k !== vars.bloco));
+      setEditBlocos((prev) => prev.filter((k) => k !== vars.stageKey));
       toast.success("Alterações salvas.");
     },
     onError: (e) => toast.error(extractApiError(e, "Erro ao salvar alterações.")),
   });
 
-  // Auto-save de rascunho (debounce) — guarda timers e o último valor por bloco,
-  // para poder "descarregar" (flush) o que ainda não foi salvo ao sair da página.
-  const draftTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const pendingDrafts = useRef<Partial<Record<RascunhoBloco, Record<string, unknown>>>>({});
+  // Auto-save de rascunho (debounce) — registra o último estado pendente por etapa.
   const saveDraft = useCallback(
-    (bloco: RascunhoBloco, dados: Record<string, unknown>) => {
+    (bloco: string, dados: Record<string, unknown>) => {
       pendingDrafts.current[bloco] = dados;
       clearTimeout(draftTimers.current[bloco]);
       draftTimers.current[bloco] = setTimeout(() => {
         const d = pendingDrafts.current[bloco];
-        if (!d) return;
         delete pendingDrafts.current[bloco];
-        protocoloService.saveRascunho(tenantSlug, slug, bloco, d).catch(() => {});
+        delete draftTimers.current[bloco];
+        if (d) protocoloService.saveRascunho(tenantSlug, slug, bloco, d).catch(() => {});
       }, 800);
     },
     [tenantSlug, slug],
   );
-
-  // Salva imediatamente todos os rascunhos pendentes — evita perder os últimos
-  // campos digitados antes do debounce ao voltar para a lista ou desmontar a tela.
-  const flushDrafts = useCallback(() => {
-    (Object.keys(pendingDrafts.current) as RascunhoBloco[]).forEach((bloco) => {
-      const d = pendingDrafts.current[bloco];
-      clearTimeout(draftTimers.current[bloco]);
-      if (d) protocoloService.saveRascunho(tenantSlug, slug, bloco, d).catch(() => {});
-    });
-    pendingDrafts.current = {};
-  }, [tenantSlug, slug]);
-  // Mantém a ref de flush sempre atualizada (sem acessar ref durante o render).
-  useEffect(() => {
-    flushRef.current = flushDrafts;
-  }, [flushDrafts]);
-  // Flush ao desmontar (navegar para fora por qualquer caminho).
-  useEffect(() => () => flushRef.current(), []);
 
   // Histórico ordenado do mais recente ao mais antigo (memoizado).
   const historicoOrdenado = useMemo(
@@ -174,9 +151,16 @@ export default function ProtocoloForm() {
     );
   }
 
-  const currentIndex = ORDER[protocolo.currentStage];
+  const def = getProtocoloDef(protocolo.protocolType);
+  const variante = protocolo.variante || undefined;
+
+  // Uma etapa está FECHADA quando há bloco salvo (blocos[key]); rascunho não conta.
+  const isClosed = (b: string) => (protocolo.blocos?.[b] ?? null) != null;
   const concluido = protocolo.currentStage === "concluido";
-  const activeKey = concluido ? null : (protocolo.currentStage as BlocoKey);
+  const activeKey = concluido ? null : protocolo.currentStage;
+  const closedKeys = def.stages.filter(isClosed);
+  // Etapas livres: demais etapas ainda não fechadas (além da atual) podem ser preenchidas/fechadas fora de ordem.
+  const outrasEtapas = def.stages.filter((b) => !isClosed(b) && b !== protocolo.currentStage);
   // Operador e médico preenchem etapas; admins/globais só visualizam.
   const canEdit = user?.role === "protocolo_operador" || user?.role === "protocolo_medico";
   // Encerrar antecipadamente: somente médico.
@@ -184,44 +168,43 @@ export default function ProtocoloForm() {
   // Identidade do responsável vem do usuário logado (sem digitar a cada etapa).
   const responsavel = { nome: user?.name ?? "", registro: user?.registroProfissional ?? "" };
 
-  // Configuração por bloco: dado salvo, rascunho e mutação de fechamento.
-  const blocoConfig: Record<BlocoKey, { initial: unknown; rascunho: unknown; mutate: (p: never) => void; pending: boolean }> = {
-    triagem: { initial: protocolo.triagem, rascunho: protocolo.triagemRascunho, mutate: (p) => mTriagem.mutate(p), pending: mTriagem.isPending },
-    ecg: { initial: protocolo.ecg, rascunho: protocolo.ecgRascunho, mutate: (p) => mEcg.mutate(p), pending: mEcg.isPending },
-    investigacao: { initial: protocolo.investigacao, rascunho: protocolo.investigacaoRascunho, mutate: (p) => mInvestigacao.mutate(p), pending: mInvestigacao.isPending },
-    desfecho: { initial: protocolo.desfecho, rascunho: protocolo.desfechoRascunho, mutate: (p) => mDesfecho.mutate(p), pending: mDesfecho.isPending },
-  };
+  const blocoInicial = (key: string) => (protocolo.blocos?.[key] ?? null) as unknown;
+  const blocoRascunho = (key: string) => (protocolo.rascunhos?.[key] ?? null) as unknown;
 
-  // mode: "view" = leitura · "fill" = preencher etapa atual (fecha) · "edit" = editar etapa
-  // concluída · "draft" = adiantar etapa futura (só rascunho, fecha quando for a vez dela)
-  const renderBlock = (key: BlocoKey, mode: "view" | "fill" | "edit" | "draft") => {
-    const cfg = blocoConfig[key];
-    const Form = BLOCO_FORM[key] as React.ComponentType<BlocoFormCommonProps>;
-    const editando = mode === "edit";
-    const onSubmit = editando
+  // mode: "view" = leitura · "fill" = preencher etapa atual · "edit" = editar concluída · "draft" = adiantar (rascunho)
+  const renderBlock = (key: string, mode: "view" | "fill" | "edit" | "draft") => {
+    const Form = def.blockForm[key] as React.ComponentType<BlocoFormCommonProps>;
+    if (!Form) return null;
+    const emEdicao = mode === "edit";
+    const onSubmit = emEdicao
       ? (dados: Record<string, unknown>) =>
-          mEditar.mutate({ bloco: key, dados: { ...dados, responsavelNome: responsavel.nome, registroProfissional: responsavel.registro } })
-      : (cfg.mutate as (p: Record<string, unknown>) => void);
+          mEditar.mutate({ stageKey: key, dados: { ...dados, responsavelNome: responsavel.nome, registroProfissional: responsavel.registro } as SubmitBlocoPayload })
+      : (dados: Record<string, unknown>) =>
+          mSubmit.mutate({ stageKey: key, payload: dados as SubmitBlocoPayload });
     const draftProps =
       mode === "fill" || mode === "draft"
-        ? { rascunho: cfg.rascunho, onDraftChange: (d: Record<string, unknown>) => saveDraft(key, d) }
+        ? {
+            rascunho: blocoRascunho(key),
+            onDraftChange: (d: Record<string, unknown>) => saveDraft(key, d),
+            draftOnly: mode === "draft",
+          }
         : {};
     return (
       <Form
-        initial={cfg.initial}
+        initial={blocoInicial(key)}
         readOnly={mode === "view"}
-        draftOnly={mode === "draft"}
-        submitLabel={editando ? "Salvar alterações" : undefined}
-        submitting={cfg.pending || mEditar.isPending}
+        submitLabel={emEdicao ? "Salvar alterações" : undefined}
+        submitting={mSubmit.isPending || mEditar.isPending}
         onSubmit={onSubmit}
         responsavel={responsavel}
+        variante={variante}
         {...draftProps}
       />
     );
   };
 
   /** Cabeçalho de uma etapa concluída com botão de editar (operador/médico). */
-  const ClosedStageBody = (b: BlocoKey) => {
+  const ClosedStageBody = (b: string) => {
     const emEdicao = editBlocos.includes(b);
     return (
       <>
@@ -237,6 +220,9 @@ export default function ProtocoloForm() {
     );
   };
 
+  const sexoLabel = ({ M: "Masculino", F: "Feminino", O: "Outro" } as Record<string, string>)[protocolo.sexo] ?? protocolo.sexo;
+  const varianteLabel = variante === "pediatrico" ? "Pediátrico" : variante === "adulto" ? "Adulto" : "";
+
   const PatientHeader = (
     <Card shadow="sm">
       <div className="flex items-start justify-between gap-3">
@@ -245,12 +231,14 @@ export default function ProtocoloForm() {
           <Text variant="caption" className="text-gray-300">
             {protocolo.numeroProntuario && `Prontuário ${protocolo.numeroProntuario} · `}
             {protocolo.idade && `${protocolo.idade} anos · `}
-            {protocolo.sexo && `${({ M: "Masculino", F: "Feminino", O: "Outro" } as Record<string, string>)[protocolo.sexo] ?? protocolo.sexo} · `}
+            {protocolo.pesoKg && `${protocolo.pesoKg} kg · `}
+            {varianteLabel && `${varianteLabel} · `}
+            {protocolo.sexo && `${sexoLabel} · `}
             {protocolo.dataAtendimento && `Atend. ${protocolo.dataAtendimento} · `}
             {protocolo.horaChegada && `Chegada ${protocolo.horaChegada}`}
           </Text>
         </div>
-        <StageBadge stage={protocolo.currentStage} />
+        <StageBadge stage={protocolo.currentStage} protocolType={protocolo.protocolType} />
       </div>
     </Card>
   );
@@ -264,7 +252,7 @@ export default function ProtocoloForm() {
       </div>
       <div className="flex flex-col gap-1.5 mt-2">
         {historicoOrdenado.map((a, i) => (
-          <HistoricoLinha key={i} acao={a} />
+          <HistoricoLinha key={i} acao={a} def={def} />
         ))}
       </div>
     </Card>
@@ -275,7 +263,7 @@ export default function ProtocoloForm() {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <Text variant="body-sm-bold" className="text-gray-400">Encerrar protocolo</Text>
-          <Text variant="caption" className="text-gray-300">Por não-continuidade ou não-indicação (somente médico).</Text>
+          <Text variant="caption" className="text-gray-300">Por não-continuidade ou não-indicação.</Text>
         </div>
         <Button variant="outline" size="sm" onClick={() => setEncerrarOpen(true)}>
           <Ban size={16} /> Encerrar
@@ -284,60 +272,58 @@ export default function ProtocoloForm() {
     </Card>
   );
 
-  // Etapas que não são a atual: concluídas (ver/editar) e futuras (adiantar como rascunho).
-  // Operador/médico podem preencher qualquer uma sem fechar a etapa atual; o fechamento
-  // oficial continua na ordem do fluxo.
-  const nonActiveBlocos = BLOCOS.filter((b) => b !== activeKey);
-  const OutrasEtapas = !concluido && nonActiveBlocos.length > 0 && (
-    <div className="flex flex-col gap-3">
-      <Text variant="body-sm-bold" className="text-gray-300 px-1">Outras etapas</Text>
-      {nonActiveBlocos.map((b) => {
-        const isCompleted = ORDER[b] < currentIndex;
-        const open = openBlocos.includes(b);
-        const temRascunho = !!blocoConfig[b].rascunho;
-        return (
-          <Card key={b} shadow="sm">
-            <button
-              type="button"
-              onClick={() => toggleBloco(b)}
-              className="w-full flex items-center justify-between gap-3 text-left"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                {isCompleted ? (
-                  <Check size={16} className="text-green-base shrink-0" />
-                ) : (
-                  <span className="w-3 h-3 rounded-full border-2 border-gray-200 shrink-0" />
-                )}
-                <div className="min-w-0">
-                  <Text variant="body-md-bold" className="text-gray-400">{STAGE_META[b].titulo}</Text>
-                  <Text variant="caption" className="text-gray-300 block truncate">
-                    {isCompleted
-                      ? "Concluída — toque para ver ou editar"
-                      : canEdit
-                        ? temRascunho
-                          ? "Rascunho salvo — toque para continuar"
-                          : "Adiantar preenchimento (rascunho)"
-                        : "Ainda não iniciada"}
-                  </Text>
-                </div>
-              </div>
-              {open ? <ChevronUp size={18} className="text-gray-300 shrink-0" /> : <ChevronDown size={18} className="text-gray-300 shrink-0" />}
-            </button>
-            {open && (
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                {isCompleted ? (
-                  ClosedStageBody(b)
-                ) : canEdit ? (
-                  renderBlock(b, "draft")
-                ) : (
-                  <Text variant="body-sm" className="text-gray-300">Etapa ainda não iniciada.</Text>
+  // Etapas livres: preencher/fechar as demais etapas fora de ordem (sem fechar a atual).
+  // Com registro profissional → pode fechar direto (campos obrigatórios preenchidos);
+  // sem registro → só rascunho (salvo automaticamente).
+  const ProximasEtapas = canEdit && !concluido && outrasEtapas.length > 0 && (
+    <Card shadow="sm" padding="sm">
+      <button
+        type="button"
+        onClick={() => setVerProximas((v) => !v)}
+        className="w-full flex items-center justify-between gap-2 text-left px-2 py-1"
+      >
+        <div className="flex items-center gap-2">
+          <FastForward size={16} className="text-teal-base" />
+          <Text variant="body-sm-bold" className="text-gray-300">
+            Outras etapas ({outrasEtapas.length})
+          </Text>
+        </div>
+        {verProximas ? <ChevronUp size={18} className="text-gray-300" /> : <ChevronDown size={18} className="text-gray-300" />}
+      </button>
+      {verProximas && (
+        <div className="flex flex-col gap-3 mt-3">
+          <Text variant="caption" className="text-gray-300 px-2">
+            Você pode preencher e <b>fechar qualquer etapa fora de ordem</b>, desde que os campos
+            obrigatórios estejam preenchidos — sem precisar fechar a etapa atual primeiro.
+          </Text>
+          {outrasEtapas.map((b) => {
+            const aberta = proximasAbertas.includes(b);
+            return (
+              <div key={b} className="border-t border-gray-100 pt-3">
+                <button
+                  type="button"
+                  onClick={() => toggleProxima(b)}
+                  className="w-full flex items-center justify-between gap-2 text-left"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {blocoRascunho(b) ? (
+                      <span className="protocolo-open-dot" title="Rascunho salvo" />
+                    ) : (
+                      <span className="w-2.5 h-2.5 rounded-full border-2 border-gray-200 shrink-0" />
+                    )}
+                    <Text variant="body-md-bold" className="text-gray-400">{def.stageMeta[b]?.titulo ?? b}</Text>
+                  </div>
+                  {aberta ? <ChevronUp size={18} className="text-gray-300" /> : <ChevronDown size={18} className="text-gray-300" />}
+                </button>
+                {aberta && (
+                  <div className="mt-2">{renderBlock(b, responsavel.registro ? "fill" : "draft")}</div>
                 )}
               </div>
-            )}
-          </Card>
-        );
-      })}
-    </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 
   return (
@@ -370,7 +356,7 @@ export default function ProtocoloForm() {
                 <Text variant="caption" className="text-red-base/80">
                   Por {protocolo.encerramento.encerradoPorNome}
                   {protocolo.encerramento.encerradoPorRegistro ? ` (${protocolo.encerramento.encerradoPorRegistro})` : ""}
-                  {" · etapa "}{STAGE_META[protocolo.encerramento.etapaNoEncerramento as BlocoKey]?.titulo ?? protocolo.encerramento.etapaNoEncerramento}
+                  {" · etapa "}{def.stageMeta[protocolo.encerramento.etapaNoEncerramento]?.titulo ?? protocolo.encerramento.etapaNoEncerramento}
                 </Text>
               </div>
             ) : (
@@ -379,8 +365,8 @@ export default function ProtocoloForm() {
                 <Text variant="body-sm-bold" className="text-green-base">Protocolo concluído.</Text>
               </div>
             )}
-            {BLOCOS.map((b) => {
-              const bloco = protocolo[b];
+            {def.stages.map((b) => {
+              const bloco = blocoInicial(b) as { responsavelNome?: string; registroProfissional?: string } | null;
               const open = openBlocos.includes(b);
               return (
                 <Card key={b} shadow="sm">
@@ -392,7 +378,7 @@ export default function ProtocoloForm() {
                     <div className="flex items-center gap-2 min-w-0">
                       {bloco ? <Check size={16} className="text-green-base shrink-0" /> : <span className="w-3 h-3 rounded-full border-2 border-gray-200 shrink-0" />}
                       <div className="min-w-0">
-                        <Text variant="body-md-bold" className="text-gray-400">{STAGE_META[b].titulo}</Text>
+                        <Text variant="body-md-bold" className="text-gray-400">{def.stageMeta[b]?.titulo ?? b}</Text>
                         {bloco && (
                           <Text variant="caption" className="text-gray-300 block truncate">
                             {bloco.responsavelNome}
@@ -415,57 +401,91 @@ export default function ProtocoloForm() {
           </>
         )}
 
-        {/* ETAPA EM ABERTO (não concluído): etapa atual + outras etapas (rascunho/edição) */}
-        {!concluido && activeKey && (
+        {/* ETAPA EM ABERTO — antes de começar a editar */}
+        {!concluido && activeKey && !editando && (
           <>
-            {!editando ? (
-              <Card shadow="sm" className="border-2 border-teal-light">
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2">
-                    <Stethoscope size={20} className="text-teal-base" />
-                    <span className="protocolo-open-dot" title="Etapa em andamento" />
-                    <Text variant="body-md-bold" className="text-gray-400">
-                      {canEdit ? "Etapa em andamento" : "Etapa em aberto"}: {STAGE_META[activeKey].titulo}
-                    </Text>
-                  </div>
+            <Card shadow="sm" className="border-2 border-teal-light">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <Stethoscope size={20} className="text-teal-base" />
+                  <span className="protocolo-open-dot" title="Etapa em andamento" />
+                  <Text variant="body-md-bold" className="text-gray-400">
+                    {canEdit ? "Etapa em andamento" : "Etapa em aberto"}: {def.stageMeta[activeKey]?.titulo ?? activeKey}
+                  </Text>
+                </div>
+                <Text variant="body-sm" className="text-gray-300">
+                  Responsável: {def.stageMeta[activeKey]?.equipe}
+                </Text>
+                {canEdit ? (
+                  <>
+                    {!responsavel.registro && (
+                      <Text variant="caption" className="text-amber-600">
+                        Seu cadastro não tem registro profissional. Peça ao administrador para incluí-lo.
+                      </Text>
+                    )}
+                    <Button className="self-start" onClick={() => (responsavel.registro ? setEditando(true) : setGateOpen(true))}>
+                      Continuar etapa {def.stageMeta[activeKey]?.titulo ?? activeKey}
+                    </Button>
+                  </>
+                ) : (
                   <Text variant="body-sm" className="text-gray-300">
-                    Responsável: {STAGE_META[activeKey].equipe}
+                    O preenchimento desta etapa é feito pelo operador/médico.
                   </Text>
-                  {canEdit ? (
-                    <>
-                      {!responsavel.registro && (
-                        <Text variant="caption" className="text-amber-600">
-                          Seu cadastro não tem registro profissional. Peça ao administrador para incluí-lo.
-                        </Text>
-                      )}
-                      <Button className="self-start" onClick={() => (responsavel.registro ? setEditando(true) : setGateOpen(true))}>
-                        Continuar etapa {STAGE_META[activeKey].titulo}
-                      </Button>
-                    </>
-                  ) : (
-                    <Text variant="body-sm" className="text-gray-300">
-                      O preenchimento desta etapa é feito pelo operador/médico.
-                    </Text>
-                  )}
-                </div>
-              </Card>
-            ) : canEdit ? (
-              <Card shadow="sm" className="border-2 border-teal-light">
-                <div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <span className="protocolo-open-dot" title="Etapa em andamento" />
-                    <Text variant="body-md-bold" className="text-gray-400">{STAGE_META[activeKey].titulo}</Text>
+                )}
+              </div>
+            </Card>
+
+            {/* Etapas já fechadas (recolhidas) */}
+            {closedKeys.length > 0 && (
+              <Card shadow="sm" padding="sm">
+                <button
+                  type="button"
+                  onClick={() => setVerConcluidas((v) => !v)}
+                  className="w-full flex items-center justify-between gap-2 text-left px-2 py-1"
+                >
+                  <Text variant="body-sm-bold" className="text-gray-300">
+                    Ver etapas concluídas ({closedKeys.length})
+                  </Text>
+                  {verConcluidas ? <ChevronUp size={18} className="text-gray-300" /> : <ChevronDown size={18} className="text-gray-300" />}
+                </button>
+                {verConcluidas && (
+                  <div className="flex flex-col gap-4 mt-3">
+                    {closedKeys.map((b) => (
+                      <div key={b} className="border-t border-gray-100 pt-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Check size={16} className="text-green-base" />
+                          <Text variant="body-md-bold" className="text-gray-400">{def.stageMeta[b]?.titulo ?? b}</Text>
+                        </div>
+                        {ClosedStageBody(b)}
+                      </div>
+                    ))}
                   </div>
-                  <Text variant="caption" className="text-gray-300">
-                    {responsavel.nome}{responsavel.registro ? ` · ${responsavel.registro}` : ""}
-                  </Text>
-                </div>
-                {renderBlock(activeKey, "fill")}
+                )}
               </Card>
-            ) : null}
+            )}
 
-            {OutrasEtapas}
+            {ProximasEtapas}
+            {HistoricoResumo}
+            {EncerrarBar}
+          </>
+        )}
 
+        {/* FORMULÁRIO da etapa (após confirmar) — operador/médico */}
+        {!concluido && activeKey && editando && canEdit && (
+          <>
+            <Card shadow="sm" className="border-2 border-teal-light">
+              <div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <span className="protocolo-open-dot" title="Etapa em andamento" />
+                  <Text variant="body-md-bold" className="text-gray-400">{def.stageMeta[activeKey]?.titulo ?? activeKey}</Text>
+                </div>
+                <Text variant="caption" className="text-gray-300">
+                  {responsavel.nome}{responsavel.registro ? ` · ${responsavel.registro}` : ""}
+                </Text>
+              </div>
+              {renderBlock(activeKey, "fill")}
+            </Card>
+            {ProximasEtapas}
             {HistoricoResumo}
             {EncerrarBar}
           </>
@@ -503,19 +523,19 @@ export default function ProtocoloForm() {
 }
 
 /** Chip (flag) de uma alteração: "Campo  de → para". */
-function ChangeFlag({ campo, de, para }: { campo: string; de: string; para: string }) {
+function ChangeFlag({ campo, de, para, def }: { campo: string; de: string; para: string; def: ProtocoloDef }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[11px] font-sans">
-      <span className="font-semibold text-amber-700">{labelCampo(campo)}</span>
-      <span className="text-gray-300 line-through">{labelValor(de)}</span>
+      <span className="font-semibold text-amber-700">{def.labelCampo(campo)}</span>
+      <span className="text-gray-300 line-through">{def.labelValor(de)}</span>
       <span className="text-amber-600">→</span>
-      <span className="font-semibold text-amber-700">{labelValor(para)}</span>
+      <span className="font-semibold text-amber-700">{def.labelValor(para)}</span>
     </span>
   );
 }
 
 /** Linha do histórico: "Quem · ação · Etapa — data" + flags de mudança. */
-function HistoricoLinha({ acao }: { acao: RegistroAcao }) {
+function HistoricoLinha({ acao, def }: { acao: RegistroAcao; def: ProtocoloDef }) {
   const fechou = acao.tipo === "fechamento";
   const quem = `${acao.porNome}${acao.porRegistro ? ` (${acao.porRegistro})` : ""}`;
   const campos = acao.campos ?? [];
@@ -526,13 +546,13 @@ function HistoricoLinha({ acao }: { acao: RegistroAcao }) {
         <Text variant="caption" className="text-gray-400">
           <span className="font-semibold">{quem}</span>{" "}
           {fechou ? "fechou" : "editou"}{" "}
-          <span className="font-semibold">{BLOCO_TITULO[acao.bloco]}</span>
+          <span className="font-semibold">{def.stageMeta[acao.bloco]?.titulo ?? acao.bloco}</span>
           {" · "}<span className="text-gray-300">{fmtDataHora(acao.em)}</span>
         </Text>
         {!fechou && campos.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {campos.map((c, i) => (
-              <ChangeFlag key={i} campo={c.campo} de={c.de} para={c.para} />
+              <ChangeFlag key={i} campo={c.campo} de={c.de} para={c.para} def={def} />
             ))}
           </div>
         )}

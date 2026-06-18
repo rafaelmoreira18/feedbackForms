@@ -6,7 +6,7 @@ import TimeInput from "@/components/ui/time-input";
 import {
   SectionTitle, CheckRow, RadioPill, DateField, EtapaFechadaInfo, FecharEtapaBar, RascunhoNota,
   NumericInput, isBpValido, PendenciasBox, REQ,
-} from "./form-ui";
+} from "../form/form-ui";
 
 interface Props {
   initial: BlocoTriagem | null;

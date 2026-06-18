@@ -246,15 +246,15 @@ export function EtapaFechadaInfo({
 }
 
 /**
- * Rodapé de uma etapa preenchida em modo rascunho (adiantada antes da sua vez):
- * os campos ficam salvos automaticamente, mas o fechamento oficial só ocorre quando
- * a etapa chega a ser a etapa atual do fluxo.
+ * Rodapé de uma etapa em modo rascunho (sem registro profissional para fechar):
+ * os campos ficam salvos automaticamente; o fechamento exige registro (CRM/COREN).
  */
 export function RascunhoNota() {
   return (
     <div className="mt-2 pt-4 border-t border-gray-100">
       <Text variant="caption" className="text-gray-300">
-        ✓ Rascunho salvo automaticamente — esta etapa será fechada quando chegar a vez dela.
+        ✓ Rascunho salvo automaticamente. Para <b>fechar</b> esta etapa, seu cadastro precisa de
+        registro profissional (CRM/COREN).
       </Text>
     </div>
   );

@@ -6,23 +6,19 @@
 
 /**
  * Etapa/bloco corrente do protocolo. O preenchimento é sequencial e cada bloco,
- * ao ser fechado, libera o próximo. Só o fechamento de `desfecho` conclui o protocolo.
+ * ao ser fechado, libera o próximo. O fechamento da última etapa conclui o protocolo.
  *
- *   triagem      — aberto; aguardando a Triagem (cabeçalho + ETAPA 1: sinais vitais/queixa/Manchester)
- *   ecg          — Triagem fechada; aguardando o ECG (ETAPA 2 — feita em horário diferente)
- *   investigacao — ECG fechado; aguardando Investigação (ETAPA 3 + HEART + Dx diferenciais)
- *   desfecho     — Investigação fechada; aguardando Desfecho (ETAPA 5 + ETAPA 6 + assinaturas)
- *   concluido    — Desfecho fechado OU encerrado pelo médico; protocolo encerrado
+ * As etapas concretas dependem do tipo de protocolo (ver `protocolo-definitions.ts`):
+ *   Dor Torácica: triagem → ecg → investigacao → desfecho → concluido
+ *   Sepse:        abertura → pacote1h → reavaliacao → desfecho → concluido
+ *
+ * Mantido como `string` (a ordem/validação vive na definição do tipo), com `concluido`
+ * sempre representando o estado final.
  */
-export type ProtocoloStage =
-  | 'triagem'
-  | 'ecg'
-  | 'investigacao'
-  | 'desfecho'
-  | 'concluido';
+export type ProtocoloStage = string;
 
-/** Bloco preenchível (etapa com formulário). */
-export type BlocoKey = 'triagem' | 'ecg' | 'investigacao' | 'desfecho';
+/** Chave de um bloco preenchível (etapa com formulário). Genérica por tipo de protocolo. */
+export type BlocoKey = string;
 
 /** Profissional que fechou um bloco (nome + nº de cadastro profissional: CRM/COREN/etc.) */
 export interface ResponsavelBloco {
@@ -223,4 +219,169 @@ export interface RegistroAcao {
   porUserId: string | null;
   em: string; // ISO datetime
   campos: { campo: string; de: string; para: string }[];
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PROTOCOLO DE SEPSE (FORM SEP) — Adulto e Pediátrico
+// Etapas: abertura → pacote1h → reavaliacao → desfecho → concluido
+// A variante (adulto | pediatrico) é resolvida pela idade na abertura do paciente.
+// Os blocos abaixo carregam campos comuns + os específicos da variante; o backend
+// apenas armazena o JSON (validação fina fica no frontend).
+// ══════════════════════════════════════════════════════════════════════════════
+
+export type SepseVariante = 'adulto' | 'pediatrico' | '';
+
+export interface SepseFocoPrincipal {
+  pulmonar: boolean;
+  urinario: boolean;
+  abdominal: boolean;
+  peleMoles: boolean;
+  snc: boolean;
+  cateter: boolean;
+  endocardite: boolean; // adulto
+  naoDefinido: boolean;
+  outro: boolean;
+  outroDesc: string;
+}
+
+// ── ETAPA 1 — ABERTURA (Gatilho/Triagem + Classificação) ──────────────────────
+export interface SepseBlocoAbertura extends ResponsavelBloco {
+  horarioZeroData: string; // "YYYY-MM-DD"
+  horarioZeroHora: string; // "HH:mm"
+  focoPrincipal: SepseFocoPrincipal;
+  /** adulto: 'sepse'|'choque_septico'|'infeccao_sem_disfuncao' · pediátrico: 'sepse'|'sepse_grave'|'choque_septico' */
+  classificacao: string;
+  // Adulto — disfunções orgânicas (ILAS) / critério de abertura
+  criterioInfeccaoDisfuncao: boolean;
+  criterioSirs2: boolean;
+  disfuncoesOrganicas: {
+    hemodinamico: boolean;
+    renal: boolean;
+    respiratorio: boolean;
+    hematologico: boolean;
+    metabolico: boolean;
+    neurologico: boolean;
+    hepatico: boolean;
+    coagulopatia: boolean;
+  };
+  // Pediátrico — SIRS + sinais de hipoperfusão
+  sirsPediatrica: {
+    temperatura: boolean; // obrigatório (temp ou leucócitos)
+    taquicardia: boolean;
+    taquipneia: boolean;
+    leucocitose: boolean; // obrigatório (temp ou leucócitos)
+  };
+  sinaisHipoperfusao: {
+    tecLento: boolean; // choque frio
+    perfusaoFlash: boolean; // choque quente
+    alteracaoMental: boolean;
+    oliguria: boolean;
+    hipotensao: boolean; // sinal tardio
+  };
+}
+
+// ── ETAPA 2 — PACOTE DE 1 HORA ────────────────────────────────────────────────
+export interface SepseColeta {
+  feito: boolean;
+  hora: string; // "HH:mm"
+  valor: string;
+}
+
+export interface SepseBlocoPacote1h extends ResponsavelBloco {
+  // Adulto
+  lactato: SepseColeta;
+  hemoculturas: { feito: boolean; hora: string }; // antes do ATM
+  culturasFoco: { feito: boolean; hora: string; foco: string };
+  antimicrobiano: { hora1aDose: string };
+  reposicaoVolemica: { indicada: boolean; naoIndicada: boolean; hora: string; mlTotal: string };
+  vasopressor: { indicado: boolean; naoIndicado: boolean; hora: string; via: string; dose: string };
+  // Pediátrico — 5 passos
+  passo1Acesso: {
+    abcde: boolean;
+    o2Ofertado: boolean;
+    acessoVenoso: boolean;
+    acessoIO: boolean;
+    ioLocal: string;
+  };
+  passo2Coletas: {
+    lactato: SepseColeta;
+    hemoculturas: { feito: boolean; hora: string };
+    kitSepse: { feito: boolean; hora: string };
+    glicemia: SepseColeta; // <60 corrigir
+    calcioIonizado: SepseColeta;
+  };
+  passo3Atm: {
+    doseCalculadaMg: string;
+    hora1aDose: string;
+    via: string; // periferico | io | central
+    atmPrevio: boolean;
+  };
+  passo4Volume: {
+    bolus1: { ml: string; hora: string; tecPos: string; estertores: boolean };
+    bolus2: { ml: string; hora: string; tecPos: string; estertores: boolean };
+  };
+  passo5Vasoativo: {
+    tipoChoque: string; // frio | quente
+    droga: string; // adrenalina | noradrenalina
+    doseInicial: string;
+    hora: string;
+    via: string;
+  };
+}
+
+// ── ETAPA 3 — REAVALIAÇÃO (adulto 6h · pediátrico Phoenix + 1–2h) ──────────────
+export interface SepseMetaReav {
+  valor: string;
+  metaAtingida: string; // 'sim' | 'nao' | ''
+}
+
+export interface SepseBlocoReavaliacao extends ResponsavelBloco {
+  // Adulto — reavaliação 6h
+  reav6h: {
+    pam: SepseMetaReav;
+    tec: SepseMetaReav;
+    diurese: SepseMetaReav;
+    spo2: SepseMetaReav;
+    consciencia: SepseMetaReav;
+    glicemia: SepseMetaReav;
+  };
+  // Pediátrico — Phoenix Sepsis Score 2024
+  phoenix: {
+    respiratorio: number; // 0–3
+    cardiovascularVasoativo: number; // 0–2
+    cardiovascularLactato: number; // 0–2
+    coagulacao: number; // 0–2
+    neurologico: number; // 0–2
+    total: number;
+    classificacao: string; // 'sepse' | 'choque_septico' | 'incompleto'
+  };
+  reav1a2h: {
+    tec: SepseMetaReav;
+    diurese: SepseMetaReav;
+    pas: SepseMetaReav;
+    consciencia: SepseMetaReav;
+    spo2: SepseMetaReav;
+  };
+  recoletaLactato: { hora: string; valor: string; clareamento: string };
+}
+
+// ── ETAPA 4 — DESFECHO (Transferência UTI + Encerramento do protocolo) ─────────
+export interface SepseBlocoDesfecho extends ResponsavelBloco {
+  criteriosTransferencia: {
+    choqueVasopressor: boolean;
+    lactatoSemClareamento: boolean;
+    vniVm: boolean;
+    duasDisfuncoes: boolean;
+    deterioracao: boolean;
+    alteracaoNeuro: boolean;
+    glasgowBaixo: boolean; // pediátrico ≤11
+    phoenix2: boolean; // pediátrico
+  };
+  utiAcionadaHora: string;
+  vagaStatus: string; // 'confirmada' | 'aguardando' | 'na'
+  encerramentoTipo: string; // 'sepse_confirmada' | 'dx_alternativo' | 'infeccao_sem_disfuncao' | 'fim_de_vida' | 'transferencia'
+  dxAlternativoDesc: string;
+  dataHoraEncerramentoData: string;
+  dataHoraEncerramentoHora: string;
+  desfecho: string; // 'alta' | 'obito' | 'transferencia' | 'evento_sentinela'
 }

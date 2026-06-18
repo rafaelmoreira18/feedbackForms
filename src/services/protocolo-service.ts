@@ -2,12 +2,6 @@ import type {
   Protocolo,
   CreateProtocoloDto,
   ProtocoloMetrics,
-  ProtocoloStage,
-  BlocoTriagem,
-  BlocoEcg,
-  BlocoInvestigacao,
-  BlocoDesfecho,
-  MotivoEncerramento,
 } from '@/types'
 import { api } from './api'
 
@@ -18,28 +12,23 @@ function buildQs(params: Record<string, string | undefined>): string {
   return s ? `?${s}` : ''
 }
 
-/** Payload de fechamento de um bloco. Responsável é preenchido a partir do usuário logado. */
-export type SubmitTriagemPayload = Partial<Omit<BlocoTriagem, 'fechadoEm'>> & {
-  responsavelNome: string
-  registroProfissional: string
-}
-export type SubmitEcgPayload = Partial<Omit<BlocoEcg, 'fechadoEm'>> & {
-  responsavelNome: string
-  registroProfissional: string
-}
-export type SubmitInvestigacaoPayload = Partial<Omit<BlocoInvestigacao, 'fechadoEm'>> & {
-  responsavelNome: string
-  registroProfissional: string
-}
-export type SubmitDesfechoPayload = Partial<Omit<BlocoDesfecho, 'fechadoEm'>> & {
+/** Payload de fechamento/edição de um bloco — campos do form + responsável (do usuário logado). */
+export type SubmitBlocoPayload = Record<string, unknown> & {
   responsavelNome: string
   registroProfissional: string
 }
 
-export type RascunhoBloco = 'triagem' | 'ecg' | 'investigacao' | 'desfecho'
+// Aliases legados (Dor Torácica) — os formulários de bloco existentes os importam.
+export type SubmitTriagemPayload = SubmitBlocoPayload
+export type SubmitEcgPayload = SubmitBlocoPayload
+export type SubmitInvestigacaoPayload = SubmitBlocoPayload
+export type SubmitDesfechoPayload = SubmitBlocoPayload
+
+/** Chave de etapa (genérica por tipo de protocolo). */
+export type RascunhoBloco = string
 
 export interface EncerrarPayload {
-  motivo: Exclude<MotivoEncerramento, ''>
+  motivo: 'nao_continuidade' | 'nao_indicacao'
   observacao: string
   responsavelNome: string
   registroProfissional: string
@@ -48,15 +37,16 @@ export interface EncerrarPayload {
 export const protocoloService = {
   getAll: async (
     tenantSlug: string,
-    filters?: { stage?: ProtocoloStage | 'abertos' },
+    filters?: { protocolType?: string; stage?: string },
   ): Promise<Protocolo[]> => {
-    const qs = buildQs({ stage: filters?.stage })
+    const qs = buildQs({ protocolType: filters?.protocolType, stage: filters?.stage })
     const res = await api.get<Protocolo[]>(`tenants/${tenantSlug}/protocolos${qs}`)
     return res.data
   },
 
-  getAbertos: async (tenantSlug: string): Promise<Protocolo[]> => {
-    const res = await api.get<Protocolo[]>(`tenants/${tenantSlug}/protocolos/abertos`)
+  getAbertos: async (tenantSlug: string, protocolType?: string): Promise<Protocolo[]> => {
+    const qs = buildQs({ protocolType })
+    const res = await api.get<Protocolo[]>(`tenants/${tenantSlug}/protocolos/abertos${qs}`)
     return res.data
   },
 
@@ -70,63 +60,41 @@ export const protocoloService = {
     return res.data
   },
 
-  submitTriagem: async (
+  /** Fecha a etapa corrente (avança o protocolo). */
+  submitBloco: async (
     tenantSlug: string,
     slug: string,
-    payload: SubmitTriagemPayload,
-  ): Promise<Protocolo> => {
-    const res = await api.patch<Protocolo>(`tenants/${tenantSlug}/protocolos/${slug}/triagem`, payload)
-    return res.data
-  },
-
-  submitEcg: async (
-    tenantSlug: string,
-    slug: string,
-    payload: SubmitEcgPayload,
-  ): Promise<Protocolo> => {
-    const res = await api.patch<Protocolo>(`tenants/${tenantSlug}/protocolos/${slug}/ecg`, payload)
-    return res.data
-  },
-
-  submitInvestigacao: async (
-    tenantSlug: string,
-    slug: string,
-    payload: SubmitInvestigacaoPayload,
+    stageKey: string,
+    payload: SubmitBlocoPayload,
   ): Promise<Protocolo> => {
     const res = await api.patch<Protocolo>(
-      `tenants/${tenantSlug}/protocolos/${slug}/investigacao`,
+      `tenants/${tenantSlug}/protocolos/${slug}/blocos/${stageKey}`,
       payload,
     )
     return res.data
   },
 
-  submitDesfecho: async (
-    tenantSlug: string,
-    slug: string,
-    payload: SubmitDesfechoPayload,
-  ): Promise<Protocolo> => {
-    const res = await api.patch<Protocolo>(`tenants/${tenantSlug}/protocolos/${slug}/desfecho`, payload)
-    return res.data
-  },
-
-  /** Edita uma etapa já concluída (registra autor/hora/campos no histórico). */
+  /** Edita uma etapa já fechada (registra autor/hora/campos no histórico). */
   editarBloco: async (
     tenantSlug: string,
     slug: string,
-    bloco: RascunhoBloco,
-    payload: Record<string, unknown> & { responsavelNome: string; registroProfissional: string },
+    stageKey: string,
+    payload: SubmitBlocoPayload,
   ): Promise<Protocolo> => {
-    const res = await api.patch<Protocolo>(`tenants/${tenantSlug}/protocolos/${slug}/${bloco}/editar`, payload)
+    const res = await api.patch<Protocolo>(
+      `tenants/${tenantSlug}/protocolos/${slug}/blocos/${stageKey}/editar`,
+      payload,
+    )
     return res.data
   },
 
   saveRascunho: async (
     tenantSlug: string,
     slug: string,
-    bloco: RascunhoBloco,
+    stageKey: string,
     dados: Record<string, unknown>,
   ): Promise<void> => {
-    await api.patch(`tenants/${tenantSlug}/protocolos/${slug}/${bloco}/rascunho`, { dados })
+    await api.patch(`tenants/${tenantSlug}/protocolos/${slug}/blocos/${stageKey}/rascunho`, { dados })
   },
 
   encerrar: async (
@@ -142,12 +110,16 @@ export const protocoloService = {
     await api.delete(`tenants/${tenantSlug}/protocolos/${slug}`)
   },
 
-  getMetrics: async (
+  getMetrics: async <T = ProtocoloMetrics>(
     tenantSlug: string,
-    filters?: { startDate?: string; endDate?: string },
-  ): Promise<ProtocoloMetrics> => {
-    const qs = buildQs({ startDate: filters?.startDate, endDate: filters?.endDate })
-    const res = await api.get<ProtocoloMetrics>(`tenants/${tenantSlug}/protocolos/metrics${qs}`)
+    filters?: { protocolType?: string; startDate?: string; endDate?: string },
+  ): Promise<T> => {
+    const qs = buildQs({
+      protocolType: filters?.protocolType,
+      startDate: filters?.startDate,
+      endDate: filters?.endDate,
+    })
+    const res = await api.get<T>(`tenants/${tenantSlug}/protocolos/metrics${qs}`)
     return res.data
   },
 }

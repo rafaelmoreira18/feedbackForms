@@ -5,27 +5,31 @@ import { useAuth } from "@/contexts/auth-context";
 import { protocoloService } from "@/services/protocolo-service";
 import { tenantService } from "@/services/tenant-service";
 import { ROUTES } from "@/routes";
-import type { Protocolo, ProtocoloStage } from "@/types";
+import type { Protocolo } from "@/types";
 import Text from "@/components/ui/text";
 import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
 import Select from "@/components/ui/select";
-import { Users, Plus, ClipboardPlus } from "lucide-react";
-import { STAGE_LABEL, STAGE_STYLE } from "./constants";
+import { Users, Plus, ClipboardPlus, ArrowLeft } from "lucide-react";
+import { getProtocoloDef } from "./registry";
 import NovoPacienteModal from "./novo-paciente-modal";
 
-export function StageBadge({ stage }: { stage: ProtocoloStage }) {
+export function StageBadge({ stage, protocolType }: { stage: string; protocolType?: string }) {
+  const def = getProtocoloDef(protocolType);
   return (
-    <span className={`text-xs font-semibold font-sans px-2.5 py-1 rounded-full ${STAGE_STYLE[stage]}`}>
-      {STAGE_LABEL[stage]}
+    <span className={`text-xs font-semibold font-sans px-2.5 py-1 rounded-full ${def.stageStyle[stage] ?? "bg-gray-200 text-gray-500"}`}>
+      {def.stageLabel[stage] ?? stage}
     </span>
   );
 }
 
 export default function ProtocolosHome() {
-  const { tenantSlug: slugFromUrl } = useParams<{ tenantSlug: string }>();
+  const { tenantSlug: slugFromUrl, protocolType = "dor_toracica" } = useParams<{
+    tenantSlug: string; protocolType: string;
+  }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const def = getProtocoloDef(protocolType);
 
   const isGlobal =
     user?.role === "protocolo_admin_global" || user?.role === "holding_admin";
@@ -51,17 +55,25 @@ export default function ProtocolosHome() {
   );
 
   const { data: abertos = [], isLoading } = useQuery({
-    queryKey: ["protocolos-abertos", tenantSlug],
-    queryFn: () => protocoloService.getAbertos(tenantSlug),
+    queryKey: ["protocolos-abertos", tenantSlug, protocolType],
+    queryFn: () => protocoloService.getAbertos(tenantSlug, protocolType),
     enabled: !!tenantSlug,
   });
 
   return (
     <div className="min-h-screen">
       <div className="max-w-3xl mx-auto px-4 pt-6 flex flex-col gap-5">
+        <button
+          type="button"
+          onClick={() => navigate(ROUTES.protocolos(slugFromUrl))}
+          className="flex items-center gap-1.5 text-teal-base hover:text-teal-dark text-sm font-semibold font-sans self-start"
+        >
+          <ArrowLeft size={16} /> Protocolos
+        </button>
+
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <Text variant="heading-md" className="text-gray-400">Protocolo de Dor Torácica</Text>
+            <Text variant="heading-md" className="text-gray-400">{def.label}</Text>
             <Text variant="body-sm" className="text-gray-300">Protocolos em aberto da unidade</Text>
           </div>
           <div className="flex items-center gap-2">
@@ -133,7 +145,7 @@ export default function ProtocolosHome() {
             >
               <button
                 type="button"
-                onClick={() => navigate(ROUTES.protocoloForm(tenantSlug, p.slug))}
+                onClick={() => navigate(ROUTES.protocoloForm(tenantSlug, protocolType, p.slug))}
                 className="w-full flex items-center justify-between gap-4 text-left"
               >
                 <div className="min-w-0">
@@ -146,7 +158,7 @@ export default function ProtocolosHome() {
                   </Text>
                 </div>
                 <span className="flex items-center gap-2 shrink-0">
-                  <StageBadge stage={p.currentStage} />
+                  <StageBadge stage={p.currentStage} protocolType={p.protocolType} />
                   <span
                     className="protocolo-open-dot"
                     title="Protocolo em aberto"
@@ -162,10 +174,11 @@ export default function ProtocolosHome() {
       {showNovo && tenantSlug && (
         <NovoPacienteModal
           tenantSlug={tenantSlug}
+          protocolType={protocolType}
           onClose={() => setShowNovo(false)}
           onCreated={(p) => {
             setShowNovo(false);
-            navigate(ROUTES.protocoloForm(tenantSlug, p.slug));
+            navigate(ROUTES.protocoloForm(tenantSlug, protocolType, p.slug));
           }}
         />
       )}

@@ -13,6 +13,7 @@ import Select from "@/components/ui/select";
 import DateInput from "@/components/ui/date-input";
 import Button from "@/components/ui/button";
 import { CheckCircle2, ClipboardCheck, X } from "lucide-react";
+import { ALL_PROTOCOLOS, getProtocoloDef } from "../registry";
 
 /** Data de referência do protocolo para filtro/ordenação (atendimento ou criação). */
 function refDate(p: Protocolo): string {
@@ -29,6 +30,7 @@ export default function ProtocolosConcluidos() {
   const [selectedSlug, setSelectedSlug] = useState(user?.tenantSlug ?? "");
   const tenantSlug = slugFromUrl ?? user?.tenantSlug ?? selectedSlug;
 
+  const [protocolType, setProtocolType] = useState("dor_toracica");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -44,8 +46,8 @@ export default function ProtocolosConcluidos() {
   );
 
   const { data: concluidos = [], isLoading } = useQuery({
-    queryKey: ["protocolos-concluidos", tenantSlug],
-    queryFn: () => protocoloService.getAll(tenantSlug, { stage: "concluido" }),
+    queryKey: ["protocolos-concluidos", tenantSlug, protocolType],
+    queryFn: () => protocoloService.getAll(tenantSlug, { protocolType, stage: "concluido" }),
     enabled: !!tenantSlug,
   });
 
@@ -71,13 +73,19 @@ export default function ProtocolosConcluidos() {
         <div className="flex items-center gap-2">
           <ClipboardCheck size={22} className="text-teal-base" />
           <Text variant="heading-md" className="text-gray-400">
-            Protocolos Concluídos — Dor Torácica
+            Protocolos Concluídos — {getProtocoloDef(protocolType).shortLabel}
           </Text>
         </div>
 
         <Card shadow="sm">
           <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <Select
+                label="Protocolo"
+                options={ALL_PROTOCOLOS.map((d) => ({ value: d.type, label: d.shortLabel }))}
+                value={protocolType}
+                onChange={(e) => setProtocolType(e.target.value)}
+              />
               {isGlobal && !slugFromUrl && (
                 <Select
                   label="Unidade"
@@ -132,7 +140,7 @@ export default function ProtocolosConcluidos() {
                     {filtrados.map((p) => (
                       <div
                         key={p.id}
-                        onClick={() => navigate(ROUTES.protocoloForm(tenantSlug, p.slug))}
+                        onClick={() => navigate(ROUTES.protocoloForm(tenantSlug, protocolType, p.slug))}
                         className="border border-gray-200 rounded-lg p-4 cursor-pointer active:bg-gray-50"
                       >
                         <div className="flex justify-between items-start mb-1">
@@ -166,7 +174,7 @@ export default function ProtocolosConcluidos() {
                         {filtrados.map((p) => (
                           <tr
                             key={p.id}
-                            onClick={() => navigate(ROUTES.protocoloForm(tenantSlug, p.slug))}
+                            onClick={() => navigate(ROUTES.protocoloForm(tenantSlug, protocolType, p.slug))}
                             className="border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
                           >
                             <td className="py-3 pr-4 font-sans text-sm text-gray-400 font-semibold">{p.pacienteNome}</td>

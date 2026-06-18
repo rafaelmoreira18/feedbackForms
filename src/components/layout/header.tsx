@@ -23,6 +23,10 @@ export default function Header() {
     user?.role === 'protocolo_admin' || user?.role === 'protocolo_admin_global';
   const isDashboard = location.pathname === "/dashboard";
 
+  // Protocolo selecionado (a partir da URL) — para o seletor de troca de protocolo.
+  const protoMatch = location.pathname.match(/\/protocolos\/(dor_toracica|sepse)\b/);
+  const currentProto = protoMatch?.[1] ?? "";
+
   const { data: allTenants = [] } = useQuery({
     queryKey: ["tenants"],
     queryFn: tenantService.getAll,
@@ -101,7 +105,23 @@ export default function Header() {
               </button>
             )}
 
-            {/* Protocolos — perfis do módulo de protocolos */}
+            {/* Seletor de protocolo — troca rápida entre Dor Torácica e Sepse */}
+            {isProtocolo && (
+              <select
+                value={currentProto}
+                onChange={(e) => {
+                  if (e.target.value) navigate(ROUTES.protocolosLista(user.tenantSlug ?? undefined, e.target.value));
+                }}
+                title="Trocar protocolo"
+                className="text-sm font-sans border border-gray-200 rounded-xl px-3 py-2 text-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-teal-base"
+              >
+                <option value="">Protocolo...</option>
+                <option value="dor_toracica">Dor Torácica</option>
+                <option value="sepse">Sepse</option>
+              </select>
+            )}
+
+            {/* Protocolos — perfis do módulo de protocolos (volta à home de cards) */}
             {isProtocolo && (
               <button
                 type="button"

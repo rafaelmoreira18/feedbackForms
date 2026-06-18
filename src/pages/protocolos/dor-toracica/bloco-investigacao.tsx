@@ -3,7 +3,7 @@ import type { BlocoInvestigacao } from "@/types";
 import type { SubmitInvestigacaoPayload } from "@/services/protocolo-service";
 import TimeInput from "@/components/ui/time-input";
 import Text from "@/components/ui/text";
-import { SectionTitle, CheckRow, RadioPill, EtapaFechadaInfo, FecharEtapaBar, RascunhoNota, NumericInput, PendenciasBox, REQ } from "./form-ui";
+import { SectionTitle, CheckRow, RadioPill, EtapaFechadaInfo, FecharEtapaBar, RascunhoNota, NumericInput, PendenciasBox, REQ } from "../form/form-ui";
 
 interface Props {
   initial: BlocoInvestigacao | null;

@@ -9,16 +9,11 @@ import {
   Body,
   UseGuards,
   Req,
-  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ProtocolosService } from './protocolos.service';
 import { CreateProtocoloDto } from './dto/create-protocolo.dto';
-import { SubmitBlocoTriagemDto } from './dto/submit-bloco-triagem.dto';
-import { SubmitBlocoEcgDto } from './dto/submit-bloco-ecg.dto';
-import { SubmitBlocoInvestigacaoDto } from './dto/submit-bloco-investigacao.dto';
-import { SubmitBlocoDesfechoDto } from './dto/submit-bloco-desfecho.dto';
 import { EncerrarProtocoloDto } from './dto/encerrar-protocolo.dto';
 import { SaveRascunhoDto } from './dto/save-rascunho.dto';
 import { FilterProtocoloDto } from './dto/filter-protocolo.dto';
@@ -40,17 +35,20 @@ function auditCtx(req: Request, tenantId: string): AuditContext {
   return { tenantId, userId: user?.id ?? null, userEmail: user?.email ?? null, ipAddress: ip };
 }
 
-
 /**
- * GET    /tenants/:tenantSlug/protocolos                      — lista (operador/admin)
- * GET    /tenants/:tenantSlug/protocolos/abertos              — em aberto da unidade
- * GET    /tenants/:tenantSlug/protocolos/metrics              — indicadores (admins)
- * GET    /tenants/:tenantSlug/protocolos/:slug                — um protocolo
- * POST   /tenants/:tenantSlug/protocolos                      — novo paciente
- * PATCH  /tenants/:tenantSlug/protocolos/:slug/triagem        — fecha bloco Triagem
- * PATCH  /tenants/:tenantSlug/protocolos/:slug/investigacao   — fecha bloco Investigação
- * PATCH  /tenants/:tenantSlug/protocolos/:slug/desfecho       — fecha bloco Desfecho (conclui)
- * DELETE /tenants/:tenantSlug/protocolos/:slug                — admin global
+ * Multi-protocolo (Dor Torácica, Sepse, …). A ordem das etapas e a validação vivem na
+ * definição do tipo (protocolo-definitions.ts); os endpoints de bloco são genéricos.
+ *
+ * GET    /tenants/:tenantSlug/protocolos                       — lista (filtro por tipo/etapa)
+ * GET    /tenants/:tenantSlug/protocolos/abertos               — em aberto da unidade (por tipo)
+ * GET    /tenants/:tenantSlug/protocolos/metrics               — indicadores (por tipo, admins)
+ * GET    /tenants/:tenantSlug/protocolos/:slug                 — um protocolo
+ * POST   /tenants/:tenantSlug/protocolos                       — novo paciente (protocolType no corpo)
+ * PATCH  /tenants/:tenantSlug/protocolos/:slug/blocos/:stageKey          — fecha etapa
+ * PATCH  /tenants/:tenantSlug/protocolos/:slug/blocos/:stageKey/editar   — edita etapa fechada
+ * PATCH  /tenants/:tenantSlug/protocolos/:slug/blocos/:stageKey/rascunho — salva rascunho
+ * PATCH  /tenants/:tenantSlug/protocolos/:slug/encerrar        — encerramento antecipado (médico)
+ * DELETE /tenants/:tenantSlug/protocolos/:slug                 — admin global
  */
 @ApiTags('protocolos')
 @ApiParam({ name: 'tenantSlug', description: 'Tenant slug', example: 'hrpg' })
@@ -65,7 +63,7 @@ export class ProtocolosController extends BaseTenantController {
     super(tenantService);
   }
 
-  @ApiOperation({ summary: 'Lista protocolos da unidade (filtro opcional por etapa)' })
+  @ApiOperation({ summary: 'Lista protocolos da unidade (filtro opcional por tipo/etapa)' })
   @Get()
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
   @Roles(...OPERA_ROLES)
@@ -82,12 +80,16 @@ export class ProtocolosController extends BaseTenantController {
   @Get('abertos')
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
   @Roles(...OPERA_ROLES)
-  async findAbertos(@Param('tenantSlug') tenantSlug: string, @Req() req: Request) {
+  async findAbertos(
+    @Param('tenantSlug') tenantSlug: string,
+    @Query('protocolType') protocolType: string | undefined,
+    @Req() req: Request,
+  ) {
     await this.resolveAndAssertTenant(tenantSlug, req);
-    return this.service.findAbertos(tenantSlug);
+    return this.service.findAbertos(tenantSlug, protocolType);
   }
 
-  @ApiOperation({ summary: 'Indicadores (FORMMED026) da unidade — somente administradores' })
+  @ApiOperation({ summary: 'Indicadores da unidade por tipo de protocolo — somente administradores' })
   @Get('metrics')
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
   @Roles(...ADMIN_ROLES)
@@ -113,7 +115,7 @@ export class ProtocolosController extends BaseTenantController {
     return this.service.findBySlug(tenantSlug, slug);
   }
 
-  @ApiOperation({ summary: 'Abre um novo protocolo (cabeçalho do paciente)' })
+  @ApiOperation({ summary: 'Abre um novo protocolo (cabeçalho do paciente + tipo)' })
   @Post()
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
   @Roles(...OPERA_ROLES)
@@ -126,108 +128,50 @@ export class ProtocolosController extends BaseTenantController {
     return this.service.create(tenantSlug, dto, auditCtx(req, tenantId));
   }
 
-  @ApiOperation({ summary: 'Fecha o bloco Triagem (ETAPA 1 + ECG) e libera a Investigação' })
-  @Patch(':slug/triagem')
+  @ApiOperation({ summary: 'Fecha a etapa corrente (avança o protocolo)' })
+  @Patch(':slug/blocos/:stageKey')
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
   @Roles(...OPERA_ROLES)
-  async submitTriagem(
+  async submitBloco(
     @Param('tenantSlug') tenantSlug: string,
     @Param('slug') slug: string,
-    @Body() dto: SubmitBlocoTriagemDto,
+    @Param('stageKey') stageKey: string,
+    // Body sem classe: a validação por etapa vive na definição do tipo (validateBloco).
+    @Body() dto: Record<string, unknown>,
     @Req() req: Request,
   ) {
     const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
-    return this.service.submitBloco(tenantSlug, slug, 'triagem', dto, auditCtx(req, tenantId));
+    return this.service.submitBloco(tenantSlug, slug, stageKey, dto, auditCtx(req, tenantId));
   }
 
-  @ApiOperation({ summary: 'Fecha o bloco ECG (ETAPA 2) e libera a Investigação' })
-  @Patch(':slug/ecg')
-  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
-  @Roles(...OPERA_ROLES)
-  async submitEcg(
-    @Param('tenantSlug') tenantSlug: string,
-    @Param('slug') slug: string,
-    @Body() dto: SubmitBlocoEcgDto,
-    @Req() req: Request,
-  ) {
-    const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
-    return this.service.submitBloco(tenantSlug, slug, 'ecg', dto, auditCtx(req, tenantId));
-  }
-
-  @ApiOperation({ summary: 'Fecha o bloco Investigação (Troponina + HEART + Dx) e libera o Desfecho' })
-  @Patch(':slug/investigacao')
-  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
-  @Roles(...OPERA_ROLES)
-  async submitInvestigacao(
-    @Param('tenantSlug') tenantSlug: string,
-    @Param('slug') slug: string,
-    @Body() dto: SubmitBlocoInvestigacaoDto,
-    @Req() req: Request,
-  ) {
-    const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
-    return this.service.submitBloco(tenantSlug, slug, 'investigacao', dto, auditCtx(req, tenantId));
-  }
-
-  @ApiOperation({ summary: 'Fecha o bloco Desfecho (Trombólise + Encaminhamento) e conclui o protocolo' })
-  @Patch(':slug/desfecho')
-  @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
-  @Roles(...OPERA_ROLES)
-  async submitDesfecho(
-    @Param('tenantSlug') tenantSlug: string,
-    @Param('slug') slug: string,
-    @Body() dto: SubmitBlocoDesfechoDto,
-    @Req() req: Request,
-  ) {
-    const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
-    return this.service.submitBloco(tenantSlug, slug, 'desfecho', dto, auditCtx(req, tenantId));
-  }
-
-  @ApiOperation({ summary: 'Edita uma etapa já concluída (registra autor/hora/campos)' })
-  @Patch(':slug/:bloco/editar')
+  @ApiOperation({ summary: 'Edita uma etapa já fechada (registra autor/hora/campos)' })
+  @Patch(':slug/blocos/:stageKey/editar')
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
   @Roles(...OPERA_ROLES)
   async editarBloco(
     @Param('tenantSlug') tenantSlug: string,
     @Param('slug') slug: string,
-    @Param('bloco') bloco: string,
-    // Body sem classe: a validação por etapa acontece no fechamento; aqui só fazemos o diff.
+    @Param('stageKey') stageKey: string,
     @Body() dto: Record<string, unknown>,
     @Req() req: Request,
   ) {
     const tenantId = await this.resolveAndAssertTenant(tenantSlug, req);
-    if (!['triagem', 'ecg', 'investigacao', 'desfecho'].includes(bloco)) {
-      throw new BadRequestException('Bloco inválido');
-    }
-    return this.service.editarBloco(
-      tenantSlug,
-      slug,
-      bloco as 'triagem' | 'ecg' | 'investigacao' | 'desfecho',
-      dto as never,
-      auditCtx(req, tenantId),
-    );
+    return this.service.editarBloco(tenantSlug, slug, stageKey, dto, auditCtx(req, tenantId));
   }
 
   @ApiOperation({ summary: 'Salva o rascunho (stand-by) de uma etapa sem fechá-la' })
-  @Patch(':slug/:bloco/rascunho')
+  @Patch(':slug/blocos/:stageKey/rascunho')
   @UseGuards(JwtAuthGuard, SistemaGuard, RolesGuard)
   @Roles(...OPERA_ROLES)
   async saveRascunho(
     @Param('tenantSlug') tenantSlug: string,
     @Param('slug') slug: string,
-    @Param('bloco') bloco: string,
+    @Param('stageKey') stageKey: string,
     @Body() dto: SaveRascunhoDto,
     @Req() req: Request,
   ) {
     await this.resolveAndAssertTenant(tenantSlug, req);
-    if (!['triagem', 'ecg', 'investigacao', 'desfecho'].includes(bloco)) {
-      throw new BadRequestException('Bloco inválido');
-    }
-    return this.service.saveRascunho(
-      tenantSlug,
-      slug,
-      bloco as 'triagem' | 'ecg' | 'investigacao' | 'desfecho',
-      dto.dados,
-    );
+    return this.service.saveRascunho(tenantSlug, slug, stageKey, dto.dados);
   }
 
   @ApiOperation({ summary: 'Encerra o protocolo antecipadamente — somente médico/admin' })

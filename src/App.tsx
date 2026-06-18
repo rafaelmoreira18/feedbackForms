@@ -36,6 +36,7 @@ import PesquisaCorporativaPublica from "@/pages/rh/pesquisa-corporativa";
 import AvaliacaoDesempenhoPublica from "@/pages/rh/avaliacao-desempenho";
 import PdiDesenvolvimentoPublica from "@/pages/rh/pdi-desenvolvimento";
 import AvaliacaoPlayground from "@/pages/dev/avaliacao-playground";
+import ProtocolosHomeCards from "@/pages/protocolos/home-cards";
 import ProtocolosHome from "@/pages/protocolos";
 import ProtocoloForm from "@/pages/protocolos/form";
 import ProtocolosDashboard from "@/pages/protocolos/dashboard";
@@ -138,10 +139,12 @@ function AppRoutes() {
         <Route path="/dev/avaliacoes" element={<AvaliacaoPlayground />} />
       )}
 
-      {/* Protocolos (Protocolo de Dor Torácica) — aba gateada por papel */}
-      <Route path="/protocolos" element={<ProtocoloRoute><ProtocolosHome /></ProtocoloRoute>} />
-      <Route path="/:tenantSlug/protocolos" element={<ProtocoloRoute><ProtocolosHome /></ProtocoloRoute>} />
-      <Route path="/:tenantSlug/protocolos/:slug" element={<ProtocoloRoute><ProtocoloForm /></ProtocoloRoute>} />
+      {/* Protocolos (multi-protocolo: Dor Torácica, Sepse) — aba gateada por papel */}
+      <Route path="/protocolos" element={<ProtocoloRoute><ProtocolosHomeCards /></ProtocoloRoute>} />
+      <Route path="/:tenantSlug/protocolos" element={<ProtocoloRoute><ProtocolosHomeCards /></ProtocoloRoute>} />
+      <Route path="/protocolos/:protocolType" element={<ProtocoloRoute><ProtocolosHome /></ProtocoloRoute>} />
+      <Route path="/:tenantSlug/protocolos/:protocolType" element={<ProtocoloRoute><ProtocolosHome /></ProtocoloRoute>} />
+      <Route path="/:tenantSlug/protocolos/:protocolType/:slug" element={<ProtocoloRoute><ProtocoloForm /></ProtocoloRoute>} />
       <Route path="/protocolos-dashboard" element={<ProtocoloRoute adminOnly><ProtocolosDashboard /></ProtocoloRoute>} />
       <Route path="/:tenantSlug/protocolos-dashboard" element={<ProtocoloRoute adminOnly><ProtocolosDashboard /></ProtocoloRoute>} />
       <Route path="/protocolos-usuarios" element={<ProtocoloRoute adminOnly><ProtocolosUsuarios /></ProtocoloRoute>} />

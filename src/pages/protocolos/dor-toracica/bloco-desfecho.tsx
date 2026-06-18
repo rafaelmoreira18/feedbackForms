@@ -3,7 +3,7 @@ import type { BlocoDesfecho, DestinoPaciente } from "@/types";
 import type { SubmitDesfechoPayload } from "@/services/protocolo-service";
 import Input from "@/components/ui/input";
 import TimeInput from "@/components/ui/time-input";
-import { SectionTitle, CheckRow, RadioPill, DateField, EtapaFechadaInfo, FecharEtapaBar, RascunhoNota, NumericInput, PendenciasBox, REQ } from "./form-ui";
+import { SectionTitle, CheckRow, RadioPill, DateField, EtapaFechadaInfo, FecharEtapaBar, RascunhoNota, NumericInput, PendenciasBox, REQ } from "../form/form-ui";
 
 interface Props {
   initial: BlocoDesfecho | null;

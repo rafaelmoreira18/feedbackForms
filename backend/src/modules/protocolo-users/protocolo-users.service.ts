@@ -80,7 +80,7 @@ export class ProtocoloUsersService {
     }
 
     const senhaHash = await bcrypt.hash(dto.senha, 10);
-    const tenantId = dto.role === 'protocolo_admin_global' ? null : dto.tenantId ?? null;
+    const tenantId = dto.tenantId ?? null;
 
     const result = await this.pool.query<{ id: string }>(
       `INSERT INTO usuarios

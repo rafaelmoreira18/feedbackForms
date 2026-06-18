@@ -359,12 +359,12 @@ export interface PesquisaMetricas {
 
 // ─── Protocolos (Protocolo de Dor Torácica — FORMMED027) ────────────────────────
 
-export type ProtocoloStage =
-  | 'triagem'
-  | 'ecg'
-  | 'investigacao'
-  | 'desfecho'
-  | 'concluido';
+/**
+ * Etapa corrente. As etapas concretas dependem do tipo de protocolo (ver registry):
+ *   Dor Torácica: triagem → ecg → investigacao → desfecho → concluido
+ *   Sepse:        abertura → pacote1h → reavaliacao → desfecho → concluido
+ */
+export type ProtocoloStage = string;
 
 export interface ResponsavelBloco {
   responsavelNome: string;
@@ -459,7 +459,7 @@ export interface EncerramentoProtocolo {
 }
 
 export interface AlteracaoCampo {
-  bloco: 'triagem' | 'ecg' | 'investigacao' | 'desfecho';
+  bloco: string;
   campo: string;
   de: string;
   para: string;
@@ -470,7 +470,7 @@ export interface AlteracaoCampo {
 
 export interface RegistroAcao {
   tipo: 'fechamento' | 'edicao';
-  bloco: 'triagem' | 'ecg' | 'investigacao' | 'desfecho';
+  bloco: string;
   porNome: string;
   porRegistro: string;
   porUserId: string | null;
@@ -489,17 +489,26 @@ export interface Protocolo {
   dataNascimento: string;
   idade: string;
   sexo: string;
+  /** Sepse pediátrica: peso (kg) para cálculo de doses. */
+  pesoKg: string;
+  /** Sepse: variante resolvida pela idade ('adulto' | 'pediatrico'). Vazio nos demais. */
+  variante: string;
   dataAtendimento: string;
   horaChegada: string;
   currentStage: ProtocoloStage;
-  triagem: BlocoTriagem | null;
-  ecg: BlocoEcg | null;
-  investigacao: BlocoInvestigacao | null;
-  desfecho: BlocoDesfecho | null;
-  triagemRascunho: Partial<BlocoTriagem> | null;
-  ecgRascunho: Partial<BlocoEcg> | null;
-  investigacaoRascunho: Partial<BlocoInvestigacao> | null;
-  desfechoRascunho: Partial<BlocoDesfecho> | null;
+  /** Mapa genérico de blocos por etapa — fonte de verdade para todos os tipos. */
+  blocos: Record<string, unknown>;
+  /** Mapa genérico de rascunhos (stand-by) por etapa. */
+  rascunhos: Record<string, unknown>;
+  // Colunas legado de Dor Torácica (preservadas; o código novo lê de `blocos`/`rascunhos`).
+  triagem?: BlocoTriagem | null;
+  ecg?: BlocoEcg | null;
+  investigacao?: BlocoInvestigacao | null;
+  desfecho?: BlocoDesfecho | null;
+  triagemRascunho?: Partial<BlocoTriagem> | null;
+  ecgRascunho?: Partial<BlocoEcg> | null;
+  investigacaoRascunho?: Partial<BlocoInvestigacao> | null;
+  desfechoRascunho?: Partial<BlocoDesfecho> | null;
   encerramento: EncerramentoProtocolo | null;
   historicoAlteracoes: AlteracaoCampo[];
   historicoAcoes: RegistroAcao[];
@@ -509,11 +518,14 @@ export interface Protocolo {
 }
 
 export interface CreateProtocoloDto {
+  protocolType?: string;
   pacienteNome: string;
   numeroProntuario?: string;
   dataNascimento?: string;
   idade?: string;
   sexo?: string;
+  pesoKg?: string;
+  variante?: string;
   dataAtendimento?: string;
   horaChegada?: string;
 }
@@ -556,4 +568,106 @@ export interface ProtocoloUser {
   ativo: boolean;
   tenantSlug: string | null;
   tenantNome: string | null;
+}
+
+// ─── Protocolo de Sepse (FORM SEP — Adulto e Pediátrico) ────────────────────────
+// Etapas: abertura → pacote1h → reavaliacao → desfecho → concluido.
+// Mantido em sincronia manual com backend/src/modules/protocolos/protocolo-types.ts.
+
+export type SepseVariante = 'adulto' | 'pediatrico' | '';
+
+export interface SepseFocoPrincipal {
+  pulmonar: boolean; urinario: boolean; abdominal: boolean; peleMoles: boolean;
+  snc: boolean; cateter: boolean; endocardite: boolean; naoDefinido: boolean;
+  outro: boolean; outroDesc: string;
+}
+
+export interface SepseBlocoAbertura extends ResponsavelBloco {
+  horarioZeroData: string;
+  horarioZeroHora: string;
+  focoPrincipal: SepseFocoPrincipal;
+  classificacao: string;
+  criterioInfeccaoDisfuncao: boolean;
+  criterioSirs2: boolean;
+  disfuncoesOrganicas: {
+    hemodinamico: boolean; renal: boolean; respiratorio: boolean; hematologico: boolean;
+    metabolico: boolean; neurologico: boolean; hepatico: boolean; coagulopatia: boolean;
+  };
+  sirsPediatrica: { temperatura: boolean; taquicardia: boolean; taquipneia: boolean; leucocitose: boolean };
+  sinaisHipoperfusao: {
+    tecLento: boolean; perfusaoFlash: boolean; alteracaoMental: boolean; oliguria: boolean; hipotensao: boolean;
+  };
+}
+
+export interface SepseColeta { feito: boolean; hora: string; valor: string }
+
+export interface SepseBlocoPacote1h extends ResponsavelBloco {
+  // Adulto
+  lactato: SepseColeta;
+  hemoculturas: { feito: boolean; hora: string };
+  culturasFoco: { feito: boolean; hora: string; foco: string };
+  antimicrobiano: { hora1aDose: string };
+  reposicaoVolemica: { indicada: boolean; naoIndicada: boolean; hora: string; mlTotal: string };
+  vasopressor: { indicado: boolean; naoIndicado: boolean; hora: string; via: string; dose: string };
+  // Pediátrico — 5 passos
+  passo1Acesso: { abcde: boolean; o2Ofertado: boolean; acessoVenoso: boolean; acessoIO: boolean; ioLocal: string };
+  passo2Coletas: {
+    lactato: SepseColeta;
+    hemoculturas: { feito: boolean; hora: string };
+    kitSepse: { feito: boolean; hora: string };
+    glicemia: SepseColeta;
+    calcioIonizado: SepseColeta;
+  };
+  passo3Atm: { doseCalculadaMg: string; hora1aDose: string; via: string; atmPrevio: boolean };
+  passo4Volume: {
+    bolus1: { ml: string; hora: string; tecPos: string; estertores: boolean };
+    bolus2: { ml: string; hora: string; tecPos: string; estertores: boolean };
+  };
+  passo5Vasoativo: { tipoChoque: string; droga: string; doseInicial: string; hora: string; via: string };
+}
+
+export interface SepseMetaReav { valor: string; metaAtingida: string }
+
+export interface SepseBlocoReavaliacao extends ResponsavelBloco {
+  reav6h: {
+    pam: SepseMetaReav; tec: SepseMetaReav; diurese: SepseMetaReav;
+    spo2: SepseMetaReav; consciencia: SepseMetaReav; glicemia: SepseMetaReav;
+  };
+  phoenix: {
+    respiratorio: number; cardiovascularVasoativo: number; cardiovascularLactato: number;
+    coagulacao: number; neurologico: number; total: number; classificacao: string;
+  };
+  reav1a2h: {
+    tec: SepseMetaReav; diurese: SepseMetaReav; pas: SepseMetaReav;
+    consciencia: SepseMetaReav; spo2: SepseMetaReav;
+  };
+  recoletaLactato: { hora: string; valor: string; clareamento: string };
+}
+
+export interface SepseBlocoDesfecho extends ResponsavelBloco {
+  criteriosTransferencia: {
+    choqueVasopressor: boolean; lactatoSemClareamento: boolean; vniVm: boolean;
+    duasDisfuncoes: boolean; deterioracao: boolean; alteracaoNeuro: boolean;
+    glasgowBaixo: boolean; phoenix2: boolean;
+  };
+  utiAcionadaHora: string;
+  vagaStatus: string;
+  encerramentoTipo: string;
+  dxAlternativoDesc: string;
+  dataHoraEncerramentoData: string;
+  dataHoraEncerramentoHora: string;
+  desfecho: string;
+}
+
+export interface SepseMetrics {
+  total: number;
+  abertos: number;
+  concluidos: number;
+  porEtapa: Record<string, number>;
+  porClassificacao: Record<string, number>;
+  porFoco: Record<string, number>;
+  porDesfecho: Record<string, number>;
+  porFaixaPhoenix: { sepse: number; choque_septico: number; incompleto: number; naoInformado: number };
+  indicadores: Record<string, ProtocoloIndicador>;
+  tendenciaMensal: { mes: string; total: number }[];
 }

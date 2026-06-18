@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import type { BlocoEcg } from "@/types";
 import type { SubmitEcgPayload } from "@/services/protocolo-service";
 import TimeInput from "@/components/ui/time-input";
-import { SectionTitle, CheckRow, RadioPill, EtapaFechadaInfo, FecharEtapaBar, RascunhoNota, PendenciasBox, REQ } from "./form-ui";
+import { SectionTitle, CheckRow, RadioPill, EtapaFechadaInfo, FecharEtapaBar, RascunhoNota, PendenciasBox, REQ } from "../form/form-ui";
 
 interface Props {
   initial: BlocoEcg | null;
