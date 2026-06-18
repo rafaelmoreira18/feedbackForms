@@ -59,7 +59,8 @@ export class ProtocoloUsersController {
       }
       dto.tenantId = req.user.tenantId ?? undefined;
     }
-    if (dto.role !== 'protocolo_admin_global' && !dto.tenantId) {
+    // Admin global não é criável aqui; todos os perfis restantes exigem unidade.
+    if (!dto.tenantId) {
       throw new BadRequestException('Unidade (tenantId) é obrigatória para este perfil');
     }
     return this.service.create(dto);

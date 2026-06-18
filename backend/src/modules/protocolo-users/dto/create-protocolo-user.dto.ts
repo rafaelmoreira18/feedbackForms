@@ -26,17 +26,16 @@ export class CreateProtocoloUserDto {
   @MinLength(8, { message: 'A senha deve ter no mínimo 8 caracteres' })
   senha: string;
 
+  // Admin global NÃO é criável pela tela (apenas papéis operacionais e admin de unidade).
   @IsIn([
     'protocolo_operador',
     'protocolo_medico',
     'protocolo_admin',
-    'protocolo_admin_global',
   ])
   role:
     | 'protocolo_operador'
     | 'protocolo_medico'
-    | 'protocolo_admin'
-    | 'protocolo_admin_global';
+    | 'protocolo_admin';
 
   /**
    * Registro profissional (CRM para médico, COREN para enfermagem). Obrigatório para

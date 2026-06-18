@@ -9,24 +9,60 @@ import { useAuth } from "@/contexts/auth-context";
 import { protocoloService } from "@/services/protocolo-service";
 import { tenantService } from "@/services/tenant-service";
 import { generateProtocoloReport } from "@/services/protocolo-report-service";
-import type { ProtocoloMetrics } from "@/types";
+import type { ProtocoloMetrics, ProtocoloIndicador } from "@/types";
 import Text from "@/components/ui/text";
 import Card from "@/components/ui/card";
 import Button from "@/components/ui/button";
 import Select from "@/components/ui/select";
 import DateInput from "@/components/ui/date-input";
 import { FileDown } from "lucide-react";
+import { ALL_PROTOCOLOS, getProtocoloDef } from "../registry";
+import { sepseLabelValor } from "../sepse/constants";
 
-const INDICADORES: { key: keyof ProtocoloMetrics["indicadores"]; label: string; short: string }[] = [
-  { key: "portaTriagem5", label: "Porta-Triagem ≤ 5 min", short: "Porta-Triagem" },
-  { key: "triagemEcg5", label: "Triagem → ECG ≤ 5 min", short: "Triagem→ECG" },
-  { key: "ecgInterpretacao5", label: "ECG → Interpretação ≤ 5 min", short: "ECG→Interp." },
-  { key: "portaEcg10", label: "Porta-ECG total ≤ 10 min", short: "Porta-ECG" },
-  { key: "portaAgulha30", label: "Porta-Agulha ≤ 30 min", short: "Porta-Agulha" },
-  { key: "eficaciaTrombolise", label: "Eficácia da trombólise", short: "Ef. trombólise" },
-  { key: "transferenciaMeta", label: "Transferência dentro da meta", short: "Transferência" },
-  { key: "completude", label: "Completude do protocolo", short: "Completude" },
-];
+/** Métricas exibidas no dashboard — superset (campos por tipo são opcionais). */
+type DashMetrics = {
+  total: number;
+  abertos: number;
+  concluidos: number;
+  indicadores: Record<string, ProtocoloIndicador>;
+  tendenciaMensal: { mes: string; total: number }[];
+  porVia?: { via_i: number; via_ii: number; via_iii: number; naoInformado: number };
+  porRiscoHeart?: { baixo: number; intermediario: number; alto: number; naoInformado: number };
+  porClassificacao?: Record<string, number>;
+  porFoco?: Record<string, number>;
+  porDesfecho?: Record<string, number>;
+  porFaixaPhoenix?: { sepse: number; choque_septico: number; incompleto: number; naoInformado: number };
+};
+
+type IndConf = { key: string; label: string; short: string };
+
+const INDICADORES_BY_TYPE: Record<string, IndConf[]> = {
+  dor_toracica: [
+    { key: "portaTriagem5", label: "Porta-Triagem ≤ 5 min", short: "Porta-Triagem" },
+    { key: "triagemEcg5", label: "Triagem → ECG ≤ 5 min", short: "Triagem→ECG" },
+    { key: "ecgInterpretacao5", label: "ECG → Interpretação ≤ 5 min", short: "ECG→Interp." },
+    { key: "portaEcg10", label: "Porta-ECG total ≤ 10 min", short: "Porta-ECG" },
+    { key: "portaAgulha30", label: "Porta-Agulha ≤ 30 min", short: "Porta-Agulha" },
+    { key: "eficaciaTrombolise", label: "Eficácia da trombólise", short: "Ef. trombólise" },
+    { key: "transferenciaMeta", label: "Transferência dentro da meta", short: "Transferência" },
+    { key: "completude", label: "Completude do protocolo", short: "Completude" },
+  ],
+  sepse: [
+    { key: "lactato30", label: "Lactato ≤ 30 min", short: "Lactato" },
+    { key: "hemoculturasAntesAtm", label: "Hemoculturas antes do ATM", short: "Hemoculturas" },
+    { key: "antimicrobiano60", label: "Antimicrobiano ≤ 60 min", short: "ATM ≤ 60min" },
+    { key: "reposicaoVolemica", label: "Reposição volêmica na 1ª hora", short: "Volume" },
+    { key: "pacote1hCompleto", label: "Pacote de 1 hora completo", short: "Pacote 1h" },
+    { key: "reavaliacaoLactato", label: "Recoleta de lactato 2–4h", short: "Recoleta lactato" },
+    { key: "transferenciaUTI", label: "Transferência UTI na meta", short: "Transf. UTI" },
+    { key: "completude", label: "Completude do protocolo", short: "Completude" },
+  ],
+};
+
+const FOCO_LABEL: Record<string, string> = {
+  pulmonar: "Pulmonar", urinario: "Urinário", abdominal: "Abdominal", peleMoles: "Pele/partes moles",
+  snc: "SNC", cateter: "Cateter", endocardite: "Endocardite", naoDefinido: "Não definido", outro: "Outro",
+};
 
 export default function ProtocolosDashboard() {
   const { tenantSlug: slugFromUrl } = useParams<{ tenantSlug: string }>();
@@ -36,8 +72,13 @@ export default function ProtocolosDashboard() {
   const [selectedSlug, setSelectedSlug] = useState(user?.tenantSlug ?? "");
   const tenantSlug = slugFromUrl ?? user?.tenantSlug ?? selectedSlug;
 
+  const [protocolType, setProtocolType] = useState("dor_toracica");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  const def = getProtocoloDef(protocolType);
+  const isSepse = protocolType === "sepse";
+  const indicadores = INDICADORES_BY_TYPE[protocolType] ?? [];
 
   const { data: allTenants = [] } = useQuery({
     queryKey: ["tenants-all-active"],
@@ -46,8 +87,8 @@ export default function ProtocolosDashboard() {
   });
 
   const { data: metrics, isLoading } = useQuery({
-    queryKey: ["protocolos-metrics", tenantSlug, startDate, endDate],
-    queryFn: () => protocoloService.getMetrics(tenantSlug, { startDate, endDate }),
+    queryKey: ["protocolos-metrics", tenantSlug, protocolType, startDate, endDate],
+    queryFn: () => protocoloService.getMetrics<DashMetrics>(tenantSlug, { protocolType, startDate, endDate }),
     enabled: !!tenantSlug,
   });
 
@@ -60,26 +101,35 @@ export default function ProtocolosDashboard() {
 
   const barData =
     metrics &&
-    INDICADORES.map((i) => ({
+    indicadores.map((i) => ({
       name: i.short,
-      valor: metrics.indicadores[i.key].percentual,
-      meta: metrics.indicadores[i.key].meta,
+      valor: metrics.indicadores[i.key]?.percentual ?? 0,
+      meta: metrics.indicadores[i.key]?.meta ?? 90,
     }));
+
+  const dist = (rec: Record<string, number> | undefined, labelOf: (k: string) => string): [string, number][] =>
+    Object.entries(rec ?? {}).map(([k, n]) => [labelOf(k), n]);
 
   return (
     <div className="min-h-screen">
       <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col gap-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <Text variant="heading-md" className="text-gray-400">Dashboard — Protocolo de Dor Torácica</Text>
-          {metrics && tenantSlug && (
-            <Button size="sm" variant="outline" onClick={() => generateProtocoloReport(metrics, unidadeNome, { startDate, endDate })}>
+          <Text variant="heading-md" className="text-gray-400">Dashboard — {def.shortLabel}</Text>
+          {metrics && tenantSlug && !isSepse && (
+            <Button size="sm" variant="outline" onClick={() => generateProtocoloReport(metrics as unknown as ProtocoloMetrics, unidadeNome, { startDate, endDate })}>
               <FileDown size={18} /> Exportar PDF
             </Button>
           )}
         </div>
 
         <Card shadow="sm">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <Select
+              label="Protocolo"
+              options={ALL_PROTOCOLOS.map((d) => ({ value: d.type, label: d.shortLabel }))}
+              value={protocolType}
+              onChange={(e) => setProtocolType(e.target.value)}
+            />
             {isGlobal && !slugFromUrl && (
               <Select
                 label="Unidade"
@@ -113,8 +163,9 @@ export default function ProtocolosDashboard() {
 
             {/* Indicadores cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {INDICADORES.map((i) => {
+              {indicadores.map((i) => {
                 const ind = metrics.indicadores[i.key];
+                if (!ind) return null;
                 const atinge = ind.percentual >= ind.meta;
                 return (
                   <Card key={i.key} shadow="sm" className="flex flex-col gap-1">
@@ -148,16 +199,42 @@ export default function ProtocolosDashboard() {
             </Card>
 
             {/* Distribuições */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Card shadow="sm">
-                <Text variant="body-md-bold" className="text-gray-400 mb-2">Resultado do ECG (VIA)</Text>
-                <Dist row={[["VIA I", metrics.porVia.via_i], ["VIA II", metrics.porVia.via_ii], ["VIA III", metrics.porVia.via_iii], ["N/I", metrics.porVia.naoInformado]]} />
-              </Card>
-              <Card shadow="sm">
-                <Text variant="body-md-bold" className="text-gray-400 mb-2">Risco HEART</Text>
-                <Dist row={[["Baixo", metrics.porRiscoHeart.baixo], ["Intermediário", metrics.porRiscoHeart.intermediario], ["Alto", metrics.porRiscoHeart.alto], ["N/I", metrics.porRiscoHeart.naoInformado]]} />
-              </Card>
-            </div>
+            {isSepse ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Card shadow="sm">
+                  <Text variant="body-md-bold" className="text-gray-400 mb-2">Classificação</Text>
+                  <Dist row={dist(metrics.porClassificacao, sepseLabelValor)} />
+                </Card>
+                <Card shadow="sm">
+                  <Text variant="body-md-bold" className="text-gray-400 mb-2">Foco principal</Text>
+                  <Dist row={dist(metrics.porFoco, (k) => FOCO_LABEL[k] ?? k)} />
+                </Card>
+                <Card shadow="sm">
+                  <Text variant="body-md-bold" className="text-gray-400 mb-2">Desfecho</Text>
+                  <Dist row={dist(metrics.porDesfecho, sepseLabelValor)} />
+                </Card>
+                <Card shadow="sm">
+                  <Text variant="body-md-bold" className="text-gray-400 mb-2">Phoenix (pediátrico)</Text>
+                  <Dist row={[
+                    ["Sepse", metrics.porFaixaPhoenix?.sepse ?? 0],
+                    ["Choque séptico", metrics.porFaixaPhoenix?.choque_septico ?? 0],
+                    ["Incompleto", metrics.porFaixaPhoenix?.incompleto ?? 0],
+                    ["N/I", metrics.porFaixaPhoenix?.naoInformado ?? 0],
+                  ]} />
+                </Card>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Card shadow="sm">
+                  <Text variant="body-md-bold" className="text-gray-400 mb-2">Resultado do ECG (VIA)</Text>
+                  <Dist row={[["VIA I", metrics.porVia?.via_i ?? 0], ["VIA II", metrics.porVia?.via_ii ?? 0], ["VIA III", metrics.porVia?.via_iii ?? 0], ["N/I", metrics.porVia?.naoInformado ?? 0]]} />
+                </Card>
+                <Card shadow="sm">
+                  <Text variant="body-md-bold" className="text-gray-400 mb-2">Risco HEART</Text>
+                  <Dist row={[["Baixo", metrics.porRiscoHeart?.baixo ?? 0], ["Intermediário", metrics.porRiscoHeart?.intermediario ?? 0], ["Alto", metrics.porRiscoHeart?.alto ?? 0], ["N/I", metrics.porRiscoHeart?.naoInformado ?? 0]]} />
+                </Card>
+              </div>
+            )}
 
             {/* Tendência mensal */}
             {metrics.tendenciaMensal.length > 0 && (

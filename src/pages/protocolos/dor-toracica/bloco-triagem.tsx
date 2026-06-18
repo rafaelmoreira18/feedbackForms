@@ -4,9 +4,9 @@ import type { SubmitTriagemPayload } from "@/services/protocolo-service";
 import Input from "@/components/ui/input";
 import TimeInput from "@/components/ui/time-input";
 import {
-  SectionTitle, CheckRow, RadioPill, DateField, EtapaFechadaInfo, FecharEtapaBar,
+  SectionTitle, CheckRow, RadioPill, DateField, EtapaFechadaInfo, FecharEtapaBar, RascunhoNota,
   NumericInput, isBpValido, PendenciasBox, REQ,
-} from "./form-ui";
+} from "../form/form-ui";
 
 interface Props {
   initial: BlocoTriagem | null;
@@ -20,6 +20,8 @@ interface Props {
   responsavel: { nome: string; registro: string };
   /** Rótulo do botão de salvar (ex.: "Salvar alterações" no modo edição). */
   submitLabel?: string;
+  /** Etapa adiantada (futura): salva rascunho, mas não exibe o botão de fechar. */
+  draftOnly?: boolean;
 }
 
 const empty = {
@@ -67,7 +69,7 @@ function toPayloadBase(s: typeof empty) {
 }
 
 export default function BlocoTriagemForm({
-  initial, rascunho, readOnly, submitting, onSubmit, onDraftChange, responsavel, submitLabel,
+  initial, rascunho, readOnly, submitting, onSubmit, onDraftChange, responsavel, submitLabel, draftOnly,
 }: Props) {
   const [s, setS] = useState(() => fromInitial(initial, rascunho));
   const [erro, setErro] = useState("");
@@ -172,6 +174,8 @@ export default function BlocoTriagemForm({
 
       {ro ? (
         <EtapaFechadaInfo nome={initial?.responsavelNome ?? ""} registro={initial?.registroProfissional ?? ""} fechadoEm={initial?.fechadoEm} />
+      ) : draftOnly ? (
+        <RascunhoNota />
       ) : (
         <FecharEtapaBar submitting={submitting} onSubmit={handleSubmit} label={submitLabel} />
       )}

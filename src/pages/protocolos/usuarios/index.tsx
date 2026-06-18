@@ -128,6 +128,9 @@ function CreateUserModal({ isGlobal, onClose }: { isGlobal: boolean; onClose: ()
     enabled: isGlobal,
   });
 
+  // Não oferecer a matriz (Mediall Sede) nem a UPA genérica vazia na criação de usuário.
+  const unidades = tenants.filter((t) => t.slug !== "mediall-goiania" && t.slug !== "upa");
+
   const create = useMutation({
     mutationFn: () =>
       protocoloUsersService.create({
@@ -184,7 +187,6 @@ function CreateUserModal({ isGlobal, onClose }: { isGlobal: boolean; onClose: ()
                     { value: "protocolo_operador", label: "Operador" },
                     { value: "protocolo_medico", label: "Médico" },
                     { value: "protocolo_admin", label: "Admin da unidade" },
-                    { value: "protocolo_admin_global", label: "Admin global" },
                   ]
                 : [
                     { value: "protocolo_operador", label: "Operador" },
@@ -207,7 +209,7 @@ function CreateUserModal({ isGlobal, onClose }: { isGlobal: boolean; onClose: ()
           {isGlobal && role !== "protocolo_admin_global" && (
             <Select
               label="Unidade *"
-              options={[{ value: "", label: "Selecione..." }, ...tenants.map((t) => ({ value: t.id, label: t.nome }))]}
+              options={[{ value: "", label: "Selecione..." }, ...unidades.map((t) => ({ value: t.id, label: t.nome }))]}
               value={tenantId}
               onChange={(e) => setTenantId(e.target.value)}
             />

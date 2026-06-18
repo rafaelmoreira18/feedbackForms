@@ -245,6 +245,21 @@ export function EtapaFechadaInfo({
   );
 }
 
+/**
+ * Rodapé de uma etapa em modo rascunho (sem registro profissional para fechar):
+ * os campos ficam salvos automaticamente; o fechamento exige registro (CRM/COREN).
+ */
+export function RascunhoNota() {
+  return (
+    <div className="mt-2 pt-4 border-t border-gray-100">
+      <Text variant="caption" className="text-gray-300">
+        ✓ Rascunho salvo automaticamente. Para <b>fechar</b> esta etapa, seu cadastro precisa de
+        registro profissional (CRM/COREN).
+      </Text>
+    </div>
+  );
+}
+
 /** Barra com o botão de fechar a etapa (responsável já capturado antes de iniciar). */
 export function FecharEtapaBar({
   submitting, onSubmit, label = "Fechar etapa →",

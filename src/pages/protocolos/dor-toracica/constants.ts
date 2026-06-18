@@ -3,11 +3,6 @@ import type { ProtocoloStage } from "@/types";
 /** Bloco preenchível do protocolo (etapas que têm formulário). */
 export type BlocoKey = "triagem" | "ecg" | "investigacao" | "desfecho";
 
-/** Ordem das etapas no fluxo sequencial. */
-export const ORDER: Record<ProtocoloStage, number> = {
-  triagem: 0, ecg: 1, investigacao: 2, desfecho: 3, concluido: 4,
-};
-
 /** Blocos preenchíveis, na ordem do fluxo. */
 export const BLOCOS: BlocoKey[] = ["triagem", "ecg", "investigacao", "desfecho"];
 
@@ -35,11 +30,6 @@ export const STAGE_STYLE: Record<ProtocoloStage, string> = {
   investigacao: "bg-violet-base text-white",
   desfecho: "bg-aqua-base text-white",
   concluido: "bg-green-base text-white",
-};
-
-/** Título do bloco usado no histórico de alterações. */
-export const BLOCO_TITULO: Record<BlocoKey, string> = {
-  triagem: "Triagem", ecg: "ECG", investigacao: "Investigação", desfecho: "Desfecho",
 };
 
 // ── Rótulos do histórico de alterações ──────────────────────────────────────

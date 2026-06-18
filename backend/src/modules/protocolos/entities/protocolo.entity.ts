@@ -75,10 +75,31 @@ export class ProtocoloEntity {
   @Column({ default: '' })
   horaChegada: string; // "HH:mm" (senha / FMC)
 
+  /** Sepse pediátrica: peso em kg (cálculo de doses). Vazio nos demais. */
+  @Column({ default: '' })
+  pesoKg: string;
+
+  /** Sepse: variante do protocolo resolvida pela idade ('adulto' | 'pediatrico'). Vazio nos demais. */
+  @Column({ type: 'varchar', length: 12, default: '' })
+  variante: string;
+
   // ── Estado / blocos ───────────────────────────────────────────────────────
   @Column({ type: 'varchar', length: 20, default: 'triagem' })
   currentStage: ProtocoloStage;
 
+  /**
+   * Armazenamento genérico dos blocos por etapa — `{ [stageKey]: BlocoData }`.
+   * É a fonte de verdade para TODOS os tipos de protocolo. As colunas nomeadas
+   * abaixo (triagem/ecg/...) são legado de Dor Torácica, mantidas como rede de
+   * segurança após o backfill; o código novo lê/escreve apenas `blocos`/`rascunhos`.
+   */
+  @Column({ type: 'jsonb', nullable: false, default: () => "'{}'" })
+  blocos: Record<string, unknown>;
+
+  @Column({ type: 'jsonb', nullable: false, default: () => "'{}'" })
+  rascunhos: Record<string, unknown>;
+
+  // ── Colunas legado (Dor Torácica) — preservadas, não usadas pelo código novo ──
   @Column({ type: 'jsonb', nullable: true, default: null })
   triagem: BlocoTriagem | null;
 

@@ -22,9 +22,14 @@ export const ROUTES = {
   avaliacaoDesempenho: (tenantSlug: string, slug: string) => `/${tenantSlug}/avaliacao-desempenho/${slug}`,
   // PDI — Plano de Desenvolvimento Individual — public link (gestor → colaborador → relatório)
   pdiDesenvolvimento: (tenantSlug: string, slug: string) => `/${tenantSlug}/pdi-desenvolvimento/${slug}`,
-  // Protocolos (Protocolo de Dor Torácica) — aba do feedbackforms gateada por papel
+  // Protocolos (multi-protocolo: Dor Torácica, Sepse) — aba do feedbackforms gateada por papel
+  /** Home com os cards dos protocolos disponíveis. */
   protocolos: (tenantSlug?: string) => (tenantSlug ? `/${tenantSlug}/protocolos` : '/protocolos'),
-  protocoloForm: (tenantSlug: string, slug: string) => `/${tenantSlug}/protocolos/${slug}`,
+  /** Lista de protocolos em aberto de um tipo específico. */
+  protocolosLista: (tenantSlug: string | undefined, protocolType: string) =>
+    tenantSlug ? `/${tenantSlug}/protocolos/${protocolType}` : `/protocolos/${protocolType}`,
+  protocoloForm: (tenantSlug: string, protocolType: string, slug: string) =>
+    `/${tenantSlug}/protocolos/${protocolType}/${slug}`,
   protocolosDashboard: (tenantSlug?: string) =>
     tenantSlug ? `/${tenantSlug}/protocolos-dashboard` : '/protocolos-dashboard',
   protocolosUsuarios: (tenantSlug?: string) =>

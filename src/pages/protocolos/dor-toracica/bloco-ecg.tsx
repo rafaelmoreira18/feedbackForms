@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import type { BlocoEcg } from "@/types";
 import type { SubmitEcgPayload } from "@/services/protocolo-service";
 import TimeInput from "@/components/ui/time-input";
-import { SectionTitle, CheckRow, RadioPill, EtapaFechadaInfo, FecharEtapaBar, PendenciasBox, REQ } from "./form-ui";
+import { SectionTitle, CheckRow, RadioPill, EtapaFechadaInfo, FecharEtapaBar, RascunhoNota, PendenciasBox, REQ } from "../form/form-ui";
 
 interface Props {
   initial: BlocoEcg | null;
@@ -13,6 +13,8 @@ interface Props {
   onDraftChange?: (dados: Record<string, unknown>) => void;
   responsavel: { nome: string; registro: string };
   submitLabel?: string;
+  /** Etapa adiantada (futura): salva rascunho, mas não exibe o botão de fechar. */
+  draftOnly?: boolean;
 }
 
 const empty = {
@@ -44,7 +46,7 @@ function toPayloadBase(s: typeof empty) {
 }
 
 export default function BlocoEcgForm({
-  initial, rascunho, readOnly, submitting, onSubmit, onDraftChange, responsavel, submitLabel,
+  initial, rascunho, readOnly, submitting, onSubmit, onDraftChange, responsavel, submitLabel, draftOnly,
 }: Props) {
   const [s, setS] = useState(() => fromInitial(initial, rascunho));
   const set = <K extends keyof typeof s>(k: K, v: (typeof s)[K]) => setS((p) => ({ ...p, [k]: v }));
@@ -100,6 +102,8 @@ export default function BlocoEcgForm({
 
       {ro ? (
         <EtapaFechadaInfo nome={initial?.responsavelNome ?? ""} registro={initial?.registroProfissional ?? ""} fechadoEm={initial?.fechadoEm} />
+      ) : draftOnly ? (
+        <RascunhoNota />
       ) : (
         <FecharEtapaBar submitting={submitting} onSubmit={handleSubmit} label={submitLabel} />
       )}
