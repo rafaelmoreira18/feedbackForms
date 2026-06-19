@@ -149,8 +149,9 @@ function AppRoutes() {
       <Route path="/:tenantSlug/protocolos-dashboard" element={<ProtocoloRoute adminOnly><ProtocolosDashboard /></ProtocoloRoute>} />
       <Route path="/protocolos-usuarios" element={<ProtocoloRoute adminOnly><ProtocolosUsuarios /></ProtocoloRoute>} />
       <Route path="/:tenantSlug/protocolos-usuarios" element={<ProtocoloRoute adminOnly><ProtocolosUsuarios /></ProtocoloRoute>} />
-      <Route path="/protocolos-concluidos" element={<ProtocoloRoute adminOnly><ProtocolosConcluidos /></ProtocoloRoute>} />
-      <Route path="/:tenantSlug/protocolos-concluidos" element={<ProtocoloRoute adminOnly><ProtocolosConcluidos /></ProtocoloRoute>} />
+      {/* Concluídos — todos os perfis de protocolo (operador/médico veem em modo leitura, igual ao admin) */}
+      <Route path="/protocolos-concluidos" element={<ProtocoloRoute><ProtocolosConcluidos /></ProtocoloRoute>} />
+      <Route path="/:tenantSlug/protocolos-concluidos" element={<ProtocoloRoute><ProtocolosConcluidos /></ProtocoloRoute>} />
 
       {/* RH Users — only global rh_admin (no tenantId) */}
       <Route path="/rh/usuarios" element={<RhRoute requireGlobal><RhUsuarios /></RhRoute>} />

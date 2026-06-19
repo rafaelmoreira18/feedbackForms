@@ -160,8 +160,8 @@ export default function Header() {
               </button>
             )}
 
-            {/* Concluídos — admins de protocolo */}
-            {isProtocoloAdmin && (
+            {/* Concluídos — todos os perfis de protocolo (operador/médico em modo leitura, igual ao admin) */}
+            {isProtocolo && (
               <button
                 type="button"
                 onClick={() => navigate(ROUTES.protocolosConcluidos(user.tenantSlug ?? undefined))}
