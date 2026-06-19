@@ -1,4 +1,4 @@
-import { IsString, MinLength, Matches, IsIn, IsOptional, IsUUID } from 'class-validator';
+import { IsString, MinLength, MaxLength, Matches, IsIn, IsOptional } from 'class-validator';
 
 export class CreateAdminUserDto {
   @IsString()
@@ -17,7 +17,9 @@ export class CreateAdminUserDto {
   @IsIn(['operator_forms', 'tenant_admin', 'super_admin'])
   role: 'operator_forms' | 'tenant_admin' | 'super_admin';
 
+  // String (não @IsUUID): alguns tenants têm id "semente" (ex.: hrpg = 0000…0001).
   @IsOptional()
-  @IsUUID()
+  @IsString()
+  @MaxLength(64)
   tenantId?: string;
 }

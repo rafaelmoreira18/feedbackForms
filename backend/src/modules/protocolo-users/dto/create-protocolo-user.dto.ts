@@ -5,7 +5,6 @@ import {
   Matches,
   IsIn,
   IsOptional,
-  IsUUID,
 } from 'class-validator';
 
 export class CreateProtocoloUserDto {
@@ -46,8 +45,13 @@ export class CreateProtocoloUserDto {
   @MaxLength(40)
   registroProfissional?: string;
 
-  /** Unidade do usuário. Obrigatória para operador/admin de unidade; nula para admin global. */
+  /**
+   * Unidade do usuário. Obrigatória para operador/admin de unidade.
+   * String (não @IsUUID): alguns tenants têm id "semente" (ex.: hrpg = 0000…0001),
+   * que não passa na validação de UUID.
+   */
   @IsOptional()
-  @IsUUID()
+  @IsString()
+  @MaxLength(64)
   tenantId?: string;
 }

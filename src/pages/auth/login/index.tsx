@@ -77,10 +77,10 @@ export default function Login() {
         <div className="flex flex-col gap-6">
           <div className="text-center">
             <Text as="h1" variant="heading-md" className="text-gray-400 mb-2">
-              Sistema de Pesquisa
+              Sistema de Gestão Hospitalar
             </Text>
             <Text variant="body-md" className="text-gray-300">
-              Pesquisa de Satisfação Hospitalar
+              Acesse sua conta
             </Text>
           </div>
 
