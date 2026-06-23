@@ -232,6 +232,65 @@ export interface CreatePerformanceEvaluationDto {
   projeto?: string;
 }
 
+// ─── Avaliação de Ansiedade (BAI / GAD-7) ───────────────────────────────────────
+
+export type AnxietyInstrument = 'bai' | 'gad7';
+
+export type AnxietyClassification = 'minima' | 'leve' | 'moderada' | 'grave';
+
+export interface AnxietyAnswer {
+  /** índice do item: 1..21 (BAI) ou 1..7 (GAD-7) */
+  itemId: number;
+  /** 0..3 */
+  value: number;
+}
+
+export interface AnxietyAssessment {
+  id: string;
+  tenantId: string;
+  createdByUserId: string | null;
+  slug: string;
+  colaboradorNome: string;
+  cargo: string;
+  setor: string;
+  dataAplicacao: string;
+  baiRespostas: AnxietyAnswer[] | null;
+  baiEscore: number | null;
+  baiClassificacao: AnxietyClassification | null;
+  baiRespondidoEm: string | null;
+  gad7Respostas: AnxietyAnswer[] | null;
+  gad7Escore: number | null;
+  gad7Classificacao: AnxietyClassification | null;
+  gad7RespondidoEm: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Projeção pública (link do colaborador) — sem escores nem respostas. */
+export interface AnxietyAssessmentPublicView {
+  slug: string;
+  colaboradorNome: string;
+  cargo: string;
+  setor: string;
+  dataAplicacao: string;
+  active: boolean;
+  baiPendente: boolean;
+  gad7Pendente: boolean;
+}
+
+export interface CreateAnxietyAssessmentDto {
+  colaboradorNome: string;
+  cargo?: string;
+  setor?: string;
+  dataAplicacao: string;
+}
+
+export interface SubmitAnxietyAnswersDto {
+  instrument: AnxietyInstrument;
+  answers: AnxietyAnswer[];
+}
+
 // ─── PDI — Plano de Desenvolvimento Individual ──────────────────────────────────
 
 /**

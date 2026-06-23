@@ -37,7 +37,11 @@ export type AuditAction =
   | 'PDI_UPDATED'
   | 'PDI_DELETED'
   | 'PDI_MANAGER_SUBMITTED'
-  | 'PDI_COLABORADOR_SUBMITTED';
+  | 'PDI_COLABORADOR_SUBMITTED'
+  | 'ANXIETY_ASSESSMENT_CREATED'
+  | 'ANXIETY_ASSESSMENT_SUBMITTED'
+  | 'ANXIETY_ASSESSMENT_UPDATED'
+  | 'ANXIETY_ASSESSMENT_DELETED';
 
 /**
  * Trilha de auditoria — registra quem fez o que, em qual registro, quando e de qual IP.

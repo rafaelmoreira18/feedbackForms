@@ -33,6 +33,8 @@ import { PerformanceDevelopmentPlanEntity } from './modules/performance-developm
 import { ProtocolosModule } from './modules/protocolos/protocolos.module';
 import { ProtocoloEntity } from './modules/protocolos/entities/protocolo.entity';
 import { ProtocoloUsersModule } from './modules/protocolo-users/protocolo-users.module';
+import { AnxietyAssessmentsModule } from './modules/anxiety-assessments/anxiety-assessments.module';
+import { AnxietyAssessmentEntity } from './modules/anxiety-assessments/anxiety-assessment.entity';
 
 @Module({
   imports: [
@@ -76,6 +78,7 @@ import { ProtocoloUsersModule } from './modules/protocolo-users/protocolo-users.
           PerformanceEvaluationEntity,
           PerformanceDevelopmentPlanEntity,
           ProtocoloEntity,
+          AnxietyAssessmentEntity,
         ],
         synchronize: config.get<string>('DB_SYNCHRONIZE', 'false') === 'true',
         ssl:
@@ -105,6 +108,7 @@ import { ProtocoloUsersModule } from './modules/protocolo-users/protocolo-users.
     PerformanceDevelopmentPlansModule,
     ProtocolosModule,
     ProtocoloUsersModule,
+    AnxietyAssessmentsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: CustomThrottlerGuard },

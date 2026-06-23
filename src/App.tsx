@@ -34,6 +34,7 @@ import RhUsuarios from "@/pages/rh/rh-usuarios";
 import AdminUsuarios from "@/pages/admin/admin-usuarios";
 import PesquisaCorporativaPublica from "@/pages/rh/pesquisa-corporativa";
 import AvaliacaoDesempenhoPublica from "@/pages/rh/avaliacao-desempenho";
+import AvaliacaoAnsiedadePublica from "@/pages/rh/avaliacao-ansiedade";
 import PdiDesenvolvimentoPublica from "@/pages/rh/pdi-desenvolvimento";
 import AvaliacaoPlayground from "@/pages/dev/avaliacao-playground";
 import ProtocolosHomeCards from "@/pages/protocolos/home-cards";
@@ -131,6 +132,9 @@ function AppRoutes() {
       {/* Avaliação de Desempenho — public link only; management is via rh-hub */}
       <Route path="/:tenantSlug/avaliacao-desempenho/:slug" element={<AvaliacaoDesempenhoPublica />} />
 
+      {/* Avaliação de Ansiedade (BAI / GAD-7) — public link only; management is via rh-hub */}
+      <Route path="/:tenantSlug/avaliacao-ansiedade/:slug" element={<AvaliacaoAnsiedadePublica />} />
+
       {/* PDI — Plano de Desenvolvimento Individual — public link only; management is via rh-hub */}
       <Route path="/:tenantSlug/pdi-desenvolvimento/:slug" element={<PdiDesenvolvimentoPublica />} />
 
@@ -190,6 +194,7 @@ function AppShell() {
     !path.includes("/treinamento/") &&
     !path.includes("/pesquisa-corporativa/") &&
     !path.includes("/avaliacao-desempenho/") &&
+    !path.includes("/avaliacao-ansiedade/") &&
     !path.includes("/pdi-desenvolvimento/") &&
     !path.includes("/protocolos");
 

@@ -22,6 +22,8 @@ export const ROUTES = {
   avaliacaoDesempenho: (tenantSlug: string, slug: string) => `/${tenantSlug}/avaliacao-desempenho/${slug}`,
   // PDI — Plano de Desenvolvimento Individual — public link (gestor → colaborador → relatório)
   pdiDesenvolvimento: (tenantSlug: string, slug: string) => `/${tenantSlug}/pdi-desenvolvimento/${slug}`,
+  // Avaliação de Ansiedade (BAI / GAD-7) — public link (colaborador responde os dois)
+  avaliacaoAnsiedade: (tenantSlug: string, slug: string) => `/${tenantSlug}/avaliacao-ansiedade/${slug}`,
   // Protocolos (multi-protocolo: Dor Torácica, Sepse) — aba do feedbackforms gateada por papel
   /** Home com os cards dos protocolos disponíveis. */
   protocolos: (tenantSlug?: string) => (tenantSlug ? `/${tenantSlug}/protocolos` : '/protocolos'),

@@ -5,8 +5,9 @@ import { useAuth } from '@/contexts/auth-context'
 import { trainingService } from '@/services/training-service'
 import { pesquisasCorporativasService } from '@/services/pesquisas-corporativas.service'
 import { performanceEvaluationService } from '@/services/performance-evaluation-service'
+import { anxietyService } from '@/services/anxiety-service'
 import { tenantService } from '@/services/tenant-service'
-import type { PesquisaCorporativa, PerformanceEvaluation } from '@/types'
+import type { PesquisaCorporativa, PerformanceEvaluation, AnxietyAssessment } from '@/types'
 import { ROUTES } from '@/routes'
 import { groupSessions, PairedSessionCard } from '@/pages/rh/treinamentos/session-table'
 import type { SessionGroup } from '@/pages/rh/treinamentos/session-table'
@@ -17,6 +18,8 @@ import { Breadcrumb, ItemRow, FolderRow } from '@/pages/rh/hub/hub-icons'
 import { SessionForm } from '@/pages/rh/treinamentos/session-form-modal'
 import { AvaliacaoForm } from '@/pages/rh/avaliacao-desempenho/avaliacao-form-modal'
 import { AvaliacaoPanel } from '@/pages/rh/avaliacao-desempenho/avaliacao-panel'
+import { AnxietyForm } from '@/pages/rh/avaliacao-ansiedade/anxiety-form-modal'
+import { AnxietyPanel } from '@/pages/rh/avaliacao-ansiedade/anxiety-panel'
 import Text from '@/components/ui/text'
 import Card from '@/components/ui/card'
 import Select from '@/components/ui/select'
@@ -37,6 +40,7 @@ export default function RhHub() {
   const [openTreinamentos, setOpenTreinamentos] = useState(false)
   const [openCorporativas, setOpenCorporativas] = useState(false)
   const [openAvaliacoes, setOpenAvaliacoes] = useState(false)
+  const [openAnsiedade, setOpenAnsiedade] = useState(false)
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
 
   // selection state
@@ -45,6 +49,8 @@ export default function RhHub() {
   const [selectedPesquisa, setSelectedPesquisa] = useState<PesquisaCorporativa | null>(null)
   const [selectedAvaliacao, setSelectedAvaliacao] = useState<PerformanceEvaluation | null>(null)
   const [showCreateAvaliacao, setShowCreateAvaliacao] = useState(false)
+  const [selectedAnsiedade, setSelectedAnsiedade] = useState<AnxietyAssessment | null>(null)
+  const [showCreateAnsiedade, setShowCreateAnsiedade] = useState(false)
 
   // copy link — single state tracks whichever slug was last copied
   const [copied, setCopied] = useState<string | null>(null)
@@ -105,6 +111,12 @@ export default function RhHub() {
     enabled: !!tenantSlug,
   })
 
+  const { data: anxieties = [], isLoading: loadingAnxieties } = useQuery({
+    queryKey: ['anxiety-assessments', tenantSlug],
+    queryFn: () => anxietyService.getAll(tenantSlug),
+    enabled: !!tenantSlug,
+  })
+
   // ao trocar unidade com pesquisa aberta, detecta a mudança e salva referência
   if (prevTenantSlug.current !== tenantSlug && selectedPesquisa) {
     pendingPesquisa.current = selectedPesquisa
@@ -143,7 +155,7 @@ export default function RhHub() {
     ...allTenants.map(t => ({ value: t.slug, label: t.name })),
   ]
 
-  const isLoading = loadingSessions || loadingPesquisas || loadingAvaliacoes
+  const isLoading = loadingSessions || loadingPesquisas || loadingAvaliacoes || loadingAnxieties
 
   const canCreate = user?.role === 'rh_admin' || user?.role === 'holding_admin'
   const canDelete = user?.role === 'holding_admin'
@@ -276,6 +288,26 @@ export default function RhHub() {
             />
           </>
 
+        ) : selectedAnsiedade ? (
+          <>
+            <Breadcrumb
+              parts={[
+                allTenants.find(t => t.slug === tenantSlug)?.name ?? tenantSlug,
+                'Avaliação de Ansiedade',
+                selectedAnsiedade.colaboradorNome,
+              ]}
+              onClose={() => setSelectedAnsiedade(null)}
+            />
+            <AnxietyPanel
+              tenantSlug={tenantSlug}
+              assessment={anxieties.find(a => a.slug === selectedAnsiedade.slug) ?? selectedAnsiedade}
+              canManage={canManage}
+              canDelete={canDelete}
+              onClose={() => setSelectedAnsiedade(null)}
+              onDeleted={() => setSelectedAnsiedade(null)}
+            />
+          </>
+
         ) : (
           <>
           {showCreateAvaliacao && (
@@ -295,6 +327,13 @@ export default function RhHub() {
                 />
               </div>
             </div>
+          )}
+          {showCreateAnsiedade && (
+            <AnxietyForm
+              tenantSlug={tenantSlug}
+              onClose={() => setShowCreateAnsiedade(false)}
+              onSaved={() => setShowCreateAnsiedade(false)}
+            />
           )}
           <Card shadow="sm" className="py-2 px-0 overflow-hidden">
 
@@ -374,6 +413,29 @@ export default function RhHub() {
                       label={a.colaboradorNome}
                       depth={1}
                       onClick={() => setSelectedAvaliacao(a)}
+                    />
+                  ))
+            )}
+
+            <div className="border-t border-gray-100 my-1" />
+
+            <FolderRow
+              label="Avaliação de Ansiedade (BAI / GAD-7)"
+              count={anxieties.length}
+              open={openAnsiedade}
+              depth={0}
+              onToggle={() => setOpenAnsiedade(v => !v)}
+              action={canCreate && tenantSlug ? { label: '+ Novo', onClick: () => setShowCreateAnsiedade(true) } : undefined}
+            />
+            {openAnsiedade && (
+              anxieties.length === 0
+                ? <ItemRow label="Nenhuma avaliação criada" depth={1} onClick={() => {}} />
+                : anxieties.map((a) => (
+                    <ItemRow
+                      key={a.id}
+                      label={`${a.colaboradorNome}${a.dataAplicacao ? ` · ${a.dataAplicacao}` : ''}`}
+                      depth={1}
+                      onClick={() => setSelectedAnsiedade(a)}
                     />
                   ))
             )}
