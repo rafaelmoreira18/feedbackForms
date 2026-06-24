@@ -124,7 +124,7 @@ export function computeDorToracicaMetrics(protocolos: ProtocoloEntity[]): DorTor
       const c1 = portaEcgOk; // ECG ≤ 10 min
       const c2 = !!inv; // avaliação médica + Dx diferenciais (bloco investigação preenchido)
       const c3 = (inv?.heartTotal ?? 0) > 0 || !!inv?.heartFaixaRisco; // HEART aplicado
-      const c4 = !!inv?.coleta0h?.resultado; // troponina com algoritmo (coleta 0h)
+      const c4 = !!(inv?.coleta0h?.resultado || inv?.coleta0h?.resultadoQualitativo); // troponina com algoritmo (coleta 0h: ng/mL ou Pos/Neg)
       const c5 = !!inv?.heartFaixaRisco; // classificação de risco final
       const c6 = !!des?.destino; // desfecho documentado
       if (c1 && c2 && c3 && c4 && c5 && c6) compN++;

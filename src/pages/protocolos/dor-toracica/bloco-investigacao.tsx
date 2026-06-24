@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import type { BlocoInvestigacao } from "@/types";
+import type { BlocoInvestigacao, ColetaTroponina, ModoColeta } from "@/types";
 import type { SubmitInvestigacaoPayload } from "@/services/protocolo-service";
 import TimeInput from "@/components/ui/time-input";
+import Select from "@/components/ui/select";
 import Text from "@/components/ui/text";
 import { SectionTitle, CheckRow, RadioPill, EtapaFechadaInfo, FecharEtapaBar, RascunhoNota, NumericInput, PendenciasBox, REQ } from "../form/form-ui";
 
@@ -16,9 +17,25 @@ interface Props {
   submitLabel?: string;
   /** Etapa adiantada (futura): salva rascunho, mas não exibe o botão de fechar. */
   draftOnly?: boolean;
+  /** Modo padrão do resultado de troponina (vem do tenant) para novas coletas. */
+  troponinaModoPadrao?: ModoColeta;
 }
 
-const emptyColeta = { horaColeta: "", resultado: "", horaResultadoLab: "" };
+const emptyColeta = (modo: ModoColeta): ColetaTroponina => ({
+  horaColeta: "", modo, resultado: "", resultadoQualitativo: "", horaResultadoLab: "",
+});
+
+// Coleta legada (salva antes do campo `modo`) sempre foi em ng/mL → quantitativa.
+function normColeta(c: ColetaTroponina | undefined | null, modoPadrao: ModoColeta): ColetaTroponina {
+  if (!c) return emptyColeta(modoPadrao);
+  return {
+    horaColeta: c.horaColeta ?? "",
+    modo: c.modo ?? "quantitativo",
+    resultado: c.resultado ?? "",
+    resultadoQualitativo: c.resultadoQualitativo ?? "",
+    horaResultadoLab: c.horaResultadoLab ?? "",
+  };
+}
 
 const HEART_ITEMS: {
   key: "heartH" | "heartE" | "heartA" | "heartR" | "heartT";
@@ -50,13 +67,13 @@ const emptyDx = {
   pericardite: false, takotsubo: false, pneumotorax: false, tamponamento: false,
 };
 
-function fromInitial(i: BlocoInvestigacao | null, r?: Partial<BlocoInvestigacao> | null) {
+function fromInitial(i: BlocoInvestigacao | null, r: Partial<BlocoInvestigacao> | null | undefined, modoPadrao: ModoColeta) {
   const src = i ?? (r as BlocoInvestigacao | null);
   return {
-    coleta0h: src?.coleta0h ?? { ...emptyColeta },
-    coleta3h: src?.coleta3h ?? { ...emptyColeta },
+    coleta0h: normColeta(src?.coleta0h, modoPadrao),
+    coleta3h: normColeta(src?.coleta3h, modoPadrao),
     coleta3hDeltaPct: src?.coleta3hDeltaPct ?? "",
-    coleta6h: src?.coleta6h ?? { ...emptyColeta },
+    coleta6h: normColeta(src?.coleta6h, modoPadrao),
     troponinaInterpretacao: src?.troponinaInterpretacao ?? "",
     heartH: src?.heartH ?? 0, heartE: src?.heartE ?? 0, heartA: src?.heartA ?? 0,
     heartR: src?.heartR ?? 0, heartT: src?.heartT ?? 0,
@@ -80,8 +97,8 @@ function toPayloadBase(s: ReturnType<typeof fromInitial>, heartTotal: number, fa
   };
 }
 
-export default function BlocoInvestigacaoForm({ initial, rascunho, readOnly, submitting, onSubmit, onDraftChange, responsavel, submitLabel, draftOnly }: Props) {
-  const [s, setS] = useState(() => fromInitial(initial, rascunho));
+export default function BlocoInvestigacaoForm({ initial, rascunho, readOnly, submitting, onSubmit, onDraftChange, responsavel, submitLabel, draftOnly, troponinaModoPadrao = "quantitativo" }: Props) {
+  const [s, setS] = useState(() => fromInitial(initial, rascunho, troponinaModoPadrao));
   const set = <K extends keyof typeof s>(k: K, v: (typeof s)[K]) => setS((p) => ({ ...p, [k]: v }));
   const ro = readOnly;
 
@@ -96,9 +113,28 @@ export default function BlocoInvestigacaoForm({ initial, rascunho, readOnly, sub
 
   const setColeta = (
     key: "coleta0h" | "coleta3h" | "coleta6h",
-    field: "horaColeta" | "resultado" | "horaResultadoLab",
+    field: keyof ColetaTroponina,
     value: string,
   ) => setS((p) => ({ ...p, [key]: { ...p[key], [field]: value } }));
+
+  // Seletor único de resultado (3 opções): 'quantitativo' (ng/mL) | 'positivo' | 'negativo'.
+  // Limpa o campo do modo não escolhido para não persistir valor obsoleto; ao virar
+  // qualitativo na coleta 3h, zera o Delta (que só faz sentido com valores numéricos).
+  const setResultadoSel = (
+    key: "coleta0h" | "coleta3h" | "coleta6h",
+    sel: "quantitativo" | "positivo" | "negativo",
+  ) =>
+    setS((p) => {
+      const isQuant = sel === "quantitativo";
+      const next: ColetaTroponina = {
+        ...p[key],
+        modo: isQuant ? "quantitativo" : "qualitativo",
+        resultado: isQuant ? p[key].resultado : "",
+        resultadoQualitativo: isQuant ? "" : sel,
+      };
+      const limpaDelta = key === "coleta3h" && !isQuant;
+      return { ...p, [key]: next, ...(limpaDelta ? { coleta3hDeltaPct: "" } : {}) };
+    });
 
   const setDx = <K extends keyof typeof s.diagnosticos>(k: K, v: (typeof s.diagnosticos)[K]) =>
     setS((p) => ({ ...p, diagnosticos: { ...p.diagnosticos, [k]: v } }));
@@ -118,7 +154,8 @@ export default function BlocoInvestigacaoForm({ initial, rascunho, readOnly, sub
     s.diagnosticos.pericardite || s.diagnosticos.takotsubo || s.diagnosticos.pneumotorax || s.diagnosticos.tamponamento;
   const pendencias: string[] = [];
   if (!s.coleta0h.horaColeta) pendencias.push("Coleta 0h — hora");
-  if (!s.coleta0h.resultado) pendencias.push("Coleta 0h — resultado");
+  const falta0hResultado = s.coleta0h.modo === "qualitativo" ? !s.coleta0h.resultadoQualitativo : !s.coleta0h.resultado;
+  if (falta0hResultado) pendencias.push("Coleta 0h — resultado");
   if (!s.troponinaInterpretacao) pendencias.push("Interpretação da troponina");
   if (!s.condutaHeart) pendencias.push("Conduta orientada pelo HEART");
   if (!algumDx) pendencias.push("Diagnósticos diferenciais (marque ao menos 1 ou N/A)");
@@ -138,21 +175,46 @@ export default function BlocoInvestigacaoForm({ initial, rascunho, readOnly, sub
   return (
     <div className="flex flex-col gap-4">
       <SectionTitle>Etapa 3 — Marcadores (Troponina 0-3-6h)</SectionTitle>
-      {(["coleta0h", "coleta3h", "coleta6h"] as const).map((key, idx) => (
-        <div key={key} className="rounded-xl border border-gray-100 p-3 flex flex-col gap-2">
-          <Text variant="body-sm-bold" className="text-gray-400">
-            {idx === 0 ? "Coleta 0h" : idx === 1 ? "Coleta 3h" : "Coleta 6h (se indicada)"}
-          </Text>
-          <div className="grid grid-cols-3 gap-2 items-start">
-            <TimeInput label={`Hora coleta${idx === 0 ? REQ : ""}`} value={s[key].horaColeta} readOnly={ro} onChange={(v) => setColeta(key, "horaColeta", v)} />
-            <NumericInput label={`Resultado (ng/mL)${idx === 0 ? REQ : ""}`} placeholder="0,00" mode="decimal" decimals={2} min={0} max={1000} value={s[key].resultado} readOnly={ro} onChange={(v) => setColeta(key, "resultado", v)} hint="ng/mL" />
-            <TimeInput label="Hora result. lab" value={s[key].horaResultadoLab} readOnly={ro} onChange={(v) => setColeta(key, "horaResultadoLab", v)} />
+      {(["coleta0h", "coleta3h", "coleta6h"] as const).map((key, idx) => {
+        const c = s[key];
+        const obrig = idx === 0 ? REQ : "";
+        // Valor do dropdown: 'quantitativo' (ng/mL) | 'positivo' | 'negativo' | '' (não escolhido).
+        const sel = c.modo === "quantitativo" ? "quantitativo" : c.resultadoQualitativo;
+        return (
+          <div key={key} className="rounded-xl border border-gray-100 p-3 flex flex-col gap-2">
+            <Text variant="body-sm-bold" className="text-gray-400">
+              {idx === 0 ? "Coleta 0h" : idx === 1 ? "Coleta 3h" : "Coleta 6h (se indicada)"}
+            </Text>
+            <div className="grid grid-cols-3 gap-2 items-start">
+              <TimeInput label={`Hora coleta${obrig}`} value={c.horaColeta} readOnly={ro} onChange={(v) => setColeta(key, "horaColeta", v)} />
+              <div className="flex flex-col gap-1.5">
+                <Select
+                  label={`Resultado${obrig}`}
+                  value={sel}
+                  disabled={ro}
+                  options={[
+                    ...(sel ? [] : [{ value: "", label: "Selecionar…" }]),
+                    { value: "quantitativo", label: "ng/mL" },
+                    { value: "positivo", label: "Positivo" },
+                    { value: "negativo", label: "Negativo" },
+                  ]}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v) setResultadoSel(key, v as "quantitativo" | "positivo" | "negativo");
+                  }}
+                />
+                {c.modo === "quantitativo" && (
+                  <NumericInput label="Valor (ng/mL)" placeholder="0,00" mode="decimal" decimals={2} min={0} max={1000} value={c.resultado} readOnly={ro} onChange={(v) => setColeta(key, "resultado", v)} hint="ng/mL" />
+                )}
+              </div>
+              <TimeInput label="Hora result. lab" value={c.horaResultadoLab} readOnly={ro} onChange={(v) => setColeta(key, "horaResultadoLab", v)} />
+            </div>
+            {idx === 1 && c.modo === "quantitativo" && (
+              <NumericInput label="Delta (3h−0h)/0h × 100 (%)" mode="decimal" min={-100} max={5000} value={s.coleta3hDeltaPct} readOnly={ro} onChange={(v) => set("coleta3hDeltaPct", v)} hint="variação %" />
+            )}
           </div>
-          {idx === 1 && (
-            <NumericInput label="Delta (3h−0h)/0h × 100 (%)" mode="decimal" min={-100} max={5000} value={s.coleta3hDeltaPct} readOnly={ro} onChange={(v) => set("coleta3hDeltaPct", v)} hint="variação %" />
-          )}
-        </div>
-      ))}
+        );
+      })}
       <div className="flex flex-col gap-1.5">
         <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">Interpretação{REQ}</span>
         <div className="grid grid-cols-3 gap-2">

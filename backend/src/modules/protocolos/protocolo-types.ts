@@ -77,7 +77,11 @@ export interface BlocoEcg extends ResponsavelBloco {
 // ── BLOCO 2 — INVESTIGAÇÃO (Troponina + HEART + Dx diferenciais) ──────────────
 export interface ColetaTroponina {
   horaColeta: string; // "HH:mm"
-  resultado: string; // ng/mL
+  // 'quantitativo' = valor em ng/mL (resultado); 'qualitativo' = Positivo/Negativo (resultadoQualitativo).
+  // Coletas legadas (sem `modo`) são tratadas como quantitativas pelo frontend.
+  modo: 'quantitativo' | 'qualitativo';
+  resultado: string; // ng/mL (modo quantitativo)
+  resultadoQualitativo: 'negativo' | 'positivo' | ''; // modo qualitativo
   horaResultadoLab: string; // "HH:mm"
 }
 

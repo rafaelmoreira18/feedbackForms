@@ -39,6 +39,8 @@ export interface Tenant {
   name: string;
   logoUrl: string | null;
   active: boolean;
+  /** Modo padrão do resultado de troponina (Dor Torácica) para novas coletas. */
+  troponinaModoPadrao?: ModoColeta;
 }
 
 // ─── Form Template (API-driven form config) ─────────────────────────────────
@@ -455,8 +457,15 @@ export interface BlocoEcg extends ResponsavelBloco {
   derivacoesExtras: { v3rV4r: boolean; v7v9: boolean; ecgSeriado: boolean };
 }
 
+export type ModoColeta = 'quantitativo' | 'qualitativo';
+
 export interface ColetaTroponina {
-  horaColeta: string; resultado: string; horaResultadoLab: string;
+  horaColeta: string;
+  /** 'quantitativo' = valor em ng/mL (resultado); 'qualitativo' = Positivo/Negativo (resultadoQualitativo). */
+  modo: ModoColeta;
+  resultado: string; // ng/mL (modo quantitativo)
+  resultadoQualitativo: 'negativo' | 'positivo' | ''; // modo qualitativo
+  horaResultadoLab: string;
 }
 
 export interface BlocoInvestigacao extends ResponsavelBloco {

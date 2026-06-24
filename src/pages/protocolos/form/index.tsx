@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { protocoloService } from "@/services/protocolo-service";
 import type { SubmitBlocoPayload, EncerrarPayload } from "@/services/protocolo-service";
+import { tenantService } from "@/services/tenant-service";
 import { ROUTES } from "@/routes";
 import type { RegistroAcao } from "@/types";
 import Text from "@/components/ui/text";
@@ -44,6 +45,14 @@ export default function ProtocoloForm() {
     queryKey: ["protocolo", tenantSlug, slug],
     queryFn: () => protocoloService.getOne(tenantSlug, slug),
     enabled: !!tenantSlug && !!slug,
+  });
+
+  // Config do tenant — usada p/ o modo padrão de resultado de troponina em novas coletas.
+  const { data: tenant, isLoading: tenantLoading } = useQuery({
+    queryKey: ["tenant", tenantSlug],
+    queryFn: () => tenantService.getBySlug(tenantSlug),
+    enabled: !!tenantSlug,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Rascunhos com salvamento por debounce — guardamos o último estado pendente por etapa
@@ -143,7 +152,9 @@ export default function ProtocoloForm() {
     [protocolo?.historicoAcoes],
   );
 
-  if (isLoading || !protocolo) {
+  // Aguardamos também o tenant: o modo padrão de troponina alimenta o estado inicial
+  // do bloco (useState roda 1x), então precisa estar resolvido antes de montar o form.
+  if (isLoading || tenantLoading || !protocolo) {
     return (
       <div className="flex items-center justify-center py-24">
         <div className="w-8 h-8 border-4 border-teal-base border-t-transparent rounded-full animate-spin" />
@@ -167,6 +178,7 @@ export default function ProtocoloForm() {
   const canEncerrar = user?.role === "protocolo_medico";
   // Identidade do responsável vem do usuário logado (sem digitar a cada etapa).
   const responsavel = { nome: user?.name ?? "", registro: user?.registroProfissional ?? "" };
+  const troponinaModoPadrao = tenant?.troponinaModoPadrao ?? "quantitativo";
 
   const blocoInicial = (key: string) => (protocolo.blocos?.[key] ?? null) as unknown;
   const blocoRascunho = (key: string) => (protocolo.rascunhos?.[key] ?? null) as unknown;
@@ -198,6 +210,7 @@ export default function ProtocoloForm() {
         onSubmit={onSubmit}
         responsavel={responsavel}
         variante={variante}
+        troponinaModoPadrao={troponinaModoPadrao}
         {...draftProps}
       />
     );

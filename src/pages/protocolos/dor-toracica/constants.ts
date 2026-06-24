@@ -45,6 +45,7 @@ export const CAMPO_LABEL: Record<string, string> = {
   primeiroEcgHora: "1º ECG", interpretacaoMedicaHora: "Interpretação", resultadoEcg: "Resultado ECG",
   "derivacoesExtras.v3rV4r": "V3R/V4R", "derivacoesExtras.v7v9": "V7–V9", "derivacoesExtras.ecgSeriado": "ECG seriado",
   lsnUnidade: "LSN", troponinaInterpretacao: "Troponina", condutaHeart: "Conduta HEART",
+  resultadoQualitativo: "Resultado (Pos/Neg)", modo: "Modo do resultado",
   heartTotal: "HEART total", heartFaixaRisco: "Risco HEART",
   destino: "Destino", solicitacaoRegulacaoHora: "Sol. regulação", saidaEfetivaHora: "Saída",
   "diagnosticos.naoSeAplica": "Dx N/A", "diagnosticos.dissecaoAorta": "Dissecção aorta", "diagnosticos.tep": "TEP",
@@ -53,6 +54,7 @@ export const CAMPO_LABEL: Record<string, string> = {
 /** Rótulos amigáveis de valores (enums/booleanos) no histórico. */
 export const VALOR_LABEL: Record<string, string> = {
   true: "Sim", false: "Não", "": "—",
+  negativo: "Negativo", positivo: "Positivo", quantitativo: "ng/mL", qualitativo: "Pos/Neg",
   vermelho: "Vermelho", laranja: "Laranja",
   via_i: "VIA I", via_ii: "VIA II", via_iii: "VIA III",
   rule_in: "Rule-in", rule_out: "Rule-out", inconclusivo: "Inconclusivo",

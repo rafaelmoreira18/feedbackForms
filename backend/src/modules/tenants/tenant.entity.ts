@@ -35,6 +35,13 @@ export class TenantEntity {
   @Column({ type: 'varchar', default: 'hospital' })
   tipo: string;
 
+  /**
+   * Modo padrão do resultado de troponina (protocolo Dor Torácica) para novas coletas.
+   * Valores: "quantitativo" (ng/mL) | "qualitativo" (Positivo/Negativo)
+   */
+  @Column({ type: 'varchar', default: 'quantitativo' })
+  troponinaModoPadrao: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

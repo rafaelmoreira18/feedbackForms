@@ -40,6 +40,8 @@ export type BlocoFormCommonProps = {
   draftOnly?: boolean;
   /** Variante do protocolo (Sepse: 'adulto' | 'pediatrico'). Ignorada por outros tipos. */
   variante?: string;
+  /** Modo padrão de resultado de troponina do tenant (Dor Torácica). Ignorado por outros tipos. */
+  troponinaModoPadrao?: 'quantitativo' | 'qualitativo';
 };
 
 type BlocoForm = ComponentType<BlocoFormCommonProps>;
