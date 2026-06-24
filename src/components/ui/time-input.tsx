@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from "react";
 export default function TimeInput({
   label, value, onChange, readOnly, error,
 }: {
-  label: string;
+  label?: string;
   value: string;
   onChange: (hhmm: string) => void;
   readOnly?: boolean;
@@ -34,7 +34,7 @@ export default function TimeInput({
   if (readOnly) {
     return (
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">{label}</span>
+        {label && <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">{label}</span>}
         <div className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 text-gray-300 font-sans text-base">
           {value || "—"}
         </div>
@@ -44,7 +44,7 @@ export default function TimeInput({
 
   return (
     <div ref={wrapRef} className="flex flex-col gap-1.5 relative">
-      <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">{label}</span>
+      {label && <span className="text-xs font-semibold uppercase tracking-wider text-teal-dark font-sans">{label}</span>}
 
       <button
         type="button"

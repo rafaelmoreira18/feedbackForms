@@ -739,3 +739,232 @@ export interface SepseMetrics {
   indicadores: Record<string, ProtocoloIndicador>;
   tendenciaMensal: { mes: string; total: number }[];
 }
+
+// ─── Protocolo de AVC (FORM-AVC-001 — Linha de Cuidado do AVC) ───────────────────
+// Etapas: abertura → avaliacao → imagem → trombolise → monitorizacao → desfecho → concluido.
+// Marco zero dos tempos críticos = FMC (primeiro contato), capturado na abertura.
+// Mantido em sincronia manual com backend/src/modules/protocolos/protocolo-types.ts.
+
+export interface AvcMotivoAbertura {
+  deficitFocalAgudo: boolean;
+  fastPositivo: boolean;
+  cincinnatiPositiva: boolean;
+  cefaleiaSubita: boolean;
+  alteracaoConsciencia: boolean;
+  suspeitaClinica: boolean;
+  wakeUpStroke: boolean;
+  outro: boolean;
+  outroDesc: string;
+}
+
+export interface AvcProfissionaisAcionados {
+  medico: boolean;
+  enfermagem: boolean;
+  laboratorio: boolean;
+  imagem: boolean;
+  neuroTelemedicina: boolean;
+  regulacao: boolean;
+}
+
+export interface AvcBlocoAbertura extends ResponsavelBloco {
+  motivoAbertura: AvcMotivoAbertura;
+  fmcHora: string;
+  inicioSintomasHora: string;
+  lkwHora: string;
+  tempoDesdeLkw: string;
+  lkwResponsavelInfo: string;
+  incertezaHorario: boolean;
+  inicioTriagemHora: string;
+  ativacaoCodigoAvcHora: string;
+  classificacaoManchester: 'vermelho' | 'laranja' | 'outro' | '';
+  manchesterOutroDesc: string;
+  profissionaisAcionados: AvcProfissionaisAcionados;
+  preNotificacao: 'sim' | 'nao' | 'na' | '';
+  preNotificacaoHora: string;
+}
+
+export type AvcFastItem = 'normal' | 'alterado' | '';
+
+export interface AvcCondutasIniciais {
+  acessoVenoso: boolean;
+  coletaExames: boolean;
+  ecgRealizado: boolean;
+  o2SeSpo2Baixo: boolean;
+}
+
+export interface AvcBlocoAvaliacao extends ResponsavelBloco {
+  face: AvcFastItem;
+  braco: AvcFastItem;
+  fala: AvcFastItem;
+  tempoRegistrado: boolean;
+  paInicial: string;
+  fc: string;
+  fr: string;
+  spo2: string;
+  temperatura: string;
+  glicemiaCapilar: string;
+  pesoKg: string;
+  glasgow: string;
+  nihssInicial: string;
+  anticoagulante: { uso: boolean; qual: string; ultimaDoseData: string; ultimaDoseHora: string };
+  condutasIniciais: AvcCondutasIniciais;
+}
+
+export type AvcResultadoTc =
+  | 'sem_hemorragia'
+  | 'hemorragia_intraparenquimatosa'
+  | 'hemorragia_subaracnoidea'
+  | 'sinais_precoces_isquemia'
+  | 'tc_normal'
+  | '';
+
+export interface AvcBlocoImagem extends ResponsavelBloco {
+  fluxo: 'a' | 'b' | '';
+  // Fluxo A — com tomografia
+  tcSolicitacaoHora: string;
+  tcInicioHora: string;
+  tcLaudoHora: string;
+  aspects: string;
+  resultadoTc: AvcResultadoTc;
+  angioTcRealizada: boolean;
+  lvoSuspeita: boolean;
+  condutaAposImagem: string;
+  // Fluxo B — sem tomografia (telestroke + regulação)
+  teleconsultaRealizada: boolean;
+  teleconsultaHora: string;
+  neurologistaConsultado: string;
+  recomendacaoTeleconsulta: string;
+  regulacaoAcionada: boolean;
+  regulacaoHora: string;
+  unidadeDestino: string;
+  aceiteVagaHora: string;
+  saidaUnidadeHora: string;
+  didoMin: string;
+  condicoesTransferencia: string;
+}
+
+export interface AvcCriteriosInclusao {
+  deficitIncapacitante: boolean;
+  dxCompativel: boolean;
+  tcSemHemorragia: boolean;
+  lkwNaJanela: boolean;
+  idade18: boolean;
+  glicemia60a400: boolean;
+  paControlada: boolean;
+  outro: boolean;
+  outroDesc: string;
+}
+
+export interface AvcContraindicacoes {
+  hemorragiaIntracraniana: boolean;
+  tceAvcPrevio3m: boolean;
+  cirurgiaIntracraniana3m: boolean;
+  neoplasiaMav: boolean;
+  sangramentoAtivo: boolean;
+  varfarinaInr: boolean;
+  plaquetas: boolean;
+  glicemiaBaixa: boolean;
+  paPersistente: boolean;
+  endocardite: boolean;
+  dissecaoAorta: boolean;
+  outro: boolean;
+  outroDesc: string;
+}
+
+export interface AvcBlocoTrombolise extends ResponsavelBloco {
+  criteriosInclusao: AvcCriteriosInclusao;
+  contraindicacoes: AvcContraindicacoes;
+  tromboliseIndicada: boolean;
+  motivoNaoTrombolise: string;
+  discussaoNeurologista: boolean;
+  neurologistaNome: string;
+  consentimentoFamiliar: 'sim' | 'nao' | 'na' | '';
+  pesoCalculo: string;
+  doseTotal: string;
+  doseBolus: string;
+  doseInfusao: string;
+  bolusHora: string;
+  infusaoInicioHora: string;
+  infusaoTerminoHora: string;
+  doubleCheck: boolean;
+  intercorrencias: string;
+  paDuranteApos: string;
+}
+
+export interface AvcMonitorLinha {
+  hora: string;
+  nihss: string;
+  pa: string;
+  glicemia: string;
+  temp: string;
+}
+
+export interface AvcFeSS {
+  degluticao24h: boolean;
+  fessFebre: boolean;
+  fessGlicemia: boolean;
+  fessDegluticao: boolean;
+  fisioterapia: boolean;
+  fonoaudiologia: boolean;
+  profilaxiaTvp: boolean;
+  antiagregacao: boolean;
+}
+
+export interface AvcBlocoMonitorizacao extends ResponsavelBloco {
+  serie: AvcMonitorLinha[];
+  deterioracaoNeurologica: boolean;
+  suspeitaSangramento: boolean;
+  tcControleRealizada: boolean;
+  tcControleHora: string;
+  condutaComplicacoes: string;
+  fess: AvcFeSS;
+}
+
+export type AvcDiagnosticoFinal =
+  | 'avc_isquemico'
+  | 'avc_hemorragico'
+  | 'ait'
+  | 'mimics'
+  | 'outro'
+  | '';
+
+export type AvcDestino =
+  | 'alta'
+  | 'internacao_enfermaria'
+  | 'uti'
+  | 'transferencia'
+  | 'obito'
+  | '';
+
+export interface AvcTratamentoRealizado {
+  trombolise: boolean;
+  transferenciaTrombectomia: boolean;
+  tratamentoClinico: boolean;
+  neurocirurgia: boolean;
+}
+
+export interface AvcBlocoDesfecho extends ResponsavelBloco {
+  diagnosticoFinal: AvcDiagnosticoFinal;
+  diagnosticoOutroDesc: string;
+  tratamentoRealizado: AvcTratamentoRealizado;
+  destino: AvcDestino;
+  nihssAlta: string;
+  mrsAlta: string;
+  antiagregacaoAlta: 'sim' | 'nao' | 'na' | '';
+  encaminhamentoAmbulatorial: string;
+  consultaNeuro30d: boolean;
+  consultaNeuroData: string;
+}
+
+export interface AvcMetrics {
+  total: number;
+  abertos: number;
+  concluidos: number;
+  porEtapa: Record<string, number>;
+  porDiagnostico: Record<string, number>;
+  porDestino: Record<string, number>;
+  porFluxo: { a: number; b: number; naoInformado: number };
+  porClassificacaoManchester: { vermelho: number; laranja: number; outro: number; naoInformado: number };
+  indicadores: Record<string, ProtocoloIndicador>;
+  tendenciaMensal: { mes: string; total: number }[];
+}

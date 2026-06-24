@@ -18,6 +18,7 @@ import DateInput from "@/components/ui/date-input";
 import { FileDown } from "lucide-react";
 import { ALL_PROTOCOLOS, getProtocoloDef } from "../registry";
 import { sepseLabelValor } from "../sepse/constants";
+import { avcLabelValor } from "../avc/constants";
 
 /** Métricas exibidas no dashboard — superset (campos por tipo são opcionais). */
 type DashMetrics = {
@@ -32,6 +33,10 @@ type DashMetrics = {
   porFoco?: Record<string, number>;
   porDesfecho?: Record<string, number>;
   porFaixaPhoenix?: { sepse: number; choque_septico: number; incompleto: number; naoInformado: number };
+  porDiagnostico?: Record<string, number>;
+  porDestino?: Record<string, number>;
+  porFluxo?: { a: number; b: number; naoInformado: number };
+  porClassificacaoManchester?: { vermelho: number; laranja: number; outro: number; naoInformado: number };
 };
 
 type IndConf = { key: string; label: string; short: string };
@@ -57,6 +62,15 @@ const INDICADORES_BY_TYPE: Record<string, IndConf[]> = {
     { key: "transferenciaUTI", label: "Transferência UTI na meta", short: "Transf. UTI" },
     { key: "completude", label: "Completude do protocolo", short: "Completude" },
   ],
+  avc: [
+    { key: "portaTc25", label: "Porta-TC ≤ 25 min (FMC)", short: "Porta-TC" },
+    { key: "portaAgulha60", label: "Porta-Agulha ≤ 60 min (FMC)", short: "Porta-Agulha" },
+    { key: "ativacaoCodigo10", label: "Ativação Código AVC ≤ 10 min", short: "Ativação" },
+    { key: "dido60", label: "DIDO ≤ 60 min (Fluxo B)", short: "DIDO" },
+    { key: "degluticao24h", label: "Deglutição avaliada ≤ 24h", short: "Deglutição" },
+    { key: "fessCompleto", label: "Bundle FeSS completo", short: "FeSS" },
+    { key: "completude", label: "Completude do protocolo", short: "Completude" },
+  ],
 };
 
 const FOCO_LABEL: Record<string, string> = {
@@ -78,6 +92,7 @@ export default function ProtocolosDashboard() {
 
   const def = getProtocoloDef(protocolType);
   const isSepse = protocolType === "sepse";
+  const isAvc = protocolType === "avc";
   const indicadores = INDICADORES_BY_TYPE[protocolType] ?? [];
 
   const { data: allTenants = [] } = useQuery({
@@ -115,7 +130,7 @@ export default function ProtocolosDashboard() {
       <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col gap-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <Text variant="heading-md" className="text-gray-400">Dashboard — {def.shortLabel}</Text>
-          {metrics && tenantSlug && !isSepse && (
+          {metrics && tenantSlug && protocolType === "dor_toracica" && (
             <Button size="sm" variant="outline" onClick={() => generateProtocoloReport(metrics as unknown as ProtocoloMetrics, unidadeNome, { startDate, endDate })}>
               <FileDown size={18} /> Exportar PDF
             </Button>
@@ -221,6 +236,34 @@ export default function ProtocolosDashboard() {
                     ["Incompleto", metrics.porFaixaPhoenix?.incompleto ?? 0],
                     ["N/I", metrics.porFaixaPhoenix?.naoInformado ?? 0],
                   ]} />
+                </Card>
+              </div>
+            ) : isAvc ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Card shadow="sm">
+                  <Text variant="body-md-bold" className="text-gray-400 mb-2">Classificação Manchester</Text>
+                  <Dist row={[
+                    ["Vermelho", metrics.porClassificacaoManchester?.vermelho ?? 0],
+                    ["Laranja", metrics.porClassificacaoManchester?.laranja ?? 0],
+                    ["Outro", metrics.porClassificacaoManchester?.outro ?? 0],
+                    ["N/I", metrics.porClassificacaoManchester?.naoInformado ?? 0],
+                  ]} />
+                </Card>
+                <Card shadow="sm">
+                  <Text variant="body-md-bold" className="text-gray-400 mb-2">Fluxo assistencial</Text>
+                  <Dist row={[
+                    ["Fluxo A (com TC)", metrics.porFluxo?.a ?? 0],
+                    ["Fluxo B (sem TC)", metrics.porFluxo?.b ?? 0],
+                    ["N/I", metrics.porFluxo?.naoInformado ?? 0],
+                  ]} />
+                </Card>
+                <Card shadow="sm">
+                  <Text variant="body-md-bold" className="text-gray-400 mb-2">Diagnóstico final</Text>
+                  <Dist row={dist(metrics.porDiagnostico, avcLabelValor)} />
+                </Card>
+                <Card shadow="sm">
+                  <Text variant="body-md-bold" className="text-gray-400 mb-2">Destino</Text>
+                  <Dist row={dist(metrics.porDestino, avcLabelValor)} />
                 </Card>
               </div>
             ) : (

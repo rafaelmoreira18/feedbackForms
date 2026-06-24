@@ -5,12 +5,13 @@ import {
   IsIn,
   MaxLength,
 } from 'class-validator';
+import { PROTOCOL_TYPES } from '../protocolo-definitions';
 
 /** Cabeçalho do paciente — preenchido ao abrir o protocolo ("Novo paciente"). */
 export class CreateProtocoloDto {
-  /** Tipo de protocolo. Default 'dor_toracica' para compatibilidade. */
+  /** Tipo de protocolo. Default 'dor_toracica' para compatibilidade. Aceita qualquer tipo registrado. */
   @IsOptional()
-  @IsIn(['dor_toracica', 'sepse'])
+  @IsIn(PROTOCOL_TYPES)
   protocolType?: string;
 
   @IsString()

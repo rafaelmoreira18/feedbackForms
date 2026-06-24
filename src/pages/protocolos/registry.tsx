@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { HeartPulse, Activity } from "lucide-react";
+import { HeartPulse, Activity, Brain } from "lucide-react";
 // Dor Torácica
 import {
   STAGE_META as DT_STAGE_META,
@@ -26,6 +26,21 @@ import BlocoAberturaForm from "./sepse/bloco-abertura";
 import BlocoPacote1hForm from "./sepse/bloco-pacote1h";
 import BlocoReavaliacaoForm from "./sepse/bloco-reavaliacao";
 import SepseBlocoDesfechoForm from "./sepse/bloco-desfecho";
+// AVC
+import {
+  AVC_STAGES,
+  AVC_STAGE_META,
+  AVC_STAGE_LABEL,
+  AVC_STAGE_STYLE,
+  avcLabelCampo,
+  avcLabelValor,
+} from "./avc/constants";
+import AvcBlocoAberturaForm from "./avc/bloco-abertura";
+import AvcBlocoAvaliacaoForm from "./avc/bloco-avaliacao";
+import AvcBlocoImagemForm from "./avc/bloco-imagem";
+import AvcBlocoTromboliseForm from "./avc/bloco-trombolise";
+import AvcBlocoMonitorizacaoForm from "./avc/bloco-monitorizacao";
+import AvcBlocoDesfechoForm from "./avc/bloco-desfecho";
 
 /** Props comuns a todos os formulários de bloco (o conteúdo varia por etapa/tipo). */
 export type BlocoFormCommonProps = {
@@ -112,13 +127,37 @@ const SEPSE: ProtocoloDef = {
   labelValor: sepseLabelValor,
 };
 
+const AVC: ProtocoloDef = {
+  type: "avc",
+  label: "Protocolo de AVC",
+  shortLabel: "AVC",
+  descricao: "Linha de Cuidado do AVC — marcos (FMC/LKW), FAST, imagem, trombólise e desfecho.",
+  icon: Brain,
+  accent: "text-purple-base",
+  stages: [...AVC_STAGES],
+  stageMeta: AVC_STAGE_META,
+  stageLabel: AVC_STAGE_LABEL,
+  stageStyle: AVC_STAGE_STYLE,
+  blockForm: {
+    abertura: AvcBlocoAberturaForm as BlocoForm,
+    avaliacao: AvcBlocoAvaliacaoForm as BlocoForm,
+    imagem: AvcBlocoImagemForm as BlocoForm,
+    trombolise: AvcBlocoTromboliseForm as BlocoForm,
+    monitorizacao: AvcBlocoMonitorizacaoForm as BlocoForm,
+    desfecho: AvcBlocoDesfechoForm as BlocoForm,
+  },
+  labelCampo: avcLabelCampo,
+  labelValor: avcLabelValor,
+};
+
 const DEFS: Record<string, ProtocoloDef> = {
   dor_toracica: DOR_TORACICA,
   sepse: SEPSE,
+  avc: AVC,
 };
 
 /** Todos os protocolos disponíveis (ordem dos cards na home). */
-export const ALL_PROTOCOLOS: ProtocoloDef[] = [DOR_TORACICA, SEPSE];
+export const ALL_PROTOCOLOS: ProtocoloDef[] = [DOR_TORACICA, SEPSE, AVC];
 
 /** Definição de um tipo (fallback Dor Torácica para compatibilidade). */
 export function getProtocoloDef(type: string | undefined): ProtocoloDef {

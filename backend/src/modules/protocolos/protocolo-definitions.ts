@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import type { ProtocoloEntity } from './entities/protocolo.entity';
 import { computeDorToracicaMetrics } from './metrics/dor-toracica.metrics';
 import { computeSepseMetrics } from './metrics/sepse.metrics';
+import { computeAvcMetrics } from './metrics/avc.metrics';
 import type { ProtocoloMetrics } from './metrics/metrics.types';
 
 /** Metadados de uma etapa preenchível de um protocolo. */
@@ -94,9 +95,63 @@ const SEPSE: ProtocoloDefinition = {
   },
 };
 
+const AVC: ProtocoloDefinition = {
+  type: 'avc',
+  label: 'Protocolo de AVC',
+  stages: [
+    { key: 'abertura', titulo: 'Abertura', equipe: 'Enfermagem / Médico', registroLabel: 'COREN / CRM' },
+    { key: 'avaliacao', titulo: 'Avaliação inicial', equipe: 'Enfermagem / Médico', registroLabel: 'COREN / CRM' },
+    { key: 'imagem', titulo: 'Imagem / Fluxo', equipe: 'Médico / Imagem', registroLabel: 'CRM' },
+    { key: 'trombolise', titulo: 'Trombólise', equipe: 'Médico', registroLabel: 'CRM' },
+    { key: 'monitorizacao', titulo: 'Monitorização', equipe: 'Enfermagem / Médico', registroLabel: 'COREN / CRM' },
+    { key: 'desfecho', titulo: 'Desfecho', equipe: 'Médico', registroLabel: 'CRM' },
+  ],
+  metrics: computeAvcMetrics,
+  validateBloco: (stageKey, dto) => {
+    const req = (cond: boolean, msg: string) => {
+      if (cond) throw new BadRequestException(msg);
+    };
+    if (stageKey === 'abertura') {
+      const m = (dto as { motivoAbertura?: Record<string, boolean> }).motivoAbertura;
+      const algum = !!m && Object.entries(m).some(([k, v]) => k !== 'outroDesc' && v === true);
+      req(!algum, 'Marque ao menos um motivo de abertura antes de fechar a etapa.');
+      req(!dto.fmcHora, 'Informe a hora do primeiro contato (FMC) antes de fechar a abertura.');
+      req(!dto.classificacaoManchester, 'Selecione a classificação Manchester antes de fechar a abertura.');
+    }
+    if (stageKey === 'avaliacao') {
+      req(!dto.glicemiaCapilar, 'Informe a glicemia capilar antes de fechar a avaliação.');
+      req(!dto.paInicial, 'Informe a PA inicial antes de fechar a avaliação.');
+    }
+    if (stageKey === 'imagem') {
+      req(!dto.fluxo, 'Selecione o fluxo assistencial (A ou B) antes de fechar a etapa.');
+      req(dto.fluxo === 'a' && !dto.resultadoTc, 'Informe o resultado da TC antes de fechar a etapa (Fluxo A).');
+    }
+    if (stageKey === 'trombolise') {
+      if (dto.tromboliseIndicada) {
+        req(!dto.pesoCalculo, 'Informe o peso para cálculo da dose antes de fechar a trombólise.');
+        req(!dto.bolusHora, 'Informe a hora do bolus da alteplase antes de fechar a trombólise.');
+      } else {
+        req(
+          !(dto.motivoNaoTrombolise as string)?.trim?.(),
+          'Informe o motivo da não-trombólise antes de fechar a etapa.',
+        );
+      }
+    }
+    if (stageKey === 'desfecho') {
+      req(!dto.diagnosticoFinal, 'Selecione o diagnóstico final antes de fechar o desfecho.');
+      req(!dto.destino, 'Selecione o destino do paciente antes de fechar o desfecho.');
+      req(
+        dto.diagnosticoFinal === 'outro' && !(dto.diagnosticoOutroDesc as string)?.trim?.(),
+        'Descreva o diagnóstico final (Outro) antes de fechar o desfecho.',
+      );
+    }
+  },
+};
+
 const DEFINITIONS: Record<string, ProtocoloDefinition> = {
   dor_toracica: DOR_TORACICA,
   sepse: SEPSE,
+  avc: AVC,
 };
 
 /** Tipos de protocolo válidos. */

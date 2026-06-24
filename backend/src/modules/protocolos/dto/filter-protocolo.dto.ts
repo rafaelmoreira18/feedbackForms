@@ -1,9 +1,10 @@
 import { IsOptional, IsString, IsIn } from 'class-validator';
+import { PROTOCOL_TYPES } from '../protocolo-definitions';
 
 export class FilterProtocoloDto {
-  /** Tipo de protocolo (dor_toracica | sepse). Default nas métricas: dor_toracica. */
+  /** Tipo de protocolo registrado (dor_toracica | sepse | avc). Default nas métricas: dor_toracica. */
   @IsOptional()
-  @IsIn(['dor_toracica', 'sepse'])
+  @IsIn(PROTOCOL_TYPES)
   protocolType?: string;
 
   /**

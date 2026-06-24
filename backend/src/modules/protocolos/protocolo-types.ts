@@ -389,3 +389,240 @@ export interface SepseBlocoDesfecho extends ResponsavelBloco {
   dataHoraEncerramentoHora: string;
   desfecho: string; // 'alta' | 'obito' | 'transferencia' | 'evento_sentinela'
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PROTOCOLO DE AVC (FORM-AVC-001) — Linha de Cuidado do AVC (Rede Mediall Brasil)
+// Etapas: abertura → avaliacao → imagem → trombolise → monitorizacao → desfecho → concluido
+// Marco zero dos tempos críticos = FMC (primeiro contato), capturado na abertura.
+// Os blocos abaixo são armazenados como JSON (blocos[stageKey]); a validação fina
+// vive no frontend, com checagens mínimas em protocolo-definitions.ts.
+// Mantido em sincronia manual com o frontend (src/types/index.ts).
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── ETAPA 1 — ABERTURA (Critérios + Marcos temporais + Triagem/Classificação) ──
+export interface AvcMotivoAbertura {
+  deficitFocalAgudo: boolean;
+  fastPositivo: boolean;
+  cincinnatiPositiva: boolean;
+  cefaleiaSubita: boolean; // thunderclap
+  alteracaoConsciencia: boolean;
+  suspeitaClinica: boolean; // decisão médica
+  wakeUpStroke: boolean; // sintomas ao acordar
+  outro: boolean;
+  outroDesc: string;
+}
+
+export interface AvcProfissionaisAcionados {
+  medico: boolean;
+  enfermagem: boolean;
+  laboratorio: boolean;
+  imagem: boolean;
+  neuroTelemedicina: boolean;
+  regulacao: boolean;
+}
+
+export interface AvcBlocoAbertura extends ResponsavelBloco {
+  motivoAbertura: AvcMotivoAbertura;
+  // Marcos temporais (FMC = marco zero dos tempos críticos)
+  fmcHora: string; // "HH:mm" — marco zero
+  inicioSintomasHora: string; // "HH:mm"
+  lkwHora: string; // "HH:mm" — último momento visto bem
+  tempoDesdeLkw: string; // texto livre "Xh Ymin"
+  lkwResponsavelInfo: string;
+  incertezaHorario: boolean;
+  // Triagem e classificação de risco
+  inicioTriagemHora: string; // "HH:mm"
+  ativacaoCodigoAvcHora: string; // "HH:mm"
+  classificacaoManchester: 'vermelho' | 'laranja' | 'outro' | '';
+  manchesterOutroDesc: string;
+  profissionaisAcionados: AvcProfissionaisAcionados;
+  preNotificacao: 'sim' | 'nao' | 'na' | '';
+  preNotificacaoHora: string; // "HH:mm"
+}
+
+// ── ETAPA 2 — AVALIAÇÃO INICIAL (FAST/Cincinnati + Sinais vitais + NIHSS) ──────
+export type AvcFastItem = 'normal' | 'alterado' | '';
+
+export interface AvcCondutasIniciais {
+  acessoVenoso: boolean;
+  coletaExames: boolean;
+  ecgRealizado: boolean; // sem atrasar trombólise
+  o2SeSpo2Baixo: boolean; // O2 apenas se SpO2 < 94%
+}
+
+export interface AvcBlocoAvaliacao extends ResponsavelBloco {
+  // FAST / Cincinnati
+  face: AvcFastItem;
+  braco: AvcFastItem;
+  fala: AvcFastItem;
+  tempoRegistrado: boolean; // início/LKW registrado
+  // Sinais vitais e dados clínicos
+  paInicial: string; // "120/80"
+  fc: string; // bpm
+  fr: string; // ipm
+  spo2: string; // %
+  temperatura: string; // °C
+  glicemiaCapilar: string; // mg/dL
+  pesoKg: string; // aferido/estimado
+  glasgow: string; // 3–15
+  nihssInicial: string; // 0–42
+  anticoagulante: {
+    uso: boolean;
+    qual: string;
+    ultimaDoseData: string; // "YYYY-MM-DD"
+    ultimaDoseHora: string; // "HH:mm"
+  };
+  condutasIniciais: AvcCondutasIniciais;
+}
+
+// ── ETAPA 3 — IMAGEM / FLUXO ASSISTENCIAL (A: com TC · B: sem TC) ──────────────
+export type AvcResultadoTc =
+  | 'sem_hemorragia'
+  | 'hemorragia_intraparenquimatosa'
+  | 'hemorragia_subaracnoidea'
+  | 'sinais_precoces_isquemia'
+  | 'tc_normal'
+  | '';
+
+export interface AvcBlocoImagem extends ResponsavelBloco {
+  fluxo: 'a' | 'b' | '';
+  // Fluxo A — unidade com tomografia
+  tcSolicitacaoHora: string; // "HH:mm"
+  tcInicioHora: string; // "HH:mm"
+  tcLaudoHora: string; // "HH:mm"
+  aspects: string; // 0–10
+  resultadoTc: AvcResultadoTc;
+  angioTcRealizada: boolean;
+  lvoSuspeita: boolean; // oclusão de grande vaso
+  condutaAposImagem: string;
+  // Fluxo B — unidade sem tomografia (telestroke + regulação)
+  teleconsultaRealizada: boolean;
+  teleconsultaHora: string; // "HH:mm"
+  neurologistaConsultado: string;
+  recomendacaoTeleconsulta: string;
+  regulacaoAcionada: boolean;
+  regulacaoHora: string; // "HH:mm"
+  unidadeDestino: string;
+  aceiteVagaHora: string; // "HH:mm"
+  saidaUnidadeHora: string; // "HH:mm"
+  didoMin: string; // door-in/door-out (min)
+  condicoesTransferencia: string;
+}
+
+// ── ETAPA 4 — TROMBÓLISE (Elegibilidade + Administração da Alteplase) ──────────
+export interface AvcCriteriosInclusao {
+  deficitIncapacitante: boolean;
+  dxCompativel: boolean; // AVC isquêmico
+  tcSemHemorragia: boolean;
+  lkwNaJanela: boolean;
+  idade18: boolean; // ≥ 18 anos
+  glicemia60a400: boolean;
+  paControlada: boolean; // ≤ 185/110
+  outro: boolean;
+  outroDesc: string;
+}
+
+export interface AvcContraindicacoes {
+  hemorragiaIntracraniana: boolean;
+  tceAvcPrevio3m: boolean;
+  cirurgiaIntracraniana3m: boolean;
+  neoplasiaMav: boolean;
+  sangramentoAtivo: boolean;
+  varfarinaInr: boolean; // INR > 1,7
+  plaquetas: boolean; // < 100.000
+  glicemiaBaixa: boolean; // < 60 não corrigida
+  paPersistente: boolean; // > 185/110 apesar de tratamento
+  endocardite: boolean;
+  dissecaoAorta: boolean;
+  outro: boolean;
+  outroDesc: string;
+}
+
+export interface AvcBlocoTrombolise extends ResponsavelBloco {
+  criteriosInclusao: AvcCriteriosInclusao;
+  contraindicacoes: AvcContraindicacoes;
+  // Decisão médica
+  tromboliseIndicada: boolean;
+  motivoNaoTrombolise: string;
+  discussaoNeurologista: boolean;
+  neurologistaNome: string;
+  consentimentoFamiliar: 'sim' | 'nao' | 'na' | '';
+  // Administração da Alteplase (0,9 mg/kg, máx 90; 10% bolus + 90% infusão de 1h)
+  pesoCalculo: string; // kg
+  doseTotal: string; // mg (auto: 0,9 × peso, máx 90)
+  doseBolus: string; // mg (auto: 10%)
+  doseInfusao: string; // mg (auto: 90%)
+  bolusHora: string; // "HH:mm"
+  infusaoInicioHora: string; // "HH:mm"
+  infusaoTerminoHora: string; // "HH:mm"
+  doubleCheck: boolean;
+  intercorrencias: string;
+  paDuranteApos: string;
+}
+
+// ── ETAPA 5 — MONITORIZAÇÃO PÓS-TROMBÓLISE / PÓS-AVC ──────────────────────────
+export interface AvcMonitorLinha {
+  hora: string; // "HH:mm"
+  nihss: string;
+  pa: string; // "120/80"
+  glicemia: string;
+  temp: string;
+}
+
+export interface AvcFeSS {
+  degluticao24h: boolean; // avaliação de deglutição em até 24h
+  fessFebre: boolean; // FeSS — febre controlada
+  fessGlicemia: boolean; // FeSS — glicemia controlada
+  fessDegluticao: boolean; // FeSS — deglutição avaliada antes de dieta VO
+  fisioterapia: boolean;
+  fonoaudiologia: boolean;
+  profilaxiaTvp: boolean;
+  antiagregacao: boolean; // conforme diagnóstico/tempo pós-trombólise
+}
+
+export interface AvcBlocoMonitorizacao extends ResponsavelBloco {
+  serie: AvcMonitorLinha[]; // monitorização seriada (NIHSS/PA/glicemia/temp)
+  deterioracaoNeurologica: boolean;
+  suspeitaSangramento: boolean;
+  tcControleRealizada: boolean;
+  tcControleHora: string; // "HH:mm"
+  condutaComplicacoes: string;
+  fess: AvcFeSS;
+}
+
+// ── ETAPA 6 — DESFECHO (Encerramento do protocolo) ────────────────────────────
+export type AvcDiagnosticoFinal =
+  | 'avc_isquemico'
+  | 'avc_hemorragico'
+  | 'ait'
+  | 'mimics'
+  | 'outro'
+  | '';
+
+export type AvcDestino =
+  | 'alta'
+  | 'internacao_enfermaria'
+  | 'uti'
+  | 'transferencia'
+  | 'obito'
+  | '';
+
+export interface AvcTratamentoRealizado {
+  trombolise: boolean;
+  transferenciaTrombectomia: boolean;
+  tratamentoClinico: boolean;
+  neurocirurgia: boolean; // neurocirurgia/transferência
+}
+
+export interface AvcBlocoDesfecho extends ResponsavelBloco {
+  diagnosticoFinal: AvcDiagnosticoFinal;
+  diagnosticoOutroDesc: string;
+  tratamentoRealizado: AvcTratamentoRealizado;
+  destino: AvcDestino;
+  nihssAlta: string; // 0–42
+  mrsAlta: string; // 0–6 (modified Rankin)
+  antiagregacaoAlta: 'sim' | 'nao' | 'na' | '';
+  encaminhamentoAmbulatorial: string;
+  consultaNeuro30d: boolean; // consulta neurológica em até 30 dias
+  consultaNeuroData: string; // "YYYY-MM-DD"
+}
